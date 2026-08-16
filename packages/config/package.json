@@ -1,0 +1,25 @@
+{
+  "name": "@pms/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "prettier": "./prettier/index.mjs",
+  "exports": {
+    "./eslint/nest": "./eslint/nest.mjs",
+    "./prettier": "./prettier/index.mjs",
+    "./typescript/base.json": "./typescript/base.json",
+    "./typescript/nest.json": "./typescript/nest.json"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "globals": "^17.0.0",
+    "typescript-eslint": "^8.20.0"
+  },
+  "peerDependencies": {
+    "eslint": ">=9 <10",
+    "prettier": ">=3 <4",
+    "typescript": ">=5.7 <6"
+  }
+}

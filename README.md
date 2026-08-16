@@ -6,8 +6,9 @@
 .
 ├─ apps/
 │  ├─ vue3/    # Vue 3 应用（暂为空）
-│  └─ nest/    # NestJS 应用（暂为空）
-├─ packages/   # 共享包预留目录
+│  └─ nest/    # NestJS HTTP API
+├─ packages/
+│  └─ config/  # ESLint、TypeScript、Prettier 公共配置
 ├─ package.json
 ├─ pnpm-workspace.yaml
 └─ turbo.json
@@ -24,4 +25,4 @@ pnpm typecheck
 pnpm clean
 ```
 
-`apps/vue3` 和 `apps/nest` 当前仅创建空目录，后续可分别初始化应用。
+`apps/vue3` 当前为空目录；`apps/nest` 已初始化为 NestJS HTTP API 项目。
