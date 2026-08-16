@@ -1,6 +1,5 @@
-// @ts-check
-import { createNestEslintConfig } from '@pms/config/eslint/nest';
+import { createEslintConfig } from '@pms/config/eslint';
 
-export default createNestEslintConfig({
-  tsconfigRootDir: import.meta.dirname,
+export default createEslintConfig({
+  rootDir: import.meta.dirname,
 });

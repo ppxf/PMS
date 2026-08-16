@@ -5,21 +5,21 @@
   "type": "module",
   "prettier": "./prettier/index.mjs",
   "exports": {
-    "./eslint/nest": "./eslint/nest.mjs",
+    "./eslint": "./eslint/index.mjs",
     "./prettier": "./prettier/index.mjs",
-    "./typescript/base.json": "./typescript/base.json",
-    "./typescript/nest.json": "./typescript/nest.json"
+    "./typescript": "./typescript/tsconfig.json"
   },
   "dependencies": {
     "@eslint/js": "^9.18.0",
+    "@vitest/eslint-plugin": "^1.6.23",
+    "@vue/eslint-config-typescript": "^14.9.0",
     "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-prettier": "^5.2.2",
-    "globals": "^17.0.0",
-    "typescript-eslint": "^8.20.0"
+    "eslint-plugin-vue": "~10.9.2",
+    "globals": "^17.0.0"
   },
   "peerDependencies": {
     "eslint": ">=9 <10",
     "prettier": ">=3 <4",
-    "typescript": ">=5.7 <6"
+    "typescript": ">=5.8 <6"
   }
 }

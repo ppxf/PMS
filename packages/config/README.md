@@ -1,27 +1,33 @@
 # @pms/config
 
-PMS monorepo 的公共工程配置包，集中维护 ESLint、Prettier 和 TypeScript 规则。
+PMS monorepo 的公共工程配置包，集中维护所有应用共用的 ESLint、TypeScript 和 Prettier 基线，不按 Vue、Nest、Node 或浏览器拆分公共入口。
 
-## NestJS 应用引用方式
+## ESLint
 
 ```js
-// eslint.config.mjs
-import { createNestEslintConfig } from '@pms/config/eslint/nest';
+import { createEslintConfig } from '@pms/config/eslint';
 
-export default createNestEslintConfig({
-  tsconfigRootDir: import.meta.dirname,
+export default createEslintConfig({
+  rootDir: import.meta.dirname,
 });
 ```
 
-```js
-// prettier.config.mjs
-export { default } from '@pms/config/prettier';
-```
+统一配置会根据文件类型处理 TypeScript、Vue SFC 与测试文件；应用不需要选择框架专用配置。
+
+## TypeScript
 
 ```json
 {
-  "extends": "@pms/config/typescript/nest.json"
+  "extends": "@pms/config/typescript"
 }
 ```
 
-应用仍需直接安装 `eslint`、`prettier` 和 `typescript`，公共包负责规则及插件依赖。
+严格模式等通用规则由公共包维护。DOM 库、Node 模块模式、装饰器、路径别名和输出目录等运行环境差异留在各应用自己的 `tsconfig` 中。
+
+## Prettier
+
+```js
+export { default } from '@pms/config/prettier';
+```
+
+应用仍直接安装并执行 `eslint`、`prettier` 和 `typescript`，公共包负责统一规则与相关插件。

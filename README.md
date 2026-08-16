@@ -5,8 +5,8 @@
 ```text
 .
 ├─ apps/
-│  ├─ vue3/    # Vue 3 应用（暂为空）
-│  └─ nest/    # NestJS HTTP API
+│  ├─ nest/    # NestJS HTTP API
+│  └─ vue3/    # Vue 3 CMS 应用
 ├─ packages/
 │  └─ config/  # ESLint、TypeScript、Prettier 公共配置
 ├─ package.json
@@ -25,4 +25,4 @@ pnpm typecheck
 pnpm clean
 ```
 
-`apps/vue3` 当前为空目录；`apps/nest` 已初始化为 NestJS HTTP API 项目。
+`apps/nest` 与 `apps/vue3` 使用 `@pms/config` 中相同的 ESLint、TypeScript 与 Prettier 公共入口。

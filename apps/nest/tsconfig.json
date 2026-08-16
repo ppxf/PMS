@@ -1,7 +1,12 @@
 {
-  "extends": "@pms/config/typescript/nest.json",
+  "extends": "@pms/config/typescript",
   "compilerOptions": {
     "baseUrl": "./",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true
   }
 }
