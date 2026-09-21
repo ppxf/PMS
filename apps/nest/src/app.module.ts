@@ -8,9 +8,10 @@ import { AppConfigModule } from './config/app-config.module';
 import { DatabaseModule } from './database/database.module';
 import { HttpLoggingInterceptor } from './logger/http-logging.interceptor';
 import { LoggerModule } from './logger/logger.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
-  imports: [AppConfigModule, LoggerModule, DatabaseModule],
+  imports: [AppConfigModule, LoggerModule, DatabaseModule, UsersModule],
   controllers: [AppController],
   providers: [
     AppService,
