@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsPort,
   IsString,
+  Matches,
   MinLength,
   validateSync,
 } from 'class-validator';
@@ -65,6 +66,26 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SWAGGER_PATH?: string;
+
+  @IsOptional()
+  @IsString()
+  JWT_SECRET?: string;
+
+  @IsOptional()
+  @Matches(/^\d+[smhd]$/)
+  JWT_EXPIRES_IN?: string;
+
+  @IsOptional()
+  @IsString()
+  ADMIN_EMAIL?: string;
+
+  @IsOptional()
+  @IsString()
+  ADMIN_PASSWORD?: string;
+
+  @IsOptional()
+  @IsString()
+  ADMIN_NAME?: string;
 }
 
 export function validateEnvironment(
@@ -77,6 +98,24 @@ export function validateEnvironment(
 
   if (errors.length > 0) {
     throw new Error(`Environment validation failed:\n${errors.toString()}`);
+  }
+
+  if (validated.NODE_ENV === 'production') {
+    if (!validated.JWT_SECRET || validated.JWT_SECRET.length < 32) {
+      throw new Error(
+        'Environment validation failed: JWT_SECRET must contain at least 32 characters in production',
+      );
+    }
+
+    if (
+      !validated.ADMIN_PASSWORD ||
+      validated.ADMIN_PASSWORD === '123456' ||
+      validated.ADMIN_PASSWORD.length < 12
+    ) {
+      throw new Error(
+        'Environment validation failed: ADMIN_PASSWORD must be explicitly configured in production',
+      );
+    }
   }
 
   return config;
