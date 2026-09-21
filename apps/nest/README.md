@@ -28,19 +28,16 @@ PostgreSQL 服务时也可以启动。需要数据库时，将 `DB_ENABLED` 设�
 
 ## JWT 登录
 
-启用数据库后，应用首次启动会按以下变量创建默认管理员；已存在的邮箱不会被覆盖：
+JWT 使用以下环境变量：
 
 ```dotenv
 JWT_SECRET=development-only-jwt-secret-change-before-production
 JWT_EXPIRES_IN=1h
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=123456
-ADMIN_NAME=系统管理员
 ```
 
 登录接口为 `POST /api/auth/login`，当前用户接口为 `GET /api/auth/me`。除登录和健康检查外，控制器默认要求 `Authorization: Bearer <token>`。
 
-生产环境要求 `JWT_SECRET` 至少 32 个字符，并必须显式设置不少于 12 个字符的 `ADMIN_PASSWORD`。默认管理员变量只用于首次创建，不会在后续启动时重置已有密码。
+生产环境要求 `JWT_SECRET` 至少 32 个字符。应用不会自动创建任何用户；登录用户需要预先写入 `users` 表，且 `password_hash` 必须是 bcrypt 哈希。
 
 ## 响应约定
 

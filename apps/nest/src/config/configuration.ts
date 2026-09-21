@@ -23,9 +23,6 @@ export default () => ({
       process.env.JWT_SECRET ??
       'development-only-jwt-secret-change-before-production',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
-    adminEmail: process.env.ADMIN_EMAIL ?? 'admin@example.com',
-    adminPassword: process.env.ADMIN_PASSWORD ?? '123456',
-    adminName: process.env.ADMIN_NAME ?? '系统管理员',
   },
   swagger: {
     enabled: parseBoolean(process.env.SWAGGER_ENABLED, true),

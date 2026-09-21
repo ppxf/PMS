@@ -4,13 +4,13 @@
 
 为现有 NestJS API 与 Vue 3 管理后台建立一套可持久化、可验证的登录闭环。用户保存在 PostgreSQL 中，密码以 bcrypt 哈希保存；登录成功后由 NestJS 签发 JWT Access Token，Vue 使用该 Token 访问受保护接口。
 
-本次包含登录、当前用户查询、默认管理员初始化、后端接口保护、前端会话持久化、启动校验、未授权退出以及对应自动化测试。
+本次包含登录、当前用户查询、后端接口保护、前端会话持久化、启动校验、未授权退出以及对应自动化测试。
 
 本次不包含用户注册、Refresh Token、找回密码、多因素认证、登录失败锁定和 Token 撤销列表。
 
 ## 总体架构
 
-后端新增 `users` 与 `auth` 两个边界清晰的模块：`users` 负责用户实体、查询和默认管理员初始化；`auth` 负责凭据校验、JWT 签发、JWT 身份解析以及 HTTP 登录接口。认证通过全局 Guard 执行，明确标记为公开的端点绕过认证。
+后端新增 `users` 与 `auth` 两个边界清晰的模块：`users` 负责用户实体和查询；`auth` 负责凭据校验、JWT 签发、JWT 身份解析以及 HTTP 登录接口。认证通过全局 Guard 执行，明确标记为公开的端点绕过认证。
 
 前端在现有 auth feature 中新增 API 层与会话初始化流程。登录页不再生成演示会话，而是调用 NestJS；Axios 继续通过现有 auth provider 添加 Bearer Token，并在 401 时统一清理会话和跳转登录页。
 
@@ -26,9 +26,7 @@
 - `permissions`：PostgreSQL `text[]`，保存权限字符串。
 - `createdAt`、`updatedAt`：审计时间。
 
-应用启动时读取 `ADMIN_EMAIL`、`ADMIN_PASSWORD`、`ADMIN_NAME`。当数据库已启用且对应邮箱不存在时创建默认管理员，授予 `user:read`、`user:create`、`user:update`、`user:delete`。已存在时不覆盖密码或资料，避免每次启动意外重置账号。
-
-当 `DB_ENABLED=false` 时，数据库仍保持现有的手动初始化行为，默认管理员初始化不会访问未连接的数据库；认证接口在无数据库连接时不可用。这保留当前不启用数据库即可运行基础应用的能力。
+应用不会自动创建任何用户。部署方需要通过迁移、运维脚本或其他受控方式预先写入用户记录，并确保 `passwordHash` 使用 bcrypt 生成。当 `DB_ENABLED=false` 时，认证接口不可用，但仍保留无需 PostgreSQL 即可运行基础健康检查的能力。
 
 ## 后端接口与认证流程
 
@@ -104,7 +102,6 @@ JWT 继续保存在 `localStorage`，符合当前项目已有会话模型和本�
 - 登录失败统一响应，避免账号枚举。
 - JWT 只接受服务端配置的签名算法和密钥。
 - DTO 使用全局 ValidationPipe 的白名单与转换能力；若当前入口尚未启用，则在本次补齐。
-- 默认管理员密码仅用于首次创建。生产环境缺失或使用弱默认密码时启动失败。
 - 前端只接受以单个 `/` 开头且不以 `//` 开头的站内重定向地址。
 - 401 清理会话；403 保留会话并进入无权访问页。
 
@@ -114,9 +111,6 @@ NestJS 新增 `@nestjs/jwt`、`bcrypt` 及对应类型依赖。配置新增：
 
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`，默认 `1h`
-- `ADMIN_EMAIL`，开发默认 `admin@example.com`
-- `ADMIN_PASSWORD`，仅开发默认 `123456`
-- `ADMIN_NAME`，默认 `系统管理员`
 
 `.env.example` 同步记录这些变量及生产安全要求。
 
@@ -124,7 +118,7 @@ NestJS 新增 `@nestjs/jwt`、`bcrypt` 及对应类型依赖。配置新增：
 
 后端采用 Jest：
 
-- users service：邮箱规范化、默认管理员只创建一次、密码哈希不等于明文。
+- users service：邮箱规范化以及 active 用户查询。
 - auth service：有效凭据返回 JWT 会话；账号不存在、密码错误、禁用账号均返回 401。
 - JWT Guard/策略：有效 Token 建立请求身份；过期或无效 Token 返回 401。
 - controller/e2e：登录 DTO、登录成功、登录失败、`/auth/me`、无 Token 访问受保护接口。

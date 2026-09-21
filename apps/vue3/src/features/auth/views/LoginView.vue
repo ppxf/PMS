@@ -30,8 +30,8 @@ const loginSchema = toTypedSchema(
 const { handleSubmit, isSubmitting } = useForm({
   validationSchema: loginSchema,
   initialValues: {
-    email: 'admin@example.com',
-    password: '123456',
+    email: '',
+    password: '',
   },
 })
 
@@ -64,8 +64,8 @@ const submit = handleSubmit(async (values) => {
         >
           <LockKeyhole class="size-6" />
         </div>
-        <CardTitle class="text-2xl">登录 PMS CMS</CardTitle>
-        <CardDescription>请输入管理员邮箱与密码登录系统。</CardDescription>
+        <CardTitle class="text-2xl">登录 PMS</CardTitle>
+        <CardDescription>请输入邮箱与密码登录系统。</CardDescription>
       </CardHeader>
       <CardContent>
         <form class="space-y-5" novalidate @submit="submit">

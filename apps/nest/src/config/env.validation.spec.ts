@@ -5,7 +5,6 @@ describe('validateEnvironment authentication settings', () => {
     expect(() =>
       validateEnvironment({
         NODE_ENV: 'production',
-        ADMIN_PASSWORD: 'a-secure-production-password',
       }),
     ).toThrow('JWT_SECRET');
   });
@@ -15,9 +14,17 @@ describe('validateEnvironment authentication settings', () => {
       validateEnvironment({
         NODE_ENV: 'production',
         JWT_SECRET: 'too-short',
-        ADMIN_PASSWORD: 'a-secure-production-password',
       }),
     ).toThrow('JWT_SECRET');
+  });
+
+  it('accepts production without administrator bootstrap settings', () => {
+    const config = {
+      NODE_ENV: 'production',
+      JWT_SECRET: 'a-production-jwt-secret-with-32-characters',
+    };
+
+    expect(validateEnvironment(config)).toBe(config);
   });
 
   it('accepts development defaults', () => {

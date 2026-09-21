@@ -1,5 +1,7 @@
 # PMS JWT 登录系统实现计划
 
+> **后续变更：** 当前实现已按用户要求移除默认管理员初始化、`ADMIN_*` 配置和登录页预填账号。本文保留最初执行记录；当前行为以设计文档与应用 README 为准。
+
 > **面向 AI 代理的工作者：** 必需子技能：使用 subagent-driven-development（推荐）或 executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
 
 **目标：** 用 PostgreSQL 用户、bcrypt 密码哈希和 JWT Access Token 打通 NestJS 与 Vue 3 的真实登录、会话恢复和接口保护流程。
