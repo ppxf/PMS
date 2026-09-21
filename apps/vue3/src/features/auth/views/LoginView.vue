@@ -3,17 +3,22 @@ import { LockKeyhole } from '@lucide/vue'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { z } from 'zod'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { AppFormField } from '@/components/forms'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { login as loginRequest } from '@/features/auth/api/auth.api'
 import { useAuthStore } from '@/features/auth'
+import { AppError } from '@/services/http'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const submitError = ref('')
 
 const loginSchema = toTypedSchema(
   z.object({
@@ -39,17 +44,14 @@ function getSafeRedirect(value: unknown): string {
 }
 
 const submit = handleSubmit(async (values) => {
-  auth.login({
-    accessToken: 'demo-access-token',
-    user: {
-      id: '1',
-      name: '系统管理员',
-      email: values.email,
-    },
-    permissions: ['user:read', 'user:create', 'user:update', 'user:delete'],
-  })
-
-  await router.replace(getSafeRedirect(route.query.redirect))
+  submitError.value = ''
+  try {
+    const session = await loginRequest(values)
+    auth.login(session)
+    await router.replace(getSafeRedirect(route.query.redirect))
+  } catch (error) {
+    submitError.value = error instanceof AppError ? error.message : '登录失败，请稍后重试'
+  }
 })
 </script>
 
@@ -63,10 +65,13 @@ const submit = handleSubmit(async (values) => {
           <LockKeyhole class="size-6" />
         </div>
         <CardTitle class="text-2xl">登录 PMS CMS</CardTitle>
-        <CardDescription> 示例账号已预填，接入后端时替换 auth API 即可。 </CardDescription>
+        <CardDescription>请输入管理员邮箱与密码登录系统。</CardDescription>
       </CardHeader>
       <CardContent>
         <form class="space-y-5" novalidate @submit="submit">
+          <Alert v-if="submitError" variant="destructive" role="alert">
+            <AlertDescription>{{ submitError }}</AlertDescription>
+          </Alert>
           <AppFormField v-slot="{ componentField }" name="email" label="邮箱" required>
             <Input
               v-bind="componentField"
