@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -7,6 +7,9 @@ import { installAuthorizationGuards } from '../authorization'
 
 import type { Pinia } from 'pinia'
 import type { Router } from 'vue-router'
+
+const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }))
+vi.mock('@/features/auth/api/auth.api', () => ({ getCurrentUser }))
 
 function createTestRouter(pinia: Pinia): Router {
   const router = createRouter({
@@ -44,6 +47,30 @@ function createTestRouter(pinia: Pinia): Router {
 describe('authorization guard', () => {
   beforeEach(() => {
     localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('restores the server session before checking permissions', async () => {
+    localStorage.setItem(
+      'pms.auth.session',
+      JSON.stringify({
+        accessToken: 'stored-token',
+        user: { id: '1', name: '旧资料', email: 'admin@example.com' },
+        permissions: [],
+      }),
+    )
+    getCurrentUser.mockResolvedValue({
+      user: { id: '1', name: '管理员', email: 'admin@example.com' },
+      permissions: ['report:read'],
+    })
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createTestRouter(pinia)
+
+    await router.push('/protected')
+
+    expect(getCurrentUser).toHaveBeenCalledTimes(1)
+    expect(router.currentRoute.value.name).toBe('protected')
   })
 
   it('redirects anonymous users to login', async () => {

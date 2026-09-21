@@ -6,7 +6,9 @@ import type { Router } from 'vue-router'
 export function installAuthorizationGuards(router: Router, pinia: Pinia): void {
   const auth = useAuthStore(pinia)
 
-  router.beforeEach((to) => {
+  router.beforeEach(async (to) => {
+    await auth.initialize()
+
     if (to.meta.requiresAuth && !auth.isAuthenticated) {
       return {
         name: 'login',
