@@ -13,7 +13,13 @@ import { LoggerModule } from './logger/logger.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
-  imports: [AppConfigModule, LoggerModule, DatabaseModule, UsersModule, AuthModule],
+  imports: [
+    AppConfigModule,
+    LoggerModule,
+    DatabaseModule,
+    UsersModule,
+    AuthModule,
+  ],
   controllers: [AppController],
   providers: [
     AppService,

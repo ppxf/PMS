@@ -12,6 +12,7 @@ NestJS 11 HTTP API 基础项目，作为 PMS monorepo 中的后端应用。
 - 日志模块：应用日志和 HTTP 请求耗时日志
 - Swagger：默认访问 `/api/docs`
 - Helmet：设置常用 HTTP 安全响应头
+- JWT 登录：PostgreSQL 用户、bcrypt 密码哈希、默认保护所有控制器
 - `@pms/config`：复用 monorepo 公共 ESLint、TypeScript 和 Prettier 规则
 
 ## 本地运行
@@ -24,6 +25,22 @@ pnpm start:dev
 默认端口为 `3000`，健康检查地址为 `GET /api`。数据库默认关闭，因此没有
 PostgreSQL 服务时也可以启动。需要数据库时，将 `DB_ENABLED` 设置为 `true` 并
 填写连接信息。生产环境必须保持 `DB_SYNCHRONIZE=false`，数据库结构应使用迁移管理。
+
+## JWT 登录
+
+启用数据库后，应用首次启动会按以下变量创建默认管理员；已存在的邮箱不会被覆盖：
+
+```dotenv
+JWT_SECRET=development-only-jwt-secret-change-before-production
+JWT_EXPIRES_IN=1h
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=123456
+ADMIN_NAME=系统管理员
+```
+
+登录接口为 `POST /api/auth/login`，当前用户接口为 `GET /api/auth/me`。除登录和健康检查外，控制器默认要求 `Authorization: Bearer <token>`。
+
+生产环境要求 `JWT_SECRET` 至少 32 个字符，并必须显式设置不少于 12 个字符的 `ADMIN_PASSWORD`。默认管理员变量只用于首次创建，不会在后续启动时重置已有密码。
 
 ## 响应约定
 

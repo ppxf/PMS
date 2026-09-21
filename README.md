@@ -26,3 +26,13 @@ pnpm clean
 ```
 
 `apps/nest` 与 `apps/vue3` 使用 `@pms/config` 中相同的 ESLint、TypeScript 与 Prettier 公共入口。
+
+## 本地登录
+
+1. 创建 PostgreSQL 数据库 `pms`。
+2. 将 `apps/nest/.env.example` 复制为 `apps/nest/.env`，确认 `DB_ENABLED=true` 与数据库连接信息正确。
+3. 开发环境可保留 `DB_SYNCHRONIZE=true`，首次启动会创建表和默认管理员。
+4. 将 `apps/vue3/.env.example` 复制为 `apps/vue3/.env.local`。
+5. 运行 `pnpm dev`，使用 `admin@example.com` / `123456` 登录。
+
+生产部署必须替换 `JWT_SECRET` 和 `ADMIN_PASSWORD`，并关闭 `DB_SYNCHRONIZE`。

@@ -4,7 +4,11 @@ import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
-import { AuthSession, AuthUser, CurrentUserResponse } from './interfaces/auth-user.interface';
+import {
+  AuthSession,
+  AuthUser,
+  CurrentUserResponse,
+} from './interfaces/auth-user.interface';
 
 interface AuthenticatedRequest extends Request {
   user: AuthUser;

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
+const { get, post } = vi.hoisted(() => ({
+  get: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  post: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+}))
 
 vi.mock('@/services/http', () => ({ http: { get, post } }))
 

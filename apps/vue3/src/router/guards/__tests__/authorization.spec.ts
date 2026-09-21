@@ -8,7 +8,9 @@ import { installAuthorizationGuards } from '../authorization'
 import type { Pinia } from 'pinia'
 import type { Router } from 'vue-router'
 
-const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }))
+const { getCurrentUser } = vi.hoisted(() => ({
+  getCurrentUser: vi.fn<() => Promise<unknown>>(),
+}))
 vi.mock('@/features/auth/api/auth.api', () => ({ getCurrentUser }))
 
 function createTestRouter(pinia: Pinia): Router {

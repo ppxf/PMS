@@ -68,6 +68,16 @@ cp .env.example .env.local
 
 只有以 `VITE_` 开头的变量会进入浏览器构建，不要在其中保存密钥。
 
+## 登录会话
+
+登录页调用 Nest 的 `POST /auth/login`，Access Token 与用户权限保存在浏览器 `localStorage`。刷新页面时会请求 `GET /auth/me` 校验 Token 并更新用户资料；Token 无效、过期或服务端返回 401 时会清除本地会话并返回登录页。
+
+本地默认 API 地址为 `/api`。前后端分开部署时，在 `.env.local` 中配置：
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:3000/api
+```
+
 ## 权限控制
 
 路由权限在 `RouteMeta.permissions` 中声明，由全局守卫处理：

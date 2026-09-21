@@ -3,7 +3,9 @@ import { createPinia, setActivePinia } from 'pinia'
 
 import { useAuthStore } from '../auth.store'
 
-const { getCurrentUser } = vi.hoisted(() => ({ getCurrentUser: vi.fn() }))
+const { getCurrentUser } = vi.hoisted(() => ({
+  getCurrentUser: vi.fn<() => Promise<unknown>>(),
+}))
 
 vi.mock('../../api/auth.api', () => ({ getCurrentUser }))
 

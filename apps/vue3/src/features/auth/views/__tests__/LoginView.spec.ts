@@ -7,8 +7,13 @@ import { AppError } from '@/services/http'
 import { useAuthStore } from '../../model/auth.store'
 import LoginView from '../LoginView.vue'
 
-const { login } = vi.hoisted(() => ({ login: vi.fn() }))
-vi.mock('@/features/auth/api/auth.api', () => ({ getCurrentUser: vi.fn(), login }))
+const { login } = vi.hoisted(() => ({
+  login: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+}))
+vi.mock('@/features/auth/api/auth.api', () => ({
+  getCurrentUser: vi.fn<() => Promise<unknown>>(),
+  login,
+}))
 
 async function mountLogin(url = '/login?redirect=/users') {
   const pinia = createPinia()

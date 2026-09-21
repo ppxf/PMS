@@ -26,18 +26,24 @@ describe('AppController (e2e)', () => {
     })
       .overrideProvider(UsersService)
       .useValue({
-        findActiveById: jest.fn(async (id: string) =>
-          id === user.id ? user : null,
+        findActiveById: jest.fn((id: string) =>
+          Promise.resolve(id === user.id ? user : null),
         ),
-        findByEmail: jest.fn(async (email: string) =>
-          email.trim().toLowerCase() === user.email ? user : null,
+        findByEmail: jest.fn((email: string) =>
+          Promise.resolve(
+            email.trim().toLowerCase() === user.email ? user : null,
+          ),
         ),
       })
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ forbidNonWhitelisted: true, transform: true, whitelist: true }),
+      new ValidationPipe({
+        forbidNonWhitelisted: true,
+        transform: true,
+        whitelist: true,
+      }),
     );
     await app.init();
   });

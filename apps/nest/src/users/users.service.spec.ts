@@ -5,9 +5,9 @@ describe('UsersService', () => {
   it('normalizes email before querying', async () => {
     let queriedEmail = '';
     const repository = {
-      findOne: jest.fn(async ({ where }: { where: { email: string } }) => {
+      findOne: jest.fn(({ where }: { where: { email: string } }) => {
         queriedEmail = where.email;
-        return null;
+        return Promise.resolve(null);
       }),
     };
     const service = new UsersService(repository as never);
@@ -19,7 +19,7 @@ describe('UsersService', () => {
 
   it('returns only active users by id', async () => {
     const repository = {
-      findOne: jest.fn(async () => ({ id: 'user-1' }) as User),
+      findOne: jest.fn(() => Promise.resolve({ id: 'user-1' } as User)),
     };
     const service = new UsersService(repository as never);
 

@@ -14,8 +14,11 @@ describe('AdminSeederService', () => {
 
   it('creates the administrator once with a hashed password', async () => {
     const users = {
-      create: jest.fn(async (input) => input),
-      findByEmail: jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: '1' }),
+      create: jest.fn((input) => Promise.resolve(input)),
+      findByEmail: jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: '1' }),
     };
     const seeder = new AdminSeederService(config, users as never);
 

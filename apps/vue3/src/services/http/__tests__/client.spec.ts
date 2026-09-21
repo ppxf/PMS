@@ -10,11 +10,20 @@ describe('HTTP authentication', () => {
 
   it('adds the current bearer token to requests', async () => {
     let authorization: unknown
-    axiosInstance.defaults.adapter = async (config) => {
+    axiosInstance.defaults.adapter = (config) => {
       authorization = config.headers.get('Authorization')
-      return { config, data: { value: 1 }, headers: {}, status: 200, statusText: 'OK' }
+      return Promise.resolve({
+        config,
+        data: { value: 1 },
+        headers: {},
+        status: 200,
+        statusText: 'OK',
+      })
     }
-    configureHttpAuthProvider({ getAccessToken: () => 'access-token', onUnauthorized: vi.fn() })
+    configureHttpAuthProvider({
+      getAccessToken: () => 'access-token',
+      onUnauthorized: vi.fn<() => void>(),
+    })
 
     await http.get('/protected', { unwrap: false })
 
@@ -22,9 +31,9 @@ describe('HTTP authentication', () => {
   })
 
   it('runs one unauthorized handler for concurrent 401 responses', async () => {
-    const onUnauthorized = vi.fn(async () => undefined)
+    const onUnauthorized = vi.fn<() => Promise<void>>(() => Promise.resolve())
     configureHttpAuthProvider({ getAccessToken: () => 'expired', onUnauthorized })
-    axiosInstance.defaults.adapter = async (config) => {
+    axiosInstance.defaults.adapter = (config) => {
       const response = {
         config,
         data: { success: false, statusCode: 401, message: 'Unauthorized' },
@@ -32,21 +41,25 @@ describe('HTTP authentication', () => {
         status: 401,
         statusText: 'Unauthorized',
       }
-      throw new AxiosError(
-        'Unauthorized',
-        'ERR_BAD_REQUEST',
-        { ...config, headers: config.headers ?? new AxiosHeaders() },
-        undefined,
-        response,
+      return Promise.reject(
+        new AxiosError(
+          'Unauthorized',
+          'ERR_BAD_REQUEST',
+          { ...config, headers: config.headers ?? new AxiosHeaders() },
+          undefined,
+          response,
+        ),
       )
     }
 
     const results = await Promise.allSettled([http.get('/one'), http.get('/two')])
 
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
-    expect(results.every((result) => result.status === 'rejected')).toBe(true)
-    for (const result of results) {
-      if (result.status === 'rejected') expect(result.reason).toBeInstanceOf(AppError)
-    }
+    expect(results.map((result) => result.status)).toEqual(['rejected', 'rejected'])
+    const reasons = results.map((result) =>
+      result.status === 'rejected' ? result.reason : undefined,
+    )
+    expect(reasons[0]).toBeInstanceOf(AppError)
+    expect(reasons[1]).toBeInstanceOf(AppError)
   })
 })
