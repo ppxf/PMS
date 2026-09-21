@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
+import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { AuthSession, AuthUser, CurrentUserResponse } from './interfaces/auth-user.interface';
 
@@ -15,6 +16,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('login')
+  @Public()
   @ApiOperation({ summary: '账号登录' })
   login(@Body() dto: LoginDto): Promise<AuthSession> {
     return this.auth.login(dto.email, dto.password);
