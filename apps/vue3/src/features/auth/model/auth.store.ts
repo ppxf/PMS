@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { hasPermissions } from './permissions'
+import { getCurrentUser } from '../api/auth.api'
 
 import type { PermissionMode, PermissionRequirement } from './permissions'
 
@@ -53,6 +54,8 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(initialSession?.accessToken ?? null)
   const user = ref<AuthUser | null>(initialSession?.user ?? null)
   const permissions = ref<string[]>(initialSession?.permissions ?? [])
+  const isInitialized = ref(false)
+  let initializationTask: Promise<void> | null = null
 
   const isAuthenticated = computed(() => Boolean(accessToken.value))
 
@@ -61,6 +64,41 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = session.user
     permissions.value = [...session.permissions]
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session))
+    isInitialized.value = true
+  }
+
+  function initialize(): Promise<void> {
+    if (isInitialized.value) return Promise.resolve()
+    if (initializationTask) return initializationTask
+
+    initializationTask = (async () => {
+      if (!accessToken.value) {
+        isInitialized.value = true
+        return
+      }
+
+      try {
+        const current = await getCurrentUser()
+        user.value = current.user
+        permissions.value = [...current.permissions]
+        localStorage.setItem(
+          SESSION_STORAGE_KEY,
+          JSON.stringify({
+            accessToken: accessToken.value,
+            user: current.user,
+            permissions: current.permissions,
+          }),
+        )
+      } catch {
+        logout()
+      } finally {
+        isInitialized.value = true
+      }
+    })().finally(() => {
+      initializationTask = null
+    })
+
+    return initializationTask
   }
 
   function logout(): void {
@@ -81,6 +119,8 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken,
     can,
     isAuthenticated,
+    isInitialized,
+    initialize,
     login,
     logout,
     permissions,
