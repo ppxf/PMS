@@ -7,7 +7,11 @@ const parseOrigins = (value: string | undefined): string[] =>
         .split(',')
         .map((origin) => origin.trim())
         .filter(Boolean)
-    : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+    : [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:3002',
+      ];
 
 export default () => ({
   app: {
@@ -47,6 +51,9 @@ export default () => ({
     user: process.env.SMTP_USER ?? '',
     password: process.env.SMTP_PASSWORD ?? '',
     from: process.env.SMTP_FROM ?? 'PMS <no-reply@localhost>',
+  },
+  monitoring: {
+    publicUrl: process.env.MONITORING_PUBLIC_URL ?? 'http://localhost:3001',
   },
   swagger: {
     enabled: parseBoolean(process.env.SWAGGER_ENABLED, true),

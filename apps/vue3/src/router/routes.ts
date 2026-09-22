@@ -36,6 +36,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '重置密码', requiresAuth: false, layout: 'blank' },
   },
   {
+    path: '/onboarding/groups/new',
+    name: 'create-group-onboarding',
+    component: () => import('@/features/monitoring/views/CreateGroupView.vue'),
+    meta: { title: '创建组', requiresAuth: true, layout: 'blank' },
+  },
+  {
     path: '/',
     component: () => import('@/components/layout/AppLayout.vue'),
     meta: {
@@ -52,6 +58,36 @@ export const routes: RouteRecordRaw[] = [
           title: '工作台',
           requiresAuth: true,
         },
+      },
+      {
+        path: 'groups',
+        name: 'groups',
+        component: () => import('@/features/monitoring/views/GroupsView.vue'),
+        meta: { title: '组', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug',
+        name: 'group-detail',
+        component: () => import('@/features/monitoring/views/GroupDetailView.vue'),
+        meta: { title: '组详情', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/new',
+        name: 'create-project',
+        component: () => import('@/features/monitoring/views/CreateProjectView.vue'),
+        meta: { title: '创建监控项目', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/setup',
+        name: 'project-setup',
+        component: () => import('@/features/monitoring/views/ProjectSetupView.vue'),
+        meta: { title: 'Vue SDK 接入', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug',
+        name: 'project-detail',
+        component: () => import('@/features/monitoring/views/ProjectDetailView.vue'),
+        meta: { title: '监控项目', requiresAuth: true },
       },
       {
         path: 'users',

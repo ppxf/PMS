@@ -11,7 +11,11 @@ import type { Router } from 'vue-router'
 const { getCurrentUser } = vi.hoisted(() => ({
   getCurrentUser: vi.fn<() => Promise<unknown>>(),
 }))
+const { listGroups } = vi.hoisted(() => ({
+  listGroups: vi.fn<() => Promise<unknown>>(),
+}))
 vi.mock('@/features/auth/api/auth.api', () => ({ getCurrentUser }))
+vi.mock('@/features/monitoring/api/monitoring.api', () => ({ listGroups }))
 
 function createTestRouter(pinia: Pinia): Router {
   const router = createRouter({
@@ -28,6 +32,12 @@ function createTestRouter(pinia: Pinia): Router {
         name: 'forbidden',
         component: { template: '<div />' },
         meta: { title: '无权访问', requiresAuth: true },
+      },
+      {
+        path: '/onboarding/groups/new',
+        name: 'create-group-onboarding',
+        component: { template: '<div />' },
+        meta: { title: '创建组', requiresAuth: true },
       },
       {
         path: '/protected',
@@ -50,6 +60,7 @@ describe('authorization guard', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+    listGroups.mockResolvedValue([{ id: 'group-1', slug: 'acme' }])
   })
 
   it('restores the server session before checking permissions', async () => {
@@ -100,5 +111,38 @@ describe('authorization guard', () => {
     await router.push('/protected')
 
     expect(router.currentRoute.value.name).toBe('forbidden')
+  })
+
+  it('redirects authenticated users without groups to onboarding', async () => {
+    listGroups.mockResolvedValue([])
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const auth = useAuthStore()
+    auth.login({
+      accessToken: 'token',
+      user: { id: '1', name: '新用户', email: 'new@example.com' },
+      permissions: ['report:read'],
+    })
+    const router = createTestRouter(pinia)
+
+    await router.push('/protected')
+
+    expect(router.currentRoute.value.name).toBe('create-group-onboarding')
+  })
+
+  it('does not loop while already on the onboarding route', async () => {
+    listGroups.mockResolvedValue([])
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useAuthStore().login({
+      accessToken: 'token',
+      user: { id: '1', name: '新用户', email: 'new@example.com' },
+      permissions: [],
+    })
+    const router = createTestRouter(pinia)
+
+    await router.push('/onboarding/groups/new')
+
+    expect(router.currentRoute.value.name).toBe('create-group-onboarding')
   })
 })

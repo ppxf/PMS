@@ -11,6 +11,8 @@ import { DatabaseModule } from './database/database.module';
 import { HttpLoggingInterceptor } from './logger/http-logging.interceptor';
 import { LoggerModule } from './logger/logger.module';
 import { UsersModule } from './users/users.module';
+import { GroupsModule } from './groups/groups.module';
+import { MonitoringProjectsModule } from './monitoring-projects/monitoring-projects.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { UsersModule } from './users/users.module';
     LoggerModule,
     DatabaseModule,
     UsersModule,
+    GroupsModule,
+    MonitoringProjectsModule,
     AuthModule,
   ],
   controllers: [AppController],

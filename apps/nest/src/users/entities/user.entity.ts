@@ -2,9 +2,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Group } from '../../groups/entities/group.entity';
 
 export enum UserStatus {
   PendingVerification = 'pending_verification',
@@ -35,6 +37,9 @@ export class User {
 
   @Column({ type: 'text', array: true, default: '{}' })
   permissions!: string[];
+
+  @OneToMany(() => Group, (group) => group.owner)
+  groups!: Group[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

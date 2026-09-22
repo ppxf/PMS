@@ -30,6 +30,7 @@ describe('validateEnvironment authentication settings', () => {
       SMTP_FROM: 'PMS <no-reply@example.com>',
       APP_FRONTEND_URL: 'https://pms.example.com',
       CORS_ORIGINS: 'https://pms.example.com',
+      MONITORING_PUBLIC_URL: 'https://monitor.example.com',
     };
 
     expect(validateEnvironment(config)).toBe(config);
@@ -68,6 +69,7 @@ describe('validateEnvironment authentication settings', () => {
       SMTP_FROM: 'PMS <no-reply@example.com>',
       APP_FRONTEND_URL: 'https://pms.example.com',
       CORS_ORIGINS: 'https://pms.example.com',
+      MONITORING_PUBLIC_URL: 'https://monitor.example.com',
       EMAIL_VERIFICATION_EXPIRES_IN_MINUTES: '1440',
       PASSWORD_RESET_EXPIRES_IN_MINUTES: '30',
     };
@@ -104,7 +106,43 @@ describe('validateEnvironment authentication settings', () => {
         SMTP_FROM: 'PMS <no-reply@example.com>',
         APP_FRONTEND_URL: 'https://pms.example.com',
         CORS_ORIGINS: '*',
+        MONITORING_PUBLIC_URL: 'https://monitor.example.com',
       }),
     ).toThrow('CORS_ORIGINS');
+  });
+
+  it('requires a monitoring public URL in production', () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'a-production-jwt-secret-with-32-characters',
+        SMTP_HOST: 'smtp.example.com',
+        SMTP_PORT: '465',
+        SMTP_SECURE: 'true',
+        SMTP_USER: 'mailer',
+        SMTP_PASSWORD: 'secret',
+        SMTP_FROM: 'PMS <no-reply@example.com>',
+        APP_FRONTEND_URL: 'https://pms.example.com',
+        CORS_ORIGINS: 'https://pms.example.com',
+      }),
+    ).toThrow('MONITORING_PUBLIC_URL');
+  });
+
+  it('requires HTTPS for the production monitoring public URL', () => {
+    expect(() =>
+      validateEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'a-production-jwt-secret-with-32-characters',
+        SMTP_HOST: 'smtp.example.com',
+        SMTP_PORT: '465',
+        SMTP_SECURE: 'true',
+        SMTP_USER: 'mailer',
+        SMTP_PASSWORD: 'secret',
+        SMTP_FROM: 'PMS <no-reply@example.com>',
+        APP_FRONTEND_URL: 'https://pms.example.com',
+        CORS_ORIGINS: 'https://pms.example.com',
+        MONITORING_PUBLIC_URL: 'http://monitor.example.com',
+      }),
+    ).toThrow('MONITORING_PUBLIC_URL');
   });
 });

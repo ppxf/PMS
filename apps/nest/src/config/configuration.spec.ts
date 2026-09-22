@@ -6,6 +6,7 @@ describe('configuration CORS settings', () => {
   beforeEach(() => {
     process.env = { ...originalEnvironment };
     delete process.env.CORS_ORIGINS;
+    delete process.env.MONITORING_PUBLIC_URL;
   });
 
   afterAll(() => {
@@ -29,5 +30,9 @@ describe('configuration CORS settings', () => {
       'https://pms.example.com',
       'https://admin.example.com',
     ]);
+  });
+
+  it('uses the local monitoring address by default', () => {
+    expect(configuration().monitoring.publicUrl).toBe('http://localhost:3001');
   });
 });

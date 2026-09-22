@@ -62,6 +62,28 @@ PASSWORD_RESET_EXPIRES_IN_MINUTES=30
 
 公开接口包括 `/auth/register`、`/auth/verify-email`、`/auth/resend-verification`、`/auth/forgot-password` 和 `/auth/reset-password`。忘记密码与重发验证返回统一响应，避免披露账号状态。
 
+## 组、监控项目与 DSN 校验
+
+登录用户可以创建多个组，每个组可以创建多个监控项目。当前资源只对创建者本人可见，暂不包含成员邀请或协作权限。项目平台固定为 Vue，并提供 Error Monitoring、Logging、Tracing 与 Application Metrics 四个功能开关；这些开关目前只保存项目配置，不采集对应监控事件。
+
+管理接口均要求 JWT：
+
+- `POST /api/groups`、`GET /api/groups`、`GET /api/groups/:groupSlug`
+- `POST /api/groups/:groupSlug/projects`
+- `GET /api/groups/:groupSlug/projects`
+- `GET /api/groups/:groupSlug/projects/:projectSlug`
+- `GET /api/groups/:groupSlug/projects/:projectSlug/connection`
+
+DSN 中的 public key 只用于识别项目和连接校验，不是管理凭证。公开校验接口为 `POST /api/sdk/check`，请求体包含 `projectId` 和 `publicKey`；校验成功只更新项目的 `last_seen_at`。
+
+DSN 的公开地址由下列变量决定：
+
+```dotenv
+MONITORING_PUBLIC_URL=http://localhost:3001
+```
+
+本地开发可使用 HTTP，生产环境必须配置 HTTPS 地址。本阶段不提供 SDK 包、不兼容 Sentry 协议，也不保存错误、日志、链路或指标正文。
+
 ## 响应约定
 
 普通成功响应：

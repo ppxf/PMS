@@ -115,6 +115,10 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   SMTP_FROM?: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  MONITORING_PUBLIC_URL?: string;
 }
 
 export function validateEnvironment(
@@ -145,6 +149,7 @@ export function validateEnvironment(
       'SMTP_FROM',
       'APP_FRONTEND_URL',
       'CORS_ORIGINS',
+      'MONITORING_PUBLIC_URL',
     ] as const;
     for (const setting of requiredMailSettings) {
       if (!config[setting]) {
@@ -159,6 +164,12 @@ export function validateEnvironment(
     ) {
       throw new Error(
         'Environment validation failed: CORS_ORIGINS must not contain a wildcard in production',
+      );
+    }
+
+    if (!validated.MONITORING_PUBLIC_URL?.startsWith('https://')) {
+      throw new Error(
+        'Environment validation failed: MONITORING_PUBLIC_URL must use HTTPS in production',
       );
     }
   }

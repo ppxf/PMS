@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { LayoutDashboard, LogOut, ShieldCheck, Users } from '@lucide/vue'
+import { FolderKanban, LayoutDashboard, LogOut, ShieldCheck, Users } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,11 @@ const navigation: NavigationItem[] = [
     label: '工作台',
     routeName: 'dashboard',
     icon: LayoutDashboard,
+  },
+  {
+    label: '组与项目',
+    routeName: 'groups',
+    icon: FolderKanban,
   },
   {
     label: '用户管理',
