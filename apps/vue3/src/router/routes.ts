@@ -12,6 +12,30 @@ export const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/features/auth/views/RegisterView.vue'),
+    meta: { title: '注册', requiresAuth: false, layout: 'blank' },
+  },
+  {
+    path: '/verify-email',
+    name: 'verify-email',
+    component: () => import('@/features/auth/views/VerifyEmailView.vue'),
+    meta: { title: '邮箱验证', requiresAuth: false, layout: 'blank' },
+  },
+  {
+    path: '/forgot-password',
+    name: 'forgot-password',
+    component: () => import('@/features/auth/views/ForgotPasswordView.vue'),
+    meta: { title: '忘记密码', requiresAuth: false, layout: 'blank' },
+  },
+  {
+    path: '/reset-password',
+    name: 'reset-password',
+    component: () => import('@/features/auth/views/ResetPasswordView.vue'),
+    meta: { title: '重置密码', requiresAuth: false, layout: 'blank' },
+  },
+  {
     path: '/',
     component: () => import('@/components/layout/AppLayout.vue'),
     meta: {

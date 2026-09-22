@@ -78,6 +78,8 @@ cp .env.example .env.local
 VITE_API_BASE_URL=http://localhost:3000/api
 ```
 
+公开账号页面包括 `/register`、`/verify-email`、`/forgot-password` 和 `/reset-password`。注册成功后必须通过邮件链接验证邮箱，密码重置 Token 只从 URL query 读取，不写入本地存储。
+
 ## 权限控制
 
 路由权限在 `RouteMeta.permissions` 中声明，由全局守卫处理：

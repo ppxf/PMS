@@ -12,7 +12,7 @@ describe('AppController (e2e)', () => {
   let passwordHash: string;
 
   beforeEach(async () => {
-    passwordHash = await bcrypt.hash('123456', 4);
+    passwordHash = await bcrypt.hash('password123', 4);
     const user = {
       id: 'user-1',
       email: 'admin@example.com',
@@ -52,10 +52,17 @@ describe('AppController (e2e)', () => {
     return request(app.getHttpServer()).get('/auth/me').expect(401);
   });
 
+  it('validates public registration input', () => {
+    return request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'invalid-email', password: 'short' })
+      .expect(400);
+  });
+
   it('logs in and returns the current user with the issued token', async () => {
     const login = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@example.com', password: '123456' })
+      .send({ email: 'admin@example.com', password: 'password123' })
       .expect(201);
     const body = login.body as { data: { accessToken: string } };
 

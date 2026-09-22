@@ -33,6 +33,6 @@ pnpm clean
 2. 将 `apps/nest/.env.example` 复制为 `apps/nest/.env`，确认 `DB_ENABLED=true` 与数据库连接信息正确。
 3. 开发环境可保留 `DB_SYNCHRONIZE=true`，首次启动会创建数据表。
 4. 将 `apps/vue3/.env.example` 复制为 `apps/vue3/.env.local`。
-5. 预先在 `users` 表中创建带 bcrypt 密码哈希的用户，然后运行 `pnpm dev` 登录。
+5. 启动后访问 `/register` 自助注册，并通过 SMTP 邮件完成邮箱验证后登录。
 
 生产部署必须替换 `JWT_SECRET`，并关闭 `DB_SYNCHRONIZE`。

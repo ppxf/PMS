@@ -22,6 +22,8 @@ async function mountLogin(url = '/login?redirect=/users') {
     history: createMemoryHistory(),
     routes: [
       { path: '/login', name: 'login', component: LoginView },
+      { path: '/register', component: { template: '<div />' } },
+      { path: '/forgot-password', component: { template: '<div />' } },
       { path: '/', name: 'home', component: { template: '<div>home</div>' } },
       { path: '/users', name: 'users', component: { template: '<div>users</div>' } },
     ],
@@ -34,7 +36,7 @@ async function mountLogin(url = '/login?redirect=/users') {
 
 async function submitValidForm(wrapper: Awaited<ReturnType<typeof mountLogin>>['wrapper']) {
   await wrapper.get('input[name="email"]').setValue('admin@example.com')
-  await wrapper.get('input[name="password"]').setValue('123456')
+  await wrapper.get('input[name="password"]').setValue('password123')
   await wrapper.get('form').trigger('submit')
   await vi.waitFor(() => expect(login).toHaveBeenCalledTimes(1))
   await flushPromises()
@@ -56,7 +58,10 @@ describe('LoginView', () => {
 
     await submitValidForm(wrapper)
 
-    expect(login).toHaveBeenCalledWith({ email: 'admin@example.com', password: '123456' })
+    expect(login).toHaveBeenCalledWith({
+      email: 'admin@example.com',
+      password: 'password123',
+    })
     expect(auth.accessToken).toBe('server-token')
     expect(router.currentRoute.value.fullPath).toBe('/users')
   })

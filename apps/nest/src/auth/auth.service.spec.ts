@@ -22,8 +22,26 @@ describe('AuthService', () => {
     const users = {
       findActiveById: jest.fn(() => Promise.resolve(user)),
       findByEmail: jest.fn(() => Promise.resolve(user)),
+      createPendingUser: jest.fn(),
     };
-    return { service: new AuthService(users as never, jwt), users };
+    const tokens = { create: jest.fn(() => Promise.resolve('plain-token')) };
+    const mail = { sendEmailVerification: jest.fn(() => Promise.resolve()) };
+    const dataSource = { transaction: jest.fn((work) => work({})) };
+    return {
+      service: new AuthService(
+        users as never,
+        jwt,
+        tokens as never,
+        mail as never,
+        dataSource as never,
+        {
+          get: (_key: string, fallback: unknown) => fallback,
+        } as never,
+      ),
+      users,
+      tokens,
+      mail,
+    };
   }
 
   it('returns a verifiable session for valid credentials', async () => {
@@ -41,6 +59,32 @@ describe('AuthService', () => {
       permissions: ['user:read'],
     });
     expect(result).not.toHaveProperty('passwordHash');
+  });
+
+  it('registers a pending user and sends a verification email', async () => {
+    const { service, users, tokens, mail } = await createSubject();
+    users.findByEmail.mockResolvedValueOnce(null as never);
+    users.createPendingUser.mockResolvedValue({
+      id: 'new-user',
+      email: 'user@example.com',
+    });
+
+    await service.register({
+      name: '测试用户',
+      email: ' User@Example.com ',
+      password: 'password123',
+      passwordConfirmation: 'password123',
+    });
+
+    expect(users.createPendingUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'user@example.com' }),
+      expect.anything(),
+    );
+    expect(tokens.create).toHaveBeenCalled();
+    expect(mail.sendEmailVerification).toHaveBeenCalledWith(
+      'user@example.com',
+      'plain-token',
+    );
   });
 
   it.each([

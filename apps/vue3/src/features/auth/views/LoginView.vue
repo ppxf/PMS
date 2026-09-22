@@ -23,7 +23,7 @@ const submitError = ref('')
 const loginSchema = toTypedSchema(
   z.object({
     email: z.string().email('请输入正确的邮箱'),
-    password: z.string().min(6, '密码至少需要 6 位'),
+    password: z.string().min(8, '密码至少需要 8 位'),
   }),
 )
 
@@ -88,6 +88,10 @@ const submit = handleSubmit(async (values) => {
           <Button class="w-full" type="submit" :disabled="isSubmitting">
             {{ isSubmitting ? '登录中…' : '登录' }}
           </Button>
+          <div class="flex justify-between text-sm">
+            <RouterLink class="text-primary" to="/register">注册账号</RouterLink>
+            <RouterLink class="text-primary" to="/forgot-password">忘记密码</RouterLink>
+          </div>
         </form>
       </CardContent>
     </Card>

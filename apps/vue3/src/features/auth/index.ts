@@ -3,6 +3,14 @@ export { createPermissionDirective } from './directives/permission'
 export { hasPermissions } from './model/permissions'
 export { getCurrentUser, login } from './api/auth.api'
 export type { CurrentUser, LoginCredentials } from './api/auth.api'
+export {
+  forgotPassword,
+  register,
+  resendVerification,
+  resetPassword,
+  verifyEmail,
+} from './api/auth.api'
+export type { MessageResponse, RegisterInput, ResetPasswordInput } from './api/auth.api'
 export type { AuthSession, AuthUser } from './model/auth.store'
 export type { PermissionDirectiveOptions, PermissionDirectiveValue } from './directives/permission'
 export type { PermissionMode, PermissionRequirement } from './model/permissions'

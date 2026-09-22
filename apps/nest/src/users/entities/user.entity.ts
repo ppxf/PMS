@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 
 export enum UserStatus {
+  PendingVerification = 'pending_verification',
   Active = 'active',
   Disabled = 'disabled',
 }
@@ -25,7 +26,11 @@ export class User {
   @Column()
   name!: string;
 
-  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.Active })
+  @Column({
+    type: 'enum',
+    enum: UserStatus,
+    default: UserStatus.PendingVerification,
+  })
   status!: UserStatus;
 
   @Column({ type: 'text', array: true, default: '{}' })

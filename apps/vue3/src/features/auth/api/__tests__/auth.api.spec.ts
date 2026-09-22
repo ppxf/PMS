@@ -7,7 +7,15 @@ const { get, post } = vi.hoisted(() => ({
 
 vi.mock('@/services/http', () => ({ http: { get, post } }))
 
-import { getCurrentUser, login } from '../auth.api'
+import {
+  forgotPassword,
+  getCurrentUser,
+  login,
+  register,
+  resendVerification,
+  resetPassword,
+  verifyEmail,
+} from '../auth.api'
 
 describe('auth API', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -36,5 +44,42 @@ describe('auth API', () => {
 
     await expect(getCurrentUser()).resolves.toBe(current)
     expect(get).toHaveBeenCalledWith('/auth/me')
+  })
+
+  it('posts account lifecycle requests to their endpoints', async () => {
+    post.mockResolvedValue({ message: 'ok' })
+    await register({
+      name: '用户',
+      email: 'user@example.com',
+      password: 'password123',
+      passwordConfirmation: 'password123',
+    })
+    await verifyEmail('verify-token')
+    await resendVerification('user@example.com')
+    await forgotPassword('user@example.com')
+    await resetPassword({
+      token: 'reset-token',
+      password: 'new-password',
+      passwordConfirmation: 'new-password',
+    })
+
+    expect(post.mock.calls).toEqual([
+      [
+        '/auth/register',
+        {
+          name: '用户',
+          email: 'user@example.com',
+          password: 'password123',
+          passwordConfirmation: 'password123',
+        },
+      ],
+      ['/auth/verify-email', { token: 'verify-token' }],
+      ['/auth/resend-verification', { email: 'user@example.com' }],
+      ['/auth/forgot-password', { email: 'user@example.com' }],
+      [
+        '/auth/reset-password',
+        { token: 'reset-token', password: 'new-password', passwordConfirmation: 'new-password' },
+      ],
+    ])
   })
 })

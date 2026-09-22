@@ -7,7 +7,7 @@ describe('AuthController', () => {
     const controller = new AuthController(auth as never);
 
     await expect(
-      controller.login({ email: 'admin@example.com', password: '123456' }),
+      controller.login({ email: 'admin@example.com', password: 'password123' }),
     ).resolves.toBe(session);
   });
 

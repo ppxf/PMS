@@ -37,7 +37,30 @@ JWT_EXPIRES_IN=1h
 
 登录接口为 `POST /api/auth/login`，当前用户接口为 `GET /api/auth/me`。除登录和健康检查外，控制器默认要求 `Authorization: Bearer <token>`。
 
-生产环境要求 `JWT_SECRET` 至少 32 个字符。应用不会自动创建任何用户；登录用户需要预先写入 `users` 表，且 `password_hash` 必须是 bcrypt 哈希。
+生产环境要求 `JWT_SECRET` 至少 32 个字符。应用不会自动创建引导用户；访客可通过注册接口创建账号，完成邮箱验证后登录。
+
+## 注册、邮箱验证与密码重置
+
+应用通过真实 SMTP 发送验证和重置链接，需配置：
+
+```dotenv
+APP_FRONTEND_URL=https://pms.example.com
+CORS_ORIGINS=https://pms.example.com
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=mailer
+SMTP_PASSWORD=replace-me
+SMTP_FROM=PMS <no-reply@example.com>
+EMAIL_VERIFICATION_EXPIRES_IN_MINUTES=1440
+PASSWORD_RESET_EXPIRES_IN_MINUTES=30
+```
+
+生产环境必须完整提供这些配置。本地可使用 Mailpit 或 MailHog 的 SMTP 端口 `1025`。新用户注册后为 `pending_verification`，验证邮箱后才可登录；新用户默认没有业务权限。
+
+本地开发默认允许 `http://localhost:5173` 和 `http://127.0.0.1:5173` 跨域访问 API。如 Vite 使用其他地址或端口，请通过 `CORS_ORIGINS` 配置逗号分隔的来源列表。生产环境必须显式设置该变量，且不允许使用 `*`。
+
+公开接口包括 `/auth/register`、`/auth/verify-email`、`/auth/resend-verification`、`/auth/forgot-password` 和 `/auth/reset-password`。忘记密码与重发验证返回统一响应，避免披露账号状态。
 
 ## 响应约定
 

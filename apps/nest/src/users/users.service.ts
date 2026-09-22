@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { User, UserStatus } from './entities/user.entity';
 
 export interface CreateUserInput {
@@ -10,6 +10,8 @@ export interface CreateUserInput {
   permissions: string[];
 }
 
+export type CreatePendingUserInput = Omit<CreateUserInput, 'permissions'>;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -17,8 +19,8 @@ export class UsersService {
     private readonly repository: Repository<User>,
   ) {}
 
-  findByEmail(email: string): Promise<User | null> {
-    return this.repository.findOne({
+  findByEmail(email: string, manager?: EntityManager): Promise<User | null> {
+    return (manager?.getRepository(User) ?? this.repository).findOne({
       where: { email: email.trim().toLowerCase() },
       select: {
         id: true,
@@ -44,5 +46,35 @@ export class UsersService {
       status: UserStatus.Active,
     });
     return this.repository.save(user);
+  }
+
+  async createPendingUser(
+    input: CreatePendingUserInput,
+    manager?: EntityManager,
+  ): Promise<User> {
+    const repository = manager?.getRepository(User) ?? this.repository;
+    const user = repository.create({
+      ...input,
+      email: input.email.trim().toLowerCase(),
+      permissions: [],
+      status: UserStatus.PendingVerification,
+    });
+    return repository.save(user);
+  }
+
+  activate(id: string, manager?: EntityManager): Promise<unknown> {
+    return (manager?.getRepository(User) ?? this.repository).update(id, {
+      status: UserStatus.Active,
+    });
+  }
+
+  updatePassword(
+    id: string,
+    passwordHash: string,
+    manager?: EntityManager,
+  ): Promise<unknown> {
+    return (manager?.getRepository(User) ?? this.repository).update(id, {
+      passwordHash,
+    });
   }
 }
