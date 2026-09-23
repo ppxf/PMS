@@ -17,6 +17,9 @@ export function parseDsn(value: string): ParsedDsn {
     throw new TypeError('PMS DSN protocol must be http or https')
   }
   if (!url.username) throw new TypeError('PMS DSN must include a public key')
+  if (url.href.includes('?') || url.href.includes('#')) {
+    throw new TypeError('PMS DSN must not include query or hash')
+  }
 
   const match = url.pathname.replace(/\/$/, '').match(/^\/api\/sdk\/([^/]+)$/)
   if (!match?.[1]) throw new TypeError('PMS DSN path must match /api/sdk/<projectId>')

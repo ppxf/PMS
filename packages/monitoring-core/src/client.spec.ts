@@ -52,6 +52,16 @@ describe('monitoring core initialization and capture', () => {
     expect(() => init({ dsn })).toThrow(message)
   })
 
+  it.each([
+    'https://key@monitor.example.com/api/sdk/project-id?x=1',
+    'https://key@monitor.example.com/api/sdk/project-id#fragment',
+    'https://key@monitor.example.com/api/sdk/project-id?',
+    'https://key@monitor.example.com/api/sdk/project-id#',
+  ])('rejects a DSN with query or hash: %s', (dsn) => {
+    expect(() => init({ dsn })).toThrow('PMS DSN must not include query or hash')
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
   it('is idempotent for the same options and rejects conflicting initialization', () => {
     const first = init({ dsn: 'http://key@localhost:3001/api/sdk/project-id' })
     expect(init({ dsn: 'http://key@localhost:3001/api/sdk/project-id/' })).toBe(first)
