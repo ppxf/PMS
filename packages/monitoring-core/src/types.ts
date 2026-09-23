@@ -1,5 +1,6 @@
-export type MonitoringEventType = 'error' | 'message'
-export type MonitoringLevel = 'fatal' | 'error' | 'warning' | 'info' | 'debug'
+export type MonitoringEventType = 'error'
+export type MonitoringLevel = 'error'
+export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual'
 
 export interface MonitoringException {
   type: string
@@ -10,25 +11,50 @@ export interface MonitoringException {
 export interface MonitoringEvent {
   eventId: string
   timestamp: string
-  type: MonitoringEventType
-  level?: MonitoringLevel
-  message?: string
-  exception?: MonitoringException
+  type: 'error'
+  level: 'error'
+  source: MonitoringEventSource
+  message: string
+  exception: MonitoringException
   url?: string
   environment?: string
   release?: string
   tags?: Record<string, string>
 }
 
+export interface ClientReportEnvelope {
+  version: 1
+  type: 'client_report'
+  sentAt: string
+  sdk: { name: '@pms/monitoring-core'; version: '0.1.0' }
+  environment?: string
+  release?: string
+}
+
+export interface EventEnvelope {
+  version: 1
+  type: 'event'
+  sentAt: string
+  event: MonitoringEvent
+}
+
+export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope
+
 export interface Transport {
-  send(event: MonitoringEvent): Promise<void>
+  send(envelope: MonitoringEnvelope): Promise<void>
 }
 
 export class NoopTransport implements Transport {
-  send(event: MonitoringEvent): Promise<void> {
-    void event
+  send(envelope: MonitoringEnvelope): Promise<void> {
+    void envelope
     return Promise.resolve()
   }
+}
+
+export interface CaptureExceptionContext {
+  source?: MonitoringEventSource
+  url?: string
+  tags?: Record<string, string>
 }
 
 export interface MonitoringInitOptions {
@@ -36,6 +62,7 @@ export interface MonitoringInitOptions {
   environment?: string
   release?: string
   transport?: Transport
+  fetch?: typeof globalThis.fetch
 }
 
 export interface ClientState {
