@@ -84,9 +84,22 @@ VITE_API_BASE_URL=http://localhost:3000/api
 
 验证邮箱并登录后，没有组的用户会进入 `/onboarding/groups/new` 创建第一个组。之后可在 `/groups` 管理自己的多个组，并在每个组下创建多个 Vue 监控项目。
 
-创建项目时 Error Monitoring 默认开启，Logging、Tracing 和 Application Metrics 默认关闭，均可通过 Switch 调整。当前开关只记录需要启用的能力；项目不包含 Replay，也尚未实现错误、日志、链路或指标采集。
+创建项目时 Error Monitoring 默认开启，Logging、Tracing 和 Application Metrics 默认关闭，均可通过 Switch 调整。首版已实现错误采集、归组、列表与详情；Logging、Tracing 和 Metrics 尚未实现，项目也不包含 Replay。
 
-项目创建成功后会进入 SDK 接入页。将 `pms-monitoring-vue-0.1.0.tgz` 放入待接入项目的 `vendor` 目录，按页面指引安装 `@pms/monitoring-vue`、配置 `VITE_PMS_DSN`，并在业务项目的 `main.ts` 中初始化 SDK。当前版本只完成 SDK 初始化，不采集或上报错误，也不会主动发送连接校验请求。
+项目创建成功后会进入 SDK 接入页。外部 Vue 项目只需安装 `@pms/monitoring-vue`：当前可将本仓库生成的 `pms-monitoring-vue-0.1.0.tgz` 放入业务项目的 `vendor` 目录安装，将来可以发布到私有 npm；运行 PMS 服务本身不要求把 SDK 发布到公网 npm。
+
+配置 `VITE_PMS_DSN` 后，在业务项目的 `main.ts` 中初始化：
+
+```ts
+import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'
+
+initPmsMonitoring({ app, dsn: import.meta.env.VITE_PMS_DSN })
+captureException(new Error('PMS SDK test error'))
+```
+
+初始化会发送一次连接报告，并启用 Vue、`window.error` 和 `unhandledrejection` 自动捕获。`captureException` 是手动验证或手动上报入口。SDK 使用 DSN 中的 public key 通过 `X-PMS-Key` 向 `/api/sdk/:projectId/envelope` 写入 Envelope；该 key 只有采集写权限，管理查询仍需 JWT 和资源所有权校验。允许上报的业务站点来源需加入后端 `MONITORING_CORS_ORIGINS`，生产环境禁止配置 `*`。
+
+错误由服务端同步写入事件表，并按服务端 fingerprint 写入错误归组表；`eventId` 幂等。首版没有队列、重试、离线缓存、批量上报、Source Map、Tracing、Logging 或 Metrics。
 
 ## 权限控制
 

@@ -62,9 +62,9 @@ PASSWORD_RESET_EXPIRES_IN_MINUTES=30
 
 公开接口包括 `/auth/register`、`/auth/verify-email`、`/auth/resend-verification`、`/auth/forgot-password` 和 `/auth/reset-password`。忘记密码与重发验证返回统一响应，避免披露账号状态。
 
-## 组、监控项目与 DSN 校验
+## 组、监控项目与错误采集
 
-登录用户可以创建多个组，每个组可以创建多个监控项目。当前资源只对创建者本人可见，暂不包含成员邀请或协作权限。项目平台固定为 Vue，并提供 Error Monitoring、Logging、Tracing 与 Application Metrics 四个功能开关；这些开关目前只保存项目配置，不采集对应监控事件。
+登录用户可以创建多个组，每个组可以创建多个监控项目。当前资源只对创建者本人可见，暂不包含成员邀请或协作权限。项目平台固定为 Vue；首版实现 Error Monitoring，Logging、Tracing 与 Application Metrics 开关只保存配置，尚未实现对应采集。
 
 管理接口均要求 JWT：
 
@@ -73,16 +73,37 @@ PASSWORD_RESET_EXPIRES_IN_MINUTES=30
 - `GET /api/groups/:groupSlug/projects`
 - `GET /api/groups/:groupSlug/projects/:projectSlug`
 - `GET /api/groups/:groupSlug/projects/:projectSlug/connection`
+- `GET /api/groups/:groupSlug/projects/:projectSlug/issues`
+- `GET /api/groups/:groupSlug/projects/:projectSlug/issues/:issueId`
 
-DSN 中的 public key 只用于识别项目和连接校验，不是管理凭证。公开校验接口为 `POST /api/sdk/check`，请求体包含 `projectId` 和 `publicKey`；校验成功只更新项目的 `last_seen_at`。
+浏览器 SDK 将版本化 JSON Envelope 发送到 `POST /api/sdk/:projectId/envelope`，并在请求头携带 `X-PMS-Key`。DSN 中的 public key 是浏览器可见的公开采集凭据，只有向所属项目写入连接报告和错误事件的权限，不是管理密钥；Issue 列表、详情等管理查询始终使用 JWT，并执行资源所有权校验。
+
+SDK 初始化会发送 `client_report` 并更新项目 `last_seen_at`。错误事件在服务端同步处理：校验后于一个事务中写入事件表，并通过服务端 fingerprint 创建或更新错误归组表；相同 `eventId` 幂等，不会重复增加归组计数。首版没有消息队列、重试、离线缓存或批量发送。
 
 DSN 的公开地址由下列变量决定：
 
 ```dotenv
 MONITORING_PUBLIC_URL=http://localhost:3001
+MONITORING_CORS_ORIGINS=http://localhost:3002
 ```
 
-本地开发可使用 HTTP，生产环境必须配置 HTTPS 地址。本阶段不提供 SDK 包、不兼容 Sentry 协议，也不保存错误、日志、链路或指标正文。
+`MONITORING_CORS_ORIGINS` 是允许浏览器 SDK 上报的逗号分隔来源列表，会与管理端 `CORS_ORIGINS` 合并。生产环境必须显式配置，且禁止使用 `*`。本地开发可使用 HTTP，生产环境必须为 `MONITORING_PUBLIC_URL` 配置 HTTPS 地址。
+
+## 数据库迁移
+
+这是增量 migration：运行前必须已有 PMS schema 和 `monitoring_projects` 表，并确保 PostgreSQL 已启用或允许使用 `uuid-ossp`（迁移中的 UUID 默认值依赖 `uuid_generate_v4()`）。先配置 `DB_HOST`、`DB_PORT`、`DB_USERNAME`、`DB_PASSWORD`、`DB_NAME`，再执行：
+
+```bash
+pnpm --filter @pms/nest build
+pnpm --filter @pms/nest migration:run
+pnpm --filter @pms/nest migration:revert
+```
+
+`migration:revert` 用于回退最近一次 migration，请只在确认需要回退后执行。
+
+## 首版限制
+
+当前不支持队列、自动重试、离线缓存、批量上报、Source Map、Tracing、Logging 或 Metrics，也不兼容 Sentry Envelope。仓库测试覆盖服务与仓储替身上的事务和查询契约，但尚未提供真实 PostgreSQL 集成测试证据。
 
 ## 响应约定
 

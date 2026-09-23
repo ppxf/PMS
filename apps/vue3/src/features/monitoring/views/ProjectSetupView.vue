@@ -91,7 +91,10 @@ onMounted(load)
       <Card>
         <CardHeader>
           <CardTitle class="text-base">3. 初始化 SDK</CardTitle>
-          <CardDescription>在业务项目的 main.ts 中初始化；当前版本不会采集或上报错误。</CardDescription>
+          <CardDescription>
+            在业务项目的 main.ts 中初始化。初始化时会发送连接报告，并自动捕获 Vue、window.error
+            和 unhandledrejection 错误；captureException 用于手动验证或手动上报。
+          </CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
           <pre
