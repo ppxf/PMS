@@ -1,8 +1,11 @@
 import { http } from '@/services/http'
+import type { PageQuery, PageResult } from '@/services/http'
 import type {
   CreateGroupInput,
   CreateProjectInput,
   MonitoringGroup,
+  MonitoringIssueDetail,
+  MonitoringIssueSummary,
   MonitoringProject,
   ProjectConnection,
 } from '../model/types'
@@ -25,3 +28,14 @@ export const getProject = (groupSlug: string, projectSlug: string) =>
 
 export const getProjectConnection = (groupSlug: string, projectSlug: string) =>
   http.get<ProjectConnection>(`/groups/${groupSlug}/projects/${projectSlug}/connection`)
+
+export const listProjectIssues = (groupSlug: string, projectSlug: string, query: PageQuery) =>
+  http.get<PageResult<MonitoringIssueSummary>>(
+    `/groups/${groupSlug}/projects/${projectSlug}/issues`,
+    { params: query },
+  )
+
+export const getProjectIssue = (groupSlug: string, projectSlug: string, issueId: string) =>
+  http.get<MonitoringIssueDetail>(
+    `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`,
+  )

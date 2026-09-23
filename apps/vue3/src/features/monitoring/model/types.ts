@@ -41,3 +41,37 @@ export interface ProjectConnection {
   connected: boolean
   lastSeenAt: string | null
 }
+
+export interface MonitoringIssueSummary {
+  id: string
+  title: string
+  exceptionType: string
+  culprit: string | null
+  status: 'unresolved'
+  eventCount: number
+  firstSeenAt: string
+  lastSeenAt: string
+  environment: string | null
+  release: string | null
+}
+
+export interface MonitoringEventDetail {
+  id: string
+  timestamp: string
+  receivedAt: string
+  source: 'vue' | 'window' | 'unhandledrejection' | 'manual'
+  level: 'error'
+  message: string
+  exceptionType: string
+  exceptionValue: string
+  stacktrace: string | null
+  url: string | null
+  environment: string | null
+  release: string | null
+  tags: Record<string, string>
+}
+
+export interface MonitoringIssueDetail extends MonitoringIssueSummary {
+  latestEvent: MonitoringEventDetail
+  recentEvents: MonitoringEventDetail[]
+}

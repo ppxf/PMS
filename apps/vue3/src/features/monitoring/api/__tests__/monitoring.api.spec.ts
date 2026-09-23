@@ -13,7 +13,9 @@ import {
   getGroup,
   getProject,
   getProjectConnection,
+  getProjectIssue,
   listGroups,
+  listProjectIssues,
   listProjects,
 } from '../monitoring.api'
 
@@ -55,5 +57,20 @@ describe('monitoring API', () => {
       ['/groups/acme/projects/frontend'],
       ['/groups/acme/projects/frontend/connection'],
     ])
+  })
+
+  it('uses project-scoped issue endpoints with explicit pagination', async () => {
+    get.mockResolvedValue({ items: [], total: 0, page: 2, pageSize: 20 })
+
+    await listProjectIssues('team', 'web', { page: 2, pageSize: 20 })
+    await getProjectIssue('team', 'web', '00000000-0000-4000-8000-000000000001')
+
+    expect(get).toHaveBeenNthCalledWith(1, '/groups/team/projects/web/issues', {
+      params: { page: 2, pageSize: 20 },
+    })
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/groups/team/projects/web/issues/00000000-0000-4000-8000-000000000001',
+    )
   })
 })

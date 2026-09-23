@@ -84,6 +84,18 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'Vue SDK 接入', requiresAuth: true },
       },
       {
+        path: 'groups/:groupSlug/projects/:projectSlug/issues',
+        name: 'project-issues',
+        component: () => import('@/features/monitoring/views/ProjectIssuesView.vue'),
+        meta: { title: '错误列表', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/issues/:issueId',
+        name: 'project-issue-detail',
+        component: () => import('@/features/monitoring/views/ProjectIssueDetailView.vue'),
+        meta: { title: '错误详情', requiresAuth: true },
+      },
+      {
         path: 'groups/:groupSlug/projects/:projectSlug',
         name: 'project-detail',
         component: () => import('@/features/monitoring/views/ProjectDetailView.vue'),

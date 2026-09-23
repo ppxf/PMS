@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent } from 'vue'
 
 const { createProject, getProject, getProjectConnection, push, writeText } = vi.hoisted(() => ({
   createProject: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
@@ -36,6 +37,12 @@ const project = {
   createdAt: '2026-09-22T00:00:00Z',
   updatedAt: '2026-09-22T00:00:00Z',
 }
+
+const RouterLinkStub = defineComponent({
+  name: 'RouterLink',
+  props: { to: { type: Object, required: true } },
+  template: '<a><slot /></a>',
+})
 
 describe('project views', () => {
   beforeEach(() => {
@@ -103,7 +110,7 @@ describe('project views', () => {
   it('shows project configuration without monitoring event data', async () => {
     getProject.mockResolvedValue({ ...project })
     const wrapper = mount(ProjectDetailView, {
-      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+      global: { stubs: { RouterLink: RouterLinkStub } },
     })
     await flushPromises()
 
@@ -111,5 +118,11 @@ describe('project views', () => {
     expect(wrapper.text()).toContain('Error Monitoring')
     expect(wrapper.text()).toContain('等待连接')
     expect(wrapper.text()).not.toContain('Replay')
+    expect(wrapper.text()).toContain('查看错误')
+    const issueLink = wrapper.findComponent({ name: 'RouterLink' })
+    expect(issueLink.props('to')).toEqual({
+      name: 'project-issues',
+      params: { groupSlug: 'acme', projectSlug: 'frontend' },
+    })
   })
 })

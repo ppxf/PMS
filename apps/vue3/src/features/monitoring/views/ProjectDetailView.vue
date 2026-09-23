@@ -46,7 +46,7 @@ onMounted(async () => {
       <Card>
         <CardHeader>
           <CardTitle class="text-base">功能配置</CardTitle>
-          <CardDescription>当前仅保存开关，监控采集将在后续实现。</CardDescription>
+          <CardDescription>监控采集状态与功能开关。</CardDescription>
         </CardHeader>
         <CardContent class="grid gap-3 sm:grid-cols-2">
           <div
@@ -62,11 +62,14 @@ onMounted(async () => {
         </CardContent>
       </Card>
 
-      <Button as-child
-        ><RouterLink :to="{ name: 'project-setup', params: { groupSlug, projectSlug } }"
-          >查看 SDK 接入指引</RouterLink
-        ></Button
-      >
+      <div class="flex flex-wrap gap-3">
+        <Button as-child>
+          <RouterLink :to="{ name: 'project-issues', params: { groupSlug, projectSlug } }">查看错误</RouterLink>
+        </Button>
+        <Button as-child variant="outline">
+          <RouterLink :to="{ name: 'project-setup', params: { groupSlug, projectSlug } }">查看 SDK 接入指引</RouterLink>
+        </Button>
+      </div>
     </template>
   </section>
 </template>
