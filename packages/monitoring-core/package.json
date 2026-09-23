@@ -1,0 +1,28 @@
+{
+  "name": "@pms/monitoring-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings=0",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "devDependencies": {
+    "@pms/config": "workspace:*",
+    "eslint": "^9.18.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "engines": { "node": "^22.18.0 || >=24.12.0" }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": false,
+    "composite": false,
+    "incremental": false,
+    "noEmit": false
+  },
+  "exclude": ["src/**/*.spec.ts"]
+}

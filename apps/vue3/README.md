@@ -86,9 +86,7 @@ VITE_API_BASE_URL=http://localhost:3000/api
 
 创建项目时 Error Monitoring 默认开启，Logging、Tracing 和 Application Metrics 默认关闭，均可通过 Switch 调整。当前开关只记录需要启用的能力；项目不包含 Replay，也尚未实现错误、日志、链路或指标采集。
 
-项目创建成功后会进入 SDK 接入页。当前无需安装 SDK，可以把页面生成的 `VITE_PMS_DSN` 写入待接入 Vue 项目的 `.env.local`，然后在该项目本地运行时执行页面生成的 `fetch` 校验代码。请求成功后回到接入页刷新连接状态，即可看到“已连接”和最近校验时间。
-
-若 Nest 运行在 `http://localhost:3001`，生成的校验请求会发送到 `http://localhost:3001/api/sdk/check`。浏览器直接请求 Nest 时，请确保 Nest 的 `CORS_ORIGINS` 包含待接入 Vue 项目的本地来源。
+项目创建成功后会进入 SDK 接入页。将 `pms-monitoring-vue-0.1.0.tgz` 放入待接入项目的 `vendor` 目录，按页面指引安装 `@pms/monitoring-vue`、配置 `VITE_PMS_DSN`，并在业务项目的 `main.ts` 中初始化 SDK。当前版本只完成 SDK 初始化，不采集或上报错误，也不会主动发送连接校验请求。
 
 ## 权限控制
 

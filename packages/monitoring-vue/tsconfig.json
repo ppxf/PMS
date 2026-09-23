@@ -1,0 +1,10 @@
+{
+  "extends": ["@pms/config/typescript", "@vue/tsconfig/tsconfig.dom.json"],
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

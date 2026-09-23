@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { buildCheckSnippet, buildEnvSnippet } from '../utils/sdk-setup'
+import { buildEnvSnippet, buildInitSnippet, buildInstallSnippet } from '../utils/sdk-setup'
 import { getProject, getProjectConnection } from '../api/monitoring.api'
 import type { MonitoringProject } from '../model/types'
 
@@ -17,7 +17,8 @@ const error = ref('')
 const copied = ref('')
 
 const envSnippet = computed(() => (project.value ? buildEnvSnippet(project.value.dsn) : ''))
-const checkSnippet = computed(() => (project.value ? buildCheckSnippet(project.value.dsn) : ''))
+const installSnippet = buildInstallSnippet()
+const initSnippet = buildInitSnippet()
 
 async function load(): Promise<void> {
   loading.value = true
@@ -54,7 +55,7 @@ onMounted(load)
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 class="text-2xl font-semibold tracking-tight">配置 Vue SDK</h2>
-          <p class="mt-1 text-muted-foreground">{{ project.name }} · 本阶段仅校验 DSN 连接。</p>
+          <p class="mt-1 text-muted-foreground">{{ project.name }} · 按以下步骤接入 PMS Vue SDK。</p>
         </div>
         <Badge :variant="project.connected ? 'default' : 'secondary'">
           {{ project.connected ? '已连接' : '等待连接' }}
@@ -63,20 +64,25 @@ onMounted(load)
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">DSN</CardTitle>
-          <CardDescription>该公开地址只用于识别项目和连接校验。</CardDescription>
+          <CardTitle class="text-base">1. 安装 SDK</CardTitle>
+          <CardDescription>将生成的单包 tarball 放入业务项目的 vendor 目录后安装。</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-3">
+          <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ installSnippet }}</pre>
+          <Button variant="outline" @click="copy(installSnippet, '安装命令')">复制安装命令</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle class="text-base">2. 配置 DSN</CardTitle>
+          <CardDescription>将项目 DSN 写入业务项目的 .env.local。</CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
           <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ project.dsn }}</pre>
           <Button data-testid="copy-dsn" variant="outline" @click="copy(project.dsn, 'DSN')"
             >复制 DSN</Button
           >
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle class="text-base">环境变量</CardTitle></CardHeader>
-        <CardContent class="space-y-3">
           <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ envSnippet }}</pre>
           <Button variant="outline" @click="copy(envSnippet, '环境变量')">复制环境变量</Button>
         </CardContent>
@@ -84,15 +90,15 @@ onMounted(load)
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">发送连接校验</CardTitle>
-          <CardDescription>将代码放入本地 Vue 项目执行，不会上报监控事件。</CardDescription>
+          <CardTitle class="text-base">3. 初始化 SDK</CardTitle>
+          <CardDescription>在业务项目的 main.ts 中初始化；当前版本不会采集或上报错误。</CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
           <pre
             class="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-4 text-xs text-slate-100"
-            >{{ checkSnippet }}</pre>
+            >{{ initSnippet }}</pre>
           <div class="flex flex-wrap gap-2">
-            <Button variant="outline" @click="copy(checkSnippet, '校验代码')">复制校验代码</Button>
+            <Button variant="outline" @click="copy(initSnippet, '初始化代码')">复制初始化代码</Button>
             <Button data-testid="refresh-connection" @click="refreshConnection"
               >刷新连接状态</Button
             >

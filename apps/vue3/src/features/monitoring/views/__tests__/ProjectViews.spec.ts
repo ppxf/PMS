@@ -86,8 +86,12 @@ describe('project views', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain(project.dsn)
+    expect(wrapper.text()).toContain('pnpm add ./vendor/pms-monitoring-vue-0.1.0.tgz')
     expect(wrapper.text()).toContain('VITE_PMS_DSN=')
-    expect(wrapper.text()).toContain('/api/sdk/check')
+    expect(wrapper.text()).toContain("from '@pms/monitoring-vue'")
+    expect(wrapper.text()).toContain('initPmsMonitoring')
+    expect(wrapper.text()).not.toContain('/api/sdk/check')
+    expect(wrapper.text()).not.toContain('fetch(')
     await wrapper.get('[data-testid="copy-dsn"]').trigger('click')
     expect(writeText).toHaveBeenCalledWith(project.dsn)
 

@@ -57,7 +57,7 @@
 - `src/features/monitoring/api/monitoring.api.ts`：组、项目和连接 API。
 - `src/features/monitoring/model/types.ts`：前端领域类型。
 - `src/features/monitoring/model/onboarding.store.ts`：组状态加载和引导状态。
-- `src/features/monitoring/utils/sdk-setup.ts`：DSN 环境变量与校验代码生成。
+- `src/features/monitoring/utils/sdk-setup.ts`：SDK 安装命令、DSN 环境变量与初始化代码生成。
 - `src/features/monitoring/views/CreateGroupView.vue`：创建组。
 - `src/features/monitoring/views/GroupsView.vue`：组列表。
 - `src/features/monitoring/views/GroupDetailView.vue`：组详情和项目列表。
@@ -277,11 +277,11 @@ DTO 校验 UUID projectId 和非空 publicKey。查询必须同时匹配 `id` �
 
 - [x] **步骤 1：编写 API 与 SDK 工具红灯测试**
 
-API 测试覆盖全部七个受保护接口。工具测试使用字面量 DSN，断言 `.env` 输出和校验代码包含正确 origin、projectId、publicKey，且不包含 Replay 或 Sentry。
+API 测试覆盖全部七个受保护接口。工具测试使用字面量 DSN，断言安装命令、`.env` 输出和 SDK 初始化代码正确，且不包含 Replay、Sentry 或原始 fetch 校验。
 
 ```ts
 expect(buildEnvSnippet(dsn)).toBe(`VITE_PMS_DSN=${dsn}`)
-expect(buildCheckSnippet(dsn)).toContain("fetch('http://localhost:3001/api/sdk/check'")
+expect(buildInitSnippet()).toContain("from '@pms/monitoring-vue'")
 ```
 
 - [x] **步骤 2：运行红灯测试**
