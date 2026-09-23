@@ -7,11 +7,12 @@ const parseOrigins = (value: string | undefined): string[] =>
         .split(',')
         .map((origin) => origin.trim())
         .filter(Boolean)
-    : [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-        'http://localhost:3002',
-      ];
+    : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+const parseMonitoringOrigins = (value: string | undefined): string[] =>
+  value
+    ? value.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : ['http://localhost:3002'];
 
 export default () => ({
   app: {
@@ -54,6 +55,7 @@ export default () => ({
   },
   monitoring: {
     publicUrl: process.env.MONITORING_PUBLIC_URL ?? 'http://localhost:3001',
+    corsOrigins: parseMonitoringOrigins(process.env.MONITORING_CORS_ORIGINS),
   },
   swagger: {
     enabled: parseBoolean(process.env.SWAGGER_ENABLED, true),

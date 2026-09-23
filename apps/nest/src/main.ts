@@ -18,12 +18,16 @@ async function bootstrap(): Promise<void> {
 
   app.useLogger(logger);
   app.use(helmet());
-  app.enableCors({
-    origin: config.get<string[]>('app.corsOrigins', [
+  const allowedOrigins = [
+    ...config.get<string[]>('app.corsOrigins', [
       'http://localhost:5173',
       'http://127.0.0.1:5173',
     ]),
-  });
+    ...config.get<string[]>('monitoring.corsOrigins', [
+      'http://localhost:3002',
+    ]),
+  ];
+  app.enableCors({ origin: [...new Set(allowedOrigins)] });
   app.useGlobalPipes(
     new ValidationPipe({
       forbidNonWhitelisted: true,

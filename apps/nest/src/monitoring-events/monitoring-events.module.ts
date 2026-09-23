@@ -4,6 +4,7 @@ import { MonitoringProjectsModule } from '../monitoring-projects/monitoring-proj
 import { MonitoringErrorIssue } from './entities/monitoring-error-issue.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
 import { MonitoringEventsService } from './monitoring-events.service';
+import { MonitoringIssuesController } from './monitoring-issues.controller';
 import { SdkEnvelopeController } from './sdk-envelope.controller';
 
 @Module({
@@ -11,7 +12,7 @@ import { SdkEnvelopeController } from './sdk-envelope.controller';
     TypeOrmModule.forFeature([MonitoringEvent, MonitoringErrorIssue]),
     MonitoringProjectsModule,
   ],
-  controllers: [SdkEnvelopeController],
+  controllers: [SdkEnvelopeController, MonitoringIssuesController],
   providers: [MonitoringEventsService],
 })
 export class MonitoringEventsModule {}

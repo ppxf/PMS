@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
@@ -112,5 +112,87 @@ export class MonitoringEventsService {
       }
       throw error;
     }
+  }
+
+  async listOwnedIssues(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    query: { page: number; pageSize: number },
+  ) {
+    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    const [issues, total] = await this.dataSource.getRepository(MonitoringErrorIssue).findAndCount({
+      where: { projectId: project.id },
+      relations: { latestEvent: true },
+      select: {
+        id: true, title: true, exceptionType: true, culprit: true, status: true,
+        eventCount: true, firstSeenAt: true, lastSeenAt: true,
+        latestEvent: { environment: true, release: true },
+      },
+      order: { lastSeenAt: 'DESC' },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+    });
+    return {
+      items: issues.map((issue) => this.toIssueSummary(issue)),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+  }
+
+  async getOwnedIssue(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    issueId: string,
+  ) {
+    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    const issue = await this.dataSource.getRepository(MonitoringErrorIssue).findOne({
+      where: { id: issueId, projectId: project.id },
+      relations: { latestEvent: true },
+      select: {
+        id: true, title: true, exceptionType: true, culprit: true, status: true,
+        eventCount: true, firstSeenAt: true, lastSeenAt: true,
+        latestEvent: this.eventSelection(),
+      },
+    });
+    if (!issue) throw new NotFoundException('监控错误不存在');
+    const recentEvents = await this.dataSource.getRepository(MonitoringEvent).find({
+      where: { issueId, projectId: project.id },
+      select: this.eventSelection(),
+      order: { receivedAt: 'DESC' },
+      take: 20,
+    });
+    return {
+      ...this.toIssueSummary(issue),
+      latestEvent: issue.latestEvent ? this.toEvent(issue.latestEvent) : null,
+      recentEvents: recentEvents.map((event) => this.toEvent(event)),
+    };
+  }
+
+  private toIssueSummary(issue: MonitoringErrorIssue) {
+    return {
+      id: issue.id, title: issue.title, exceptionType: issue.exceptionType,
+      culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
+      firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
+      environment: issue.latestEvent?.environment ?? null,
+      release: issue.latestEvent?.release ?? null,
+    };
+  }
+
+  private eventSelection() {
+    return {
+      id: true, timestamp: true, receivedAt: true, source: true, level: true,
+      message: true, exceptionType: true, exceptionValue: true, stacktrace: true,
+      url: true, environment: true, release: true, tags: true,
+    } as const;
+  }
+
+  private toEvent(event: MonitoringEvent) {
+    const { id, timestamp, receivedAt, source, level, message, exceptionType,
+      exceptionValue, stacktrace, url, environment, release, tags } = event;
+    return { id, timestamp, receivedAt, source, level, message, exceptionType,
+      exceptionValue, stacktrace, url, environment, release, tags };
   }
 }

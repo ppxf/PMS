@@ -119,6 +119,10 @@ class EnvironmentVariables {
   @IsOptional()
   @IsUrl({ require_tld: false })
   MONITORING_PUBLIC_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  MONITORING_CORS_ORIGINS?: string;
 }
 
 export function validateEnvironment(
@@ -150,6 +154,7 @@ export function validateEnvironment(
       'APP_FRONTEND_URL',
       'CORS_ORIGINS',
       'MONITORING_PUBLIC_URL',
+      'MONITORING_CORS_ORIGINS',
     ] as const;
     for (const setting of requiredMailSettings) {
       if (!config[setting]) {
@@ -164,6 +169,16 @@ export function validateEnvironment(
     ) {
       throw new Error(
         'Environment validation failed: CORS_ORIGINS must not contain a wildcard in production',
+      );
+    }
+
+    if (
+      validated.MONITORING_CORS_ORIGINS?.split(',').some(
+        (origin) => origin.trim() === '*',
+      )
+    ) {
+      throw new Error(
+        'Environment validation failed: MONITORING_CORS_ORIGINS must not contain a wildcard in production',
       );
     }
 

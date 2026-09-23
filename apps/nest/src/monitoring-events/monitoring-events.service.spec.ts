@@ -509,3 +509,105 @@ describe('MonitoringEventsService', () => {
     expect(app.state().events[0].stacktrace).toHaveLength(604);
   });
 });
+
+describe('MonitoringEventsService management queries', () => {
+  const issueId = '550e8400-e29b-41d4-a716-446655440010';
+  const issue = Object.assign(new MonitoringErrorIssue(), {
+    id: issueId,
+    projectId,
+    title: 'Render failed',
+    exceptionType: 'TypeError',
+    culprit: 'at render',
+    status: MonitoringErrorIssueStatus.Unresolved,
+    eventCount: 2,
+    firstSeenAt: new Date('2026-09-23T02:00:00.000Z'),
+    lastSeenAt: new Date('2026-09-23T03:00:00.000Z'),
+    latestEventId: secondEventId,
+    latestEvent: Object.assign(new MonitoringEvent(), {
+      id: secondEventId,
+      environment: 'production',
+      release: '1.0.0',
+    }),
+  });
+
+  function queryFixture(options?: { foundIssue?: MonitoringErrorIssue | null }) {
+    const issueRepository = {
+      findAndCount: jest.fn().mockResolvedValue([[issue], 1]),
+      findOne: jest.fn().mockResolvedValue(
+        options && 'foundIssue' in options ? options.foundIssue : issue,
+      ),
+    };
+    const recentEvents = [
+      Object.assign(new MonitoringEvent(), {
+        id: secondEventId,
+        projectId,
+        issueId,
+        timestamp: new Date('2026-09-23T02:59:58.000Z'),
+        receivedAt: new Date('2026-09-23T03:00:00.000Z'),
+        source: 'vue', level: 'error', message: 'Render failed',
+        exceptionType: 'TypeError', exceptionValue: 'Cannot render',
+        stacktrace: 'stack', url: 'https://example.com',
+        environment: 'production', release: '1.0.0', tags: { component: 'App' },
+      }),
+    ];
+    const eventRepository = { find: jest.fn().mockResolvedValue(recentEvents) };
+    const projects = {
+      findOwnedBySlug: jest.fn().mockResolvedValue({ id: projectId }),
+    };
+    const dataSource = {
+      getRepository: jest.fn((target) =>
+        target === MonitoringErrorIssue ? issueRepository : eventRepository,
+      ),
+    };
+    return {
+      service: new MonitoringEventsService(dataSource as never, projects as never),
+      issueRepository, eventRepository, projects, recentEvents,
+    };
+  }
+
+  it('scopes, paginates and sorts issue summaries with latest event metadata', async () => {
+    const app = queryFixture();
+    await expect(
+      app.service.listOwnedIssues('user-1', 'acme', 'web', { page: 2, pageSize: 10 }),
+    ).resolves.toEqual({
+      items: [{
+        id: issueId, title: 'Render failed', exceptionType: 'TypeError',
+        culprit: 'at render', status: 'unresolved', eventCount: 2,
+        firstSeenAt: new Date('2026-09-23T02:00:00.000Z'),
+        lastSeenAt: new Date('2026-09-23T03:00:00.000Z'),
+        environment: 'production', release: '1.0.0',
+      }],
+      total: 1, page: 2, pageSize: 10,
+    });
+    expect(app.projects.findOwnedBySlug).toHaveBeenCalledWith('user-1', 'acme', 'web');
+    expect(app.issueRepository.findAndCount).toHaveBeenCalledWith(expect.objectContaining({
+      where: { projectId }, skip: 10, take: 10, order: { lastSeenAt: 'DESC' },
+      relations: { latestEvent: true },
+    }));
+  });
+
+  it('returns a scoped issue detail and twenty newest project events', async () => {
+    const app = queryFixture();
+    await expect(
+      app.service.getOwnedIssue('user-1', 'acme', 'web', issueId),
+    ).resolves.toMatchObject({
+      id: issueId,
+      latestEvent: { id: secondEventId },
+      recentEvents: [{ id: secondEventId, exceptionValue: 'Cannot render' }],
+    });
+    expect(app.issueRepository.findOne).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: issueId, projectId }, relations: { latestEvent: true },
+    }));
+    expect(app.eventRepository.find).toHaveBeenCalledWith(expect.objectContaining({
+      where: { issueId, projectId }, take: 20, order: { receivedAt: 'DESC' },
+    }));
+  });
+
+  it('uses the same 404 for a missing or cross-project issue', async () => {
+    const app = queryFixture({ foundIssue: null });
+    await expect(
+      app.service.getOwnedIssue('user-2', 'other', 'web', issueId),
+    ).rejects.toThrow(new NotFoundException('监控错误不存在'));
+    expect(app.eventRepository.find).not.toHaveBeenCalled();
+  });
+});

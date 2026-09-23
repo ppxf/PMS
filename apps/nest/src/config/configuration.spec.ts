@@ -6,6 +6,7 @@ describe('configuration CORS settings', () => {
   beforeEach(() => {
     process.env = { ...originalEnvironment };
     delete process.env.CORS_ORIGINS;
+    delete process.env.MONITORING_CORS_ORIGINS;
     delete process.env.MONITORING_PUBLIC_URL;
   });
 
@@ -19,6 +20,19 @@ describe('configuration CORS settings', () => {
     expect(configuration().app.corsOrigins).toEqual([
       'http://localhost:5173',
       'http://127.0.0.1:5173',
+    ]);
+    expect(configuration().monitoring.corsOrigins).toEqual([
+      'http://localhost:3002',
+    ]);
+  });
+
+  it('normalizes a separate monitoring SDK origin allowlist', () => {
+    process.env.MONITORING_CORS_ORIGINS =
+      ' https://shop.example.com, , https://checkout.example.com ';
+
+    expect(configuration().monitoring.corsOrigins).toEqual([
+      'https://shop.example.com',
+      'https://checkout.example.com',
     ]);
   });
 
