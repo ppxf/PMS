@@ -113,6 +113,18 @@ export class MonitoringProjectsService {
     return { projectId: project.id, platform: project.platform, checkedAt };
   }
 
+  async findForIngestion(
+    projectId: string,
+    publicKey: string | undefined,
+  ): Promise<MonitoringProject> {
+    if (!publicKey?.trim()) throw new NotFoundException('监控项目不存在');
+    const project = await this.repository.findOne({
+      where: { id: projectId, publicKey },
+    });
+    if (!project) throw new NotFoundException('监控项目不存在');
+    return project;
+  }
+
   private toResponse(project: MonitoringProject): MonitoringProjectResponse {
     return Object.assign(project, {
       connected: Boolean(project.lastSeenAt),

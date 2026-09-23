@@ -13,6 +13,7 @@ import { LoggerModule } from './logger/logger.module';
 import { UsersModule } from './users/users.module';
 import { GroupsModule } from './groups/groups.module';
 import { MonitoringProjectsModule } from './monitoring-projects/monitoring-projects.module';
+import { MonitoringEventsModule } from './monitoring-events/monitoring-events.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { MonitoringProjectsModule } from './monitoring-projects/monitoring-proje
     UsersModule,
     GroupsModule,
     MonitoringProjectsModule,
+    MonitoringEventsModule,
     AuthModule,
   ],
   controllers: [AppController],
