@@ -72,6 +72,6 @@ export interface MonitoringEventDetail {
 }
 
 export interface MonitoringIssueDetail extends MonitoringIssueSummary {
-  latestEvent: MonitoringEventDetail
+  latestEvent: MonitoringEventDetail | null
   recentEvents: MonitoringEventDetail[]
 }

@@ -69,6 +69,8 @@ describe('project issue views', () => {
 
     expect(wrapper.text()).toContain('Render failed')
     expect(wrapper.text()).toContain('TypeError')
+    expect(wrapper.text()).toContain('状态')
+    expect(wrapper.text()).toContain('未解决')
     expect(wrapper.text()).toContain('2 次')
     expect(wrapper.text()).toContain('production')
     expect(wrapper.text()).toContain('1.0.0')
@@ -106,6 +108,13 @@ describe('project issue views', () => {
 
     expect(wrapper.text()).toContain('Render failed')
     expect(wrapper.text()).toContain('2 次')
+    expect(wrapper.get('[data-testid="issue-status"]').text()).toBe('未解决')
+    expect(wrapper.get('[data-testid="first-seen-at"]').text()).toBe(
+      new Date(issue.firstSeenAt).toLocaleString(),
+    )
+    expect(wrapper.get('[data-testid="last-seen-at"]').text()).toBe(
+      new Date(issue.lastSeenAt).toLocaleString(),
+    )
     expect(wrapper.text()).toContain('https://example.com/dashboard')
     expect(wrapper.text()).toContain('vue')
     expect(wrapper.text()).toContain('production')
@@ -132,5 +141,15 @@ describe('project issue views', () => {
 
     expect(wrapper.text()).toContain('无堆栈')
     expect(wrapper.text()).toContain('-')
+  })
+
+  it('renders an explicit empty state when the latest event is absent', async () => {
+    getProjectIssue.mockResolvedValue({ ...issue, latestEvent: null, recentEvents: [] })
+    const wrapper = mount(ProjectIssueDetailView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('暂无最新事件')
+    expect(wrapper.find('pre').exists()).toBe(false)
+    expect(wrapper.text()).toContain('暂无最近事件')
   })
 })

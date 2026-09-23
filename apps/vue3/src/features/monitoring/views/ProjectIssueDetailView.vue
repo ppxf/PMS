@@ -28,7 +28,7 @@ function formatDate(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
 }
 
-const tags = computed(() => Object.entries(issue.value?.latestEvent.tags ?? {}))
+const tags = computed(() => Object.entries(issue.value?.latestEvent?.tags ?? {}))
 
 async function loadIssue(): Promise<void> {
   error.value = ''
@@ -53,14 +53,27 @@ onMounted(loadIssue)
       <div>
         <div class="flex flex-wrap items-center gap-3">
           <h2 class="text-2xl font-semibold tracking-tight">{{ issue.title }}</h2>
+          <Badge data-testid="issue-status" variant="secondary">
+            {{ issue.status === 'unresolved' ? '未解决' : issue.status }}
+          </Badge>
           <Badge variant="destructive">{{ issue.eventCount }} 次</Badge>
         </div>
         <p class="mt-1 text-muted-foreground">{{ issue.exceptionType }} · {{ issue.culprit ?? '-' }}</p>
+        <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <div>
+            <dt class="inline text-muted-foreground">首次出现：</dt>
+            <dd data-testid="first-seen-at" class="inline">{{ formatDate(issue.firstSeenAt) }}</dd>
+          </div>
+          <div>
+            <dt class="inline text-muted-foreground">最近出现：</dt>
+            <dd data-testid="last-seen-at" class="inline">{{ formatDate(issue.lastSeenAt) }}</dd>
+          </div>
+        </dl>
       </div>
 
       <Card>
         <CardHeader><CardTitle class="text-base">最新事件</CardTitle></CardHeader>
-        <CardContent class="space-y-4">
+        <CardContent v-if="issue.latestEvent" class="space-y-4">
           <dl class="grid gap-3 text-sm sm:grid-cols-2">
             <div><dt class="text-muted-foreground">时间</dt><dd>{{ formatDate(issue.latestEvent.timestamp) }}</dd></div>
             <div><dt class="text-muted-foreground">来源</dt><dd>{{ issue.latestEvent.source }}</dd></div>
@@ -82,6 +95,7 @@ onMounted(loadIssue)
             <pre class="whitespace-pre-wrap break-words rounded-lg bg-muted p-4 text-sm">{{ issue.latestEvent.stacktrace ?? '无堆栈' }}</pre>
           </div>
         </CardContent>
+        <CardContent v-else class="text-muted-foreground">暂无最新事件</CardContent>
       </Card>
 
       <Card>

@@ -42,6 +42,13 @@ const columns = columnHelper.columns([
       ),
   }),
   columnHelper.accessor('exceptionType', { header: '异常类型' }),
+  columnHelper.accessor('status', {
+    header: '状态',
+    cell: ({ row }) =>
+      h(Badge, { variant: 'secondary' }, () =>
+        row.original.status === 'unresolved' ? '未解决' : row.original.status,
+      ),
+  }),
   columnHelper.accessor('eventCount', {
     header: '次数',
     cell: ({ row }) => `${row.original.eventCount} 次`,
