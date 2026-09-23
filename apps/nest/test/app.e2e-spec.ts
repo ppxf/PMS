@@ -51,6 +51,8 @@ describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let passwordHash: string;
   let testProjects: TestProject[];
+  let testIssues: Array<Record<string, any>>;
+  let testEvents: Array<Record<string, any>>;
 
   beforeEach(async () => {
     passwordHash = await bcrypt.hash('password123', 4);
@@ -178,6 +180,8 @@ describe('AppController (e2e)', () => {
     };
     const issues: Array<Record<string, any>> = [];
     const events: Array<Record<string, any>> = [];
+    testIssues = issues;
+    testEvents = events;
     const toEventResponse = (event: Record<string, any>) => ({
       id: event.id, timestamp: event.timestamp, receivedAt: event.receivedAt,
       source: event.source, level: event.level, message: event.message,
@@ -231,15 +235,22 @@ describe('AppController (e2e)', () => {
       }),
       listOwnedIssues: jest.fn(async (userId: string, groupSlug: string, projectSlug: string, query: any) => {
         const project = await findOwnedProject(userId, groupSlug, projectSlug);
-        const scoped = issues.filter((item) => item.projectId === project.id);
+        const scoped = issues
+          .filter((item) => item.projectId === project.id)
+          .sort((first, second) => second.lastSeenAt.getTime() - first.lastSeenAt.getTime());
+        const pageItems = scoped.slice(
+          (query.page - 1) * query.pageSize,
+          query.page * query.pageSize,
+        );
         return {
-          items: scoped.map((issue) => {
-            const latest = events.find((event) => event.id === issue.latestEventId)!;
+          items: pageItems.map((issue) => {
+            const latest = events.find((event) => event.id === issue.latestEventId);
             return {
               id: issue.id, title: issue.title, exceptionType: issue.exceptionType,
               culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
               firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
-              environment: latest.environment, release: latest.release,
+              environment: latest?.environment ?? null,
+              release: latest?.release ?? null,
             };
           }),
           total: scoped.length, page: query.page, pageSize: query.pageSize,
@@ -251,13 +262,14 @@ describe('AppController (e2e)', () => {
         if (!issue) throw new NotFoundException('监控错误不存在');
         const recentEvents = events.filter((event) => event.issueId === issue.id && event.projectId === project.id)
           .sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime()).slice(0, 20);
-        const latestEvent = events.find((event) => event.id === issue.latestEventId)!;
+        const latestEvent = events.find((event) => event.id === issue.latestEventId);
         return {
           id: issue.id, title: issue.title, exceptionType: issue.exceptionType,
           culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
           firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
-          environment: latestEvent.environment, release: latestEvent.release,
-          latestEvent: toEventResponse(latestEvent),
+          environment: latestEvent?.environment ?? null,
+          release: latestEvent?.release ?? null,
+          latestEvent: latestEvent ? toEventResponse(latestEvent) : null,
           recentEvents: recentEvents.map(toEventResponse),
         };
       }),
@@ -478,6 +490,65 @@ describe('AppController (e2e)', () => {
     await request(app.getHttpServer()).post(`/sdk/${project.id}/envelope`)
       .set('X-PMS-Key', project.publicKey)
       .send({ ...baseEnvelope, event: { ...baseEnvelope.event, eventId: '40000000-0000-4000-8000-000000000003' } }).expect(403);
+  });
+
+  it('mirrors production issue sorting, pagination and nullable latest events', async () => {
+    const login = await request(app.getHttpServer()).post('/auth/login')
+      .send({ email: 'admin@example.com', password: 'password123' }).expect(201);
+    const token = (login.body as { data: { accessToken: string } }).data.accessToken;
+    await request(app.getHttpServer()).post('/groups')
+      .set('Authorization', `Bearer ${token}`).send({ name: 'Acme Team' }).expect(201);
+    await request(app.getHttpServer()).post('/groups/acme-team/projects')
+      .set('Authorization', `Bearer ${token}`).send({ name: 'Web', platform: 'vue' }).expect(201);
+
+    for (let index = 0; index < 11; index += 1) {
+      const suffix = String(index + 1).padStart(12, '0');
+      const issueId = `30000000-0000-4000-8000-${suffix}`;
+      const eventId = `40000000-0000-4000-8000-${suffix}`;
+      const receivedAt = new Date(`2026-09-23T03:${String(index).padStart(2, '0')}:00.000Z`);
+      testIssues.push({
+        id: issueId, projectId: PROJECT_ID, fingerprint: `fingerprint-${index}`,
+        title: `Issue ${index}`, exceptionType: 'Error', culprit: null,
+        status: 'unresolved', eventCount: 1, firstSeenAt: receivedAt,
+        lastSeenAt: receivedAt, latestEventId: eventId,
+      });
+      testEvents.push({
+        id: eventId, projectId: PROJECT_ID, issueId, timestamp: receivedAt,
+        receivedAt, source: 'vue', level: 'error', message: `Issue ${index}`,
+        exceptionType: 'Error', exceptionValue: `Issue ${index}`,
+        stacktrace: null, url: null, environment: `env-${index}`,
+        release: null, tags: {},
+      });
+    }
+
+    const secondPage = await request(app.getHttpServer())
+      .get('/groups/acme-team/projects/web/issues?page=2&pageSize=10')
+      .set('Authorization', `Bearer ${token}`).expect(200);
+    expect(secondPage.body.data).toMatchObject({ total: 11, page: 2, pageSize: 10 });
+    expect(secondPage.body.data.items).toHaveLength(1);
+    expect(secondPage.body.data.items[0]).toMatchObject({ title: 'Issue 0', environment: 'env-0' });
+
+    const nullableIssueId = '30000000-0000-4000-8000-999999999999';
+    testIssues.push({
+      id: nullableIssueId, projectId: PROJECT_ID, fingerprint: 'without-latest',
+      title: 'No latest event', exceptionType: 'Error', culprit: null,
+      status: 'unresolved', eventCount: 0,
+      firstSeenAt: new Date('2026-09-23T01:00:00.000Z'),
+      lastSeenAt: new Date('2026-09-23T01:00:00.000Z'), latestEventId: null,
+    });
+    const nullableList = await request(app.getHttpServer())
+      .get('/groups/acme-team/projects/web/issues?page=2&pageSize=10')
+      .set('Authorization', `Bearer ${token}`).expect(200);
+    expect(nullableList.body.data.items[1]).toMatchObject({
+      id: nullableIssueId, environment: null, release: null,
+    });
+    await request(app.getHttpServer())
+      .get(`/groups/acme-team/projects/web/issues/${nullableIssueId}`)
+      .set('Authorization', `Bearer ${token}`).expect(200)
+      .expect((response: Response) => {
+        expect(response.body.data.latestEvent).toBeNull();
+        expect(response.body.data.recentEvents).toEqual([]);
+      });
   });
 
   afterEach(async () => {

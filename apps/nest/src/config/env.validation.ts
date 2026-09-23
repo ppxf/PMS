@@ -172,10 +172,18 @@ export function validateEnvironment(
       );
     }
 
+    const monitoringCorsOrigins =
+      validated.MONITORING_CORS_ORIGINS?.split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean) ?? [];
+    if (monitoringCorsOrigins.length === 0) {
+      throw new Error(
+        'Environment validation failed: MONITORING_CORS_ORIGINS must contain at least one origin in production',
+      );
+    }
+
     if (
-      validated.MONITORING_CORS_ORIGINS?.split(',').some(
-        (origin) => origin.trim() === '*',
-      )
+      monitoringCorsOrigins.some((origin) => origin === '*')
     ) {
       throw new Error(
         'Environment validation failed: MONITORING_CORS_ORIGINS must not contain a wildcard in production',

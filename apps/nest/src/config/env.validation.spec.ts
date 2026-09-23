@@ -157,6 +157,17 @@ describe('validateEnvironment authentication settings', () => {
     );
   });
 
+  it.each(['   ', ', ,']) (
+    'rejects a production monitoring CORS allowlist without an effective origin: %p',
+    (origins) => {
+      expect(() =>
+        validateEnvironment(
+          completeProduction({ MONITORING_CORS_ORIGINS: origins }),
+        ),
+      ).toThrow('MONITORING_CORS_ORIGINS must contain at least one origin');
+    },
+  );
+
   it('rejects a monitoring wildcard origin in production', () => {
     expect(() => validateEnvironment(completeProduction({ MONITORING_CORS_ORIGINS: 'https://shop.example.com, *' }))).toThrow(
       'MONITORING_CORS_ORIGINS',
