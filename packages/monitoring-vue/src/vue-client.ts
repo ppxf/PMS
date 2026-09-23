@@ -61,9 +61,9 @@ export function init(options: VueMonitoringInitOptions): ClientState {
   if (!isVueApp(options.app)) throw new TypeError('PMS monitoring init requires a Vue app')
 
   const { app, ...coreOptions } = options
+  const state = initCore(coreOptions)
   const existing = appStates.get(app)
   if (existing) return existing
-  const state = initCore(coreOptions)
   appStates.set(app, state)
   installVueHandler(app)
   if (typeof window !== 'undefined') installBrowserHandlers(window)

@@ -122,7 +122,19 @@ describe('Vue monitoring error capture', () => {
 
     expect(second).toBe(first)
     expect(app.config.errorHandler).toBe(handler)
+    expect(transport.envelopes.filter((envelope) => envelope.type === 'client_report')).toHaveLength(1)
     expect(transport.eventEnvelopes.map(({ event }) => event.source)).toEqual(['vue', 'window'])
+  })
+
+  it('rejects different options when the same app was already initialized', async () => {
+    const { init } = await import('./vue-client.js')
+    const app = vueApp()
+    const transport = new RecordingTransport()
+    init({ app, dsn, transport })
+
+    expect(() =>
+      init({ app, dsn: 'http://other-key@localhost:3001/api/sdk/other-project', transport }),
+    ).toThrow('already initialized with different options')
   })
 
   it('installs one global listener across apps while capturing each app Vue error', async () => {
