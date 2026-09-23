@@ -26,10 +26,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const context = host.switchToHttp();
     const request = context.getRequest<{ url: string }>();
     const response = context.getResponse<unknown>();
+    const isPayloadTooLarge =
+      exception instanceof Error &&
+      'type' in exception &&
+      exception.type === 'entity.too.large' &&
+      'status' in exception &&
+      exception.status === HttpStatus.PAYLOAD_TOO_LARGE;
     const statusCode =
       exception instanceof HttpException
         ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+        : isPayloadTooLarge
+          ? HttpStatus.PAYLOAD_TOO_LARGE
+          : HttpStatus.INTERNAL_SERVER_ERROR;
     const details = this.getErrorDetails(exception, statusCode);
     const path = request.url;
 
@@ -58,7 +66,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
   ): Required<Pick<ErrorPayload, 'message'>> & Pick<ErrorPayload, 'error'> {
     if (!(exception instanceof HttpException)) {
       return {
-        message: 'Internal server error',
+        message:
+          statusCode === 413
+            ? 'Payload too large'
+            : 'Internal server error',
         error: HttpStatus[statusCode],
       };
     }

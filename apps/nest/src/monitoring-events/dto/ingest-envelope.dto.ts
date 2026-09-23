@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   Equals,
   IsByteLength,
@@ -18,14 +18,6 @@ import type {
   ValidationArguments,
   ValidatorConstraintInterface,
 } from 'class-validator';
-
-// Preserve JSON scalar types even though the application's global pipe enables
-// implicit conversion for other API DTOs.
-function JsonValue(): PropertyDecorator {
-  return Transform(({ obj, key }) => (obj as Record<string, unknown>)[key], {
-    toClassOnly: true,
-  });
-}
 
 @ValidatorConstraint({ name: 'envelopeField', async: false })
 class EnvelopeFieldConstraint implements ValidatorConstraintInterface {
@@ -60,28 +52,40 @@ class BoundedTagsConstraint implements ValidatorConstraintInterface {
   }
 }
 
+@ValidatorConstraint({ name: 'rfc3339Timestamp', async: false })
+class Rfc3339TimestampConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    return (
+      typeof value === 'string' &&
+      /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u.test(
+        value,
+      ) &&
+      Number.isFinite(Date.parse(value))
+    );
+  }
+
+  defaultMessage(): string {
+    return 'timestamp must be a valid RFC3339 date-time with an explicit timezone';
+  }
+}
+
 export class SdkMetadataDto {
-  @JsonValue()
   @IsString()
   name!: string;
 
-  @JsonValue()
   @IsString()
   version!: string;
 }
 
 export class ErrorExceptionDto {
-  @JsonValue()
   @IsString()
   @MaxLength(128)
   type!: string;
 
-  @JsonValue()
   @IsString()
   @MaxLength(2000)
   value!: string;
 
-  @JsonValue()
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @IsByteLength(0, 65536)
@@ -89,28 +93,23 @@ export class ErrorExceptionDto {
 }
 
 export class MonitoringErrorEventDto {
-  @JsonValue()
   @IsUUID()
   eventId!: string;
 
-  @JsonValue()
+  @Validate(Rfc3339TimestampConstraint)
   @IsISO8601({ strict: true })
   timestamp!: string;
 
-  @JsonValue()
   @Equals('error')
   type!: 'error';
 
-  @JsonValue()
   @Equals('error')
   level!: 'error';
 
-  @JsonValue()
   @IsIn(['vue', 'window', 'unhandledrejection', 'manual'])
   @MaxLength(128)
   source!: 'vue' | 'window' | 'unhandledrejection' | 'manual';
 
-  @JsonValue()
   @IsString()
   @MaxLength(2000)
   message!: string;
@@ -121,19 +120,16 @@ export class MonitoringErrorEventDto {
   @Type(() => ErrorExceptionDto)
   exception!: ErrorExceptionDto;
 
-  @JsonValue()
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @MaxLength(2048)
   url?: string;
 
-  @JsonValue()
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @MaxLength(128)
   environment?: string;
 
-  @JsonValue()
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsString()
   @MaxLength(128)
@@ -145,15 +141,13 @@ export class MonitoringErrorEventDto {
 }
 
 export class IngestEnvelopeDto {
-  @JsonValue()
   @Equals(1)
   version!: 1;
 
-  @JsonValue()
   @IsIn(['event', 'client_report'])
   type!: 'event' | 'client_report';
 
-  @JsonValue()
+  @Validate(Rfc3339TimestampConstraint)
   @IsISO8601({ strict: true })
   sentAt!: string;
 
@@ -179,14 +173,12 @@ export class IngestEnvelopeDto {
   @Type(() => SdkMetadataDto)
   sdk?: SdkMetadataDto;
 
-  @JsonValue()
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @Validate(EnvelopeFieldConstraint, ['client_report'])
   @IsString()
   @MaxLength(128)
   environment?: string;
 
-  @JsonValue()
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @Validate(EnvelopeFieldConstraint, ['client_report'])
   @IsString()

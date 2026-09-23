@@ -1,4 +1,5 @@
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
+import { IngestEnvelopePipe } from '../ingest-envelope.pipe';
 import { IngestEnvelopeDto } from './ingest-envelope.dto';
 
 const eventEnvelope = () => ({
@@ -23,16 +24,127 @@ const clientReport = () => ({
   sdk: { name: '@pms/sdk-vue', version: '0.1.0' },
 });
 
-const pipe = new ValidationPipe({
-  forbidNonWhitelisted: true,
-  transform: true,
-  transformOptions: { enableImplicitConversion: true },
-  whitelist: true,
-});
+const pipe = new IngestEnvelopePipe();
 const validate = (value: unknown): Promise<IngestEnvelopeDto> =>
-  pipe.transform(value, { type: 'body', metatype: IngestEnvelopeDto });
+  Promise.resolve().then(() => pipe.transform(value));
 
 describe('IngestEnvelopeDto', () => {
+  // Review R1: invalid raw objects must be rejected before scalar coercion.
+  it.each([
+    [
+      'message',
+      {
+        ...eventEnvelope(),
+        event: { ...eventEnvelope().event, message: { toString: null } },
+      },
+    ],
+    [
+      'exception value',
+      {
+        ...eventEnvelope(),
+        event: {
+          ...eventEnvelope().event,
+          exception: { type: 'Error', value: { toString: null } },
+        },
+      },
+    ],
+    [
+      'SDK name',
+      { ...clientReport(), sdk: { name: { toString: null }, version: '1' } },
+    ],
+    ['version', { ...eventEnvelope(), version: { toString: null } }],
+  ])(
+    'returns 400 for an object-valued %s without attempting coercion',
+    async (_name, input) => {
+      await expect(validate(input)).rejects.toBeInstanceOf(BadRequestException);
+    },
+  );
+
+  // Review R2: validate raw own keys before a transformer can silently drop them.
+  it.each(['__proto__', 'prototype', 'constructor', 'toString'])(
+    'rejects the unknown raw key %s at every fixed-schema level',
+    async (key) => {
+      const extra = Object.fromEntries([[key, 'unexpected']]);
+      const input = eventEnvelope();
+      for (const value of [
+        { ...input, ...extra },
+        { ...input, event: { ...input.event, ...extra } },
+        {
+          ...input,
+          event: {
+            ...input.event,
+            exception: { ...input.event.exception, ...extra },
+          },
+        },
+        { ...clientReport(), sdk: { ...clientReport().sdk, ...extra } },
+      ]) {
+        await expect(validate(value)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+      }
+    },
+  );
+
+  it.each(['__proto__', 'prototype', 'constructor'])(
+    'rejects the reserved tag key %s',
+    async (key) => {
+      const input = eventEnvelope();
+      const tags = Object.fromEntries([[key, 'value']]);
+      await expect(
+        validate({ ...input, event: { ...input.event, tags } }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    },
+  );
+
+  it('preserves a valid toString tag in the accepted envelope', async () => {
+    const input = eventEnvelope();
+    const result = await validate({
+      ...input,
+      event: { ...input.event, tags: { toString: 'user-provided tag' } },
+    });
+    expect(Object.hasOwn(result.event!.tags!, 'toString')).toBe(true);
+    expect(result.event!.tags).toEqual({ toString: 'user-provided tag' });
+  });
+
+  // Review R3: accepted protocol timestamps must be RFC3339 and Date.parse-able.
+  it.each([
+    '20260923T030000Z',
+    '2026-W39-3T03:00:00Z',
+    '2026-266T03:00:00Z',
+    '2026-09-23',
+    '2026-09-23T03:00:00',
+    '2026-02-30T03:00:00Z',
+    '2026-09-23T24:00:00Z',
+  ])('rejects %s in both protocol timestamp fields', async (timestamp) => {
+    const input = eventEnvelope();
+    await expect(
+      validate({ ...input, sentAt: timestamp }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      validate({ ...input, event: { ...input.event, timestamp } }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it.each([
+    '2026-09-23T03:00:00Z',
+    '2026-09-23T03:00:00.123456Z',
+    '2026-09-23T11:00:00+08:00',
+    '2026-09-22T20:00:00-07:00',
+  ])(
+    'accepts the RFC3339 timestamp %s without changing it',
+    async (timestamp) => {
+      const input = eventEnvelope();
+      const result = await validate({
+        ...input,
+        sentAt: timestamp,
+        event: { ...input.event, timestamp },
+      });
+      expect(result.sentAt).toBe(timestamp);
+      expect(result.event!.timestamp).toBe(timestamp);
+      expect(Number.isFinite(Date.parse(result.event!.timestamp))).toBe(true);
+    },
+  );
+
   // Catches missing nested validation and accidentally optional required fields.
   it('transforms both protocol variants and accepts all supported sources', async () => {
     expect(await validate(clientReport())).toBeInstanceOf(IngestEnvelopeDto);

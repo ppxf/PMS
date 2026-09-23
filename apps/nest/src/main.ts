@@ -1,13 +1,18 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { configureBodyParsers } from './common/http/configure-body-parsers';
 import { AppLoggerService } from './logger/app-logger.service';
 import { setupSwagger } from './swagger/swagger';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    bodyParser: false,
+  });
   const config = app.get(ConfigService);
   const logger = app.get(AppLoggerService);
 
@@ -29,6 +34,7 @@ async function bootstrap(): Promise<void> {
   );
 
   const apiPrefix = config.get<string>('app.apiPrefix', 'api');
+  configureBodyParsers(app, apiPrefix);
   app.setGlobalPrefix(apiPrefix);
   app.enableShutdownHooks();
 
