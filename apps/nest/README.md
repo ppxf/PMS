@@ -24,7 +24,7 @@ pnpm start:dev
 
 默认端口为 `3000`，健康检查地址为 `GET /api`。数据库默认关闭，因此没有
 PostgreSQL 服务时也可以启动。需要数据库时，将 `DB_ENABLED` 设置为 `true` 并
-填写连接信息。生产环境必须保持 `DB_SYNCHRONIZE=false`，数据库结构应使用迁移管理。
+填写连接信息。生产环境必须保持 `DB_SYNCHRONIZE=false`。当前开发阶段暂未保留数据库迁移；正式部署生产环境前，需要基于全部实体统一创建完整的数据库基线 migration。
 
 ## JWT 登录
 
@@ -89,17 +89,11 @@ MONITORING_CORS_ORIGINS=http://localhost:3002
 
 `MONITORING_CORS_ORIGINS` 是允许浏览器 SDK 上报的逗号分隔来源列表，会与管理端 `CORS_ORIGINS` 合并。生产环境必须显式配置，且禁止使用 `*`。本地开发可使用 HTTP，生产环境必须为 `MONITORING_PUBLIC_URL` 配置 HTTPS 地址。
 
-## 数据库迁移
+## 数据库结构管理
 
-这是增量 migration：运行前必须已有 PMS schema 和 `monitoring_projects` 表，并确保 PostgreSQL 已启用或允许使用 `uuid-ossp`（迁移中的 UUID 默认值依赖 `uuid_generate_v4()`）。先配置 `DB_HOST`、`DB_PORT`、`DB_USERNAME`、`DB_PASSWORD`、`DB_NAME`，再执行：
+当前开发环境通过 `DB_SYNCHRONIZE=true` 根据全部 TypeORM 实体创建和更新数据库结构。仓库暂未保留增量 migration，也不能在 `DB_SYNCHRONIZE=false` 的空数据库中自动建立完整 PMS schema。
 
-```bash
-pnpm --filter @pms/nest build
-pnpm --filter @pms/nest migration:run
-pnpm --filter @pms/nest migration:revert
-```
-
-`migration:revert` 用于回退最近一次 migration，请只在确认需要回退后执行。
+正式部署生产环境前，需要基于届时确认的全部实体统一生成并审查一份完整数据库基线 migration，覆盖用户、认证令牌、组、监控项目、错误归组和错误事件等全部表、外键、约束与索引。生产环境必须保持 `DB_SYNCHRONIZE=false`，并通过部署流程显式执行该完整 migration。
 
 ## 首版限制
 

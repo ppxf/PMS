@@ -90,7 +90,7 @@ function uniqueError(constraint = 'monitoring_events_pkey') {
 }
 
 // The only fake boundary is TypeORM. Transactions work on isolated copies and
-// commit only on success; inserts enforce the same PK/FK order as the migration.
+// commit only on success; inserts enforce the same PK/FK order as the entities.
 function fixture() {
   let state: State = {
     projects: [project(), project(secondProjectId, 'second-key')],
