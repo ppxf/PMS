@@ -1,6 +1,6 @@
 export const buildEnvSnippet = (dsn: string) => `VITE_PMS_DSN=${dsn}`
 
-export const buildInstallSnippet = () => 'pnpm add ./vendor/pms-monitoring-vue-0.1.0.tgz'
+export const buildInstallSnippet = () => 'pnpm add @pms/monitoring-vue'
 
 export const buildInitSnippet = () => `import { createApp } from 'vue'
 import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'

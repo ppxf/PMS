@@ -40,6 +40,13 @@ afterEach(() => {
 })
 
 describe('Vue monitoring error capture', () => {
+  it('re-exports the supported core runtime utilities from the Vue package', async () => {
+    const sdk = await import('./index.js')
+
+    expect(sdk.HttpTransport).toBeTypeOf('function')
+    expect(sdk.NoopTransport).toBeTypeOf('function')
+  })
+
   it('identifies the Vue package in its client report', async () => {
     const { init } = await import('./vue-client.js')
     const transport = new RecordingTransport()

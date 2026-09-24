@@ -93,7 +93,7 @@ describe('project views', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain(project.dsn)
-    expect(wrapper.text()).toContain('pnpm add ./vendor/pms-monitoring-vue-0.1.0.tgz')
+    expect(wrapper.text()).toContain('pnpm add @pms/monitoring-vue')
     expect(wrapper.text()).toContain('VITE_PMS_DSN=')
     expect(wrapper.text()).toContain("from '@pms/monitoring-vue'")
     expect(wrapper.text()).toContain('initPmsMonitoring')

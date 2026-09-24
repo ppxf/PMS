@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "files": ["dist"],
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,16 +15,17 @@
     "prepack": "pnpm build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "verify:pack": "node scripts/verify-packed-types.mjs",
     "lint": "eslint src --max-warnings=0",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "peerDependencies": {
     "vue": ">=3.3 <4"
   },
+  "dependencies": {
+    "@pms/monitoring-core": "workspace:*"
+  },
   "devDependencies": {
     "@pms/config": "workspace:*",
-    "@pms/monitoring-core": "workspace:*",
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^9.18.0",
     "typescript": "^5.9.3",

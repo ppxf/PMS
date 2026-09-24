@@ -1,5 +1,6 @@
 export { captureException, getClientState, getVueClientState, init } from './vue-client.js'
 export type { VueMonitoringInitOptions } from './vue-client.js'
+export { HttpTransport, NoopTransport } from '@pms/monitoring-core'
 export type {
   ClientState,
   ClientReportEnvelope,
@@ -12,4 +13,4 @@ export type {
   MonitoringException,
   MonitoringLevel,
   Transport,
-} from './types.js'
+} from '@pms/monitoring-core'

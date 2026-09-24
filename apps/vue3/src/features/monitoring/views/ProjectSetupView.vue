@@ -65,7 +65,7 @@ onMounted(load)
       <Card>
         <CardHeader>
           <CardTitle class="text-base">1. 安装 SDK</CardTitle>
-          <CardDescription>将生成的单包 tarball 放入业务项目的 vendor 目录后安装。</CardDescription>
+          <CardDescription>从私有 npm 安装 Vue SDK；包管理器会自动安装其 Core 运行时依赖。</CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
           <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ installSnippet }}</pre>

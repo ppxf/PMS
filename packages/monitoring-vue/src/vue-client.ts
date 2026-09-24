@@ -3,10 +3,14 @@ import {
   getClientState as getCoreClientState,
   init as initCore,
 } from '@pms/monitoring-core'
+import type {
+  ClientState,
+  MonitoringEventSource,
+  MonitoringInitOptions,
+} from '@pms/monitoring-core'
 import type { App } from 'vue'
-import type { ClientState, MonitoringEventSource, MonitoringInitOptions } from './types.js'
 
-export interface VueMonitoringInitOptions extends MonitoringInitOptions {
+export interface VueMonitoringInitOptions extends Omit<MonitoringInitOptions, 'sdk'> {
   app: App
 }
 
