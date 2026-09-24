@@ -11,3 +11,4 @@ coverage/
 .learnings/
 .code-review-graph/
 .agents/
+.npmrc
