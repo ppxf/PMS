@@ -40,6 +40,19 @@ afterEach(() => {
 })
 
 describe('Vue monitoring error capture', () => {
+  it('identifies the Vue package in its client report', async () => {
+    const { init } = await import('./vue-client.js')
+    const transport = new RecordingTransport()
+
+    init({ app: vueApp(), dsn, transport })
+
+    expect(transport.envelopes[0]).toMatchObject({
+      version: 1,
+      type: 'client_report',
+      sdk: { name: '@pms/monitoring-vue', version: '0.1.0' },
+    })
+  })
+
   it('captures Vue errors and calls the original handler with its original this and arguments', async () => {
     const { init, getVueClientState } = await import('./vue-client.js')
     const app = vueApp()

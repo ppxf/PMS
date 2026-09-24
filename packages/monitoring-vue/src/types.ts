@@ -26,7 +26,7 @@ export interface ClientReportEnvelope {
   version: 1
   type: 'client_report'
   sentAt: string
-  sdk: { name: '@pms/monitoring-core'; version: '0.1.0' }
+  sdk: { name: '@pms/monitoring-vue'; version: '0.1.0' }
   environment?: string
   release?: string
 }

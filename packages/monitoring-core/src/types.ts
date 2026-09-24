@@ -22,11 +22,16 @@ export interface MonitoringEvent {
   tags?: Record<string, string>
 }
 
+export interface MonitoringSdkMetadata {
+  name: string
+  version: string
+}
+
 export interface ClientReportEnvelope {
   version: 1
   type: 'client_report'
   sentAt: string
-  sdk: { name: '@pms/monitoring-core'; version: '0.1.0' }
+  sdk: MonitoringSdkMetadata
   environment?: string
   release?: string
 }
@@ -63,6 +68,7 @@ export interface MonitoringInitOptions {
   release?: string
   transport?: Transport
   fetch?: typeof globalThis.fetch
+  sdk?: MonitoringSdkMetadata
 }
 
 export interface ClientState {

@@ -6,6 +6,9 @@ import type { CaptureExceptionContext, ClientState, MonitoringEnvelope, Monitori
 let state: ClientState | undefined
 let activeTransport: Transport | undefined
 let activeFetcher: typeof globalThis.fetch | undefined
+let activeSdk: MonitoringInitOptions['sdk'] | undefined
+
+const defaultSdk = { name: '@pms/monitoring-core', version: '0.1.0' } as const
 
 function sendEnvelope(envelope: MonitoringEnvelope): Promise<void> {
   try {
@@ -18,6 +21,7 @@ function sendEnvelope(envelope: MonitoringEnvelope): Promise<void> {
 export function init(options: MonitoringInitOptions): ClientState {
   const parsed = parseDsn(options.dsn)
   const fetcher = options.fetch ?? globalThis.fetch
+  const sdk = options.sdk ?? defaultSdk
   const next: ClientState = {
     initialized: true,
     ...parsed,
@@ -27,18 +31,20 @@ export function init(options: MonitoringInitOptions): ClientState {
 
   if (state) {
     if (JSON.stringify(state) === JSON.stringify(next) &&
-      (options.transport ? activeTransport === options.transport : activeFetcher === fetcher)) return state
+      (options.transport ? activeTransport === options.transport : activeFetcher === fetcher) &&
+      activeSdk?.name === sdk.name && activeSdk.version === sdk.version) return state
     throw new Error('PMS monitoring client is already initialized with different options')
   }
 
   state = Object.freeze(next)
   activeTransport = options.transport ?? new HttpTransport(parsed.endpoint, parsed.publicKey, fetcher)
   activeFetcher = options.transport ? undefined : fetcher
+  activeSdk = Object.freeze({ ...sdk })
   void sendEnvelope({
     version: 1,
     type: 'client_report',
     sentAt: new Date().toISOString(),
-    sdk: { name: '@pms/monitoring-core', version: '0.1.0' },
+    sdk: activeSdk,
     ...(options.environment ? { environment: truncate(options.environment, 128) } : {}),
     ...(options.release ? { release: truncate(options.release, 128) } : {}),
   })
@@ -67,4 +73,5 @@ export function resetClientForTests(): void {
   state = undefined
   activeTransport = undefined
   activeFetcher = undefined
+  activeSdk = undefined
 }

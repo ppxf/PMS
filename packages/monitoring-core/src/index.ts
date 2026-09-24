@@ -12,6 +12,7 @@ export type {
   MonitoringException,
   MonitoringInitOptions,
   MonitoringLevel,
+  MonitoringSdkMetadata,
   Transport,
 } from './types.js'
 export { NoopTransport } from './types.js'
