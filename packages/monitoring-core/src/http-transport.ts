@@ -20,7 +20,7 @@ export class HttpTransport implements Transport {
   async send(envelope: MonitoringEnvelope): Promise<void> {
     let response: Response
     try {
-      response = await this.fetcher(`${this.endpoint}/envelope`, {
+      response = await this.fetcher.call(globalThis, `${this.endpoint}/envelope`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

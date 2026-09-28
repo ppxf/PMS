@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureException, getClientState, init, resetClientForTests } from './client.js'
-import { TransportError } from './http-transport.js'
+import { HttpTransport, TransportError } from './http-transport.js'
 import { NoopTransport } from './types.js'
 import type { EventEnvelope, MonitoringEnvelope, Transport } from './types.js'
 
@@ -118,6 +118,47 @@ describe('monitoring core initialization and capture', () => {
       environment: 'production',
       release: 'web@1.2.0',
     })
+  })
+
+  it('calls the browser global fetch with its required global receiver', async () => {
+    const receivers: unknown[] = []
+    const browserFetch = vi.fn(function (this: unknown) {
+      receivers.push(this)
+      if (this !== globalThis) throw new TypeError('Illegal invocation')
+      return Promise.resolve(new Response(null, { status: 202 }))
+    })
+    vi.stubGlobal('fetch', browserFetch)
+    const onTransportError = vi.fn()
+
+    init({ dsn, onTransportError })
+    await captureException(new Error('boom'))
+
+    expect(browserFetch).toHaveBeenCalledTimes(2)
+    expect(receivers).toEqual([globalThis, globalThis])
+    expect(onTransportError).not.toHaveBeenCalled()
+  })
+
+  it('preserves the global receiver when HttpTransport is constructed directly', async () => {
+    const receivers: unknown[] = []
+    const browserFetch = vi.fn(function (this: unknown) {
+      receivers.push(this)
+      if (this !== globalThis) throw new TypeError('Illegal invocation')
+      return Promise.resolve(new Response(null, { status: 202 }))
+    })
+    vi.stubGlobal('fetch', browserFetch)
+    const transport = new HttpTransport(
+      'https://monitor.example.com/api/sdk/project-id',
+      'public-key',
+    )
+
+    await expect(transport.send({
+      version: 1,
+      type: 'client_report',
+      sentAt: '2026-09-28T00:00:00.000Z',
+      sdk: { name: '@pms/monitoring-core', version: '0.1.0' },
+    })).resolves.toBeUndefined()
+
+    expect(receivers).toEqual([globalThis])
   })
 
   it('normalizes and sends an exception event', async () => {
