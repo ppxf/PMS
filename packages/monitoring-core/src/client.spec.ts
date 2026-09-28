@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureException, getClientState, init, resetClientForTests } from './client.js'
+import { TransportError } from './http-transport.js'
 import { NoopTransport } from './types.js'
 import type { EventEnvelope, MonitoringEnvelope, Transport } from './types.js'
 
@@ -23,7 +24,10 @@ describe('monitoring core initialization and capture', () => {
     resetClientForTests()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 202 })))
   })
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
 
   it('normalizes a valid PMS DSN into public client state', () => {
     const state = init({
@@ -210,6 +214,122 @@ describe('monitoring core initialization and capture', () => {
     init({ dsn, fetch: fetcher })
     await expect(captureException(new Error('boom'))).resolves.toBeUndefined()
     expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports network failures to the configured transport error callback', async () => {
+    const failure = new Error('offline')
+    const fetcher = vi.fn().mockRejectedValue(failure)
+    const onTransportError = vi.fn()
+    init({ dsn, fetch: fetcher, onTransportError })
+    await vi.waitFor(() => expect(onTransportError).toHaveBeenCalledTimes(1))
+
+    await captureException(new Error('boom'))
+
+    expect(onTransportError).toHaveBeenCalledTimes(2)
+    expect(onTransportError).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        name: 'TransportError',
+        message: 'PMS telemetry network request failed',
+        cause: failure,
+      }),
+      expect.objectContaining({ type: 'event' }),
+    )
+  })
+
+  it('reports the HTTP status for rejected responses', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 503 }))
+    const onTransportError = vi.fn()
+    init({ dsn, fetch: fetcher, onTransportError })
+    await vi.waitFor(() => expect(onTransportError).toHaveBeenCalledTimes(1))
+
+    await captureException(new Error('boom'))
+
+    expect(onTransportError.mock.calls[1]?.[0]).toBeInstanceOf(TransportError)
+    expect(onTransportError.mock.calls[1]?.[0]).toMatchObject({ status: 503 })
+  })
+
+  it('prints sanitized diagnostics in debug mode', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const fetcher = vi.fn().mockRejectedValue(new Error('offline'))
+    init({ dsn, fetch: fetcher, debug: true })
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1))
+
+    await captureException(new Error('boom'))
+
+    expect(warn).toHaveBeenCalledWith(
+      '[PMS Monitoring] Transport failed',
+      expect.objectContaining({
+        envelopeType: 'event',
+        message: 'PMS telemetry network request failed',
+      }),
+    )
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('public-key')
+  })
+
+  it('isolates exceptions thrown by the transport error callback', async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error('offline'))
+    const onTransportError = vi.fn(() => {
+      throw new Error('callback failed')
+    })
+    init({ dsn, fetch: fetcher, onTransportError })
+    await vi.waitFor(() => expect(onTransportError).toHaveBeenCalledTimes(1))
+
+    await expect(captureException(new Error('boom'))).resolves.toBeUndefined()
+    expect(onTransportError).toHaveBeenCalledTimes(2)
+  })
+
+  it('isolates asynchronous rejections from the transport error callback', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    let sendCount = 0
+    const transport: Transport = {
+      send: () => sendCount++ === 0
+        ? Promise.resolve()
+        : Promise.reject(new Error('offline')),
+    }
+    let rejectCallback: ((error: Error) => void) | undefined
+    const onTransportError = vi.fn(() => new Promise<void>((_resolve, reject) => {
+      rejectCallback = reject
+    }))
+    init({ dsn, transport, onTransportError, debug: true })
+
+    let captureSettled = false
+    const capture = captureException(new Error('boom')).then(() => {
+      captureSettled = true
+    })
+    await vi.waitFor(() => expect(onTransportError).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(captureSettled).toBe(true))
+
+    rejectCallback?.(new Error('async callback failed'))
+    await expect(capture).resolves.toBeUndefined()
+    await vi.waitFor(() =>
+      expect(warn).toHaveBeenCalledWith('[PMS Monitoring] Transport error callback failed'),
+    )
+  })
+
+  it('redacts arbitrary transport and callback error messages from debug logs', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const secret = 'https://public-key@monitor.example.com/api/sdk/project-id'
+    const transport: Transport = {
+      send: () => Promise.reject(new TransportError(`request failed for ${secret}`)),
+    }
+    init({
+      dsn,
+      transport,
+      debug: true,
+      onTransportError: () => {
+        throw new Error(`callback failed for ${secret}`)
+      },
+    })
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(2))
+
+    await captureException(new Error('boom'))
+
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('public-key')
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('monitor.example.com')
+    expect(warn).toHaveBeenCalledWith(
+      '[PMS Monitoring] Transport failed',
+      { envelopeType: 'event', message: 'PMS telemetry network request failed' },
+    )
   })
 
   it('resolves on a non-2xx response without retrying', async () => {

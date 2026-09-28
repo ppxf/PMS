@@ -64,7 +64,9 @@ export interface CaptureExceptionContext {
 
 export interface MonitoringInitOptions {
   dsn: string
+  debug?: boolean
   environment?: string
+  onTransportError?: (error: unknown, envelope: MonitoringEnvelope) => void | Promise<void>
   release?: string
   transport?: Transport
   fetch?: typeof globalThis.fetch

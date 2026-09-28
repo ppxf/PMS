@@ -1,20 +1,54 @@
 import { parseDsn } from './dsn.js'
 import { createEvent, truncate } from './event.js'
-import { HttpTransport } from './http-transport.js'
+import { HttpTransport, TransportError } from './http-transport.js'
 import type { CaptureExceptionContext, ClientState, MonitoringEnvelope, MonitoringInitOptions, Transport } from './types.js'
 
 let state: ClientState | undefined
 let activeTransport: Transport | undefined
 let activeFetcher: typeof globalThis.fetch | undefined
 let activeSdk: MonitoringInitOptions['sdk'] | undefined
+let activeDebug = false
+let activeOnTransportError: MonitoringInitOptions['onTransportError']
 
 const defaultSdk = { name: '@pms/monitoring-core', version: '0.1.0' } as const
 
-function sendEnvelope(envelope: MonitoringEnvelope): Promise<void> {
+function reportCallbackFailure(): void {
+  if (activeDebug) {
+    console.warn('[PMS Monitoring] Transport error callback failed')
+  }
+}
+
+function reportTransportError(error: unknown, envelope: MonitoringEnvelope): void {
+  if (activeDebug) {
+    const status = error instanceof TransportError &&
+      typeof error.status === 'number' && Number.isFinite(error.status)
+      ? error.status
+      : undefined
+    const message = error instanceof TransportError
+      ? status === undefined
+        ? 'PMS telemetry network request failed'
+        : `PMS telemetry request failed with HTTP ${status}`
+      : 'Custom transport failed'
+    console.warn('[PMS Monitoring] Transport failed', {
+      envelopeType: envelope.type,
+      message,
+      ...(status === undefined ? {} : { status }),
+    })
+  }
+
+  if (!activeOnTransportError) return
   try {
-    return Promise.resolve(activeTransport?.send(envelope)).then(() => undefined, () => undefined)
+    void Promise.resolve(activeOnTransportError(error, envelope)).catch(reportCallbackFailure)
   } catch {
-    return Promise.resolve()
+    reportCallbackFailure()
+  }
+}
+
+async function sendEnvelope(envelope: MonitoringEnvelope): Promise<void> {
+  try {
+    await activeTransport?.send(envelope)
+  } catch (error) {
+    reportTransportError(error, envelope)
   }
 }
 
@@ -32,6 +66,8 @@ export function init(options: MonitoringInitOptions): ClientState {
   if (state) {
     if (JSON.stringify(state) === JSON.stringify(next) &&
       (options.transport ? activeTransport === options.transport : activeFetcher === fetcher) &&
+      activeDebug === (options.debug ?? false) &&
+      activeOnTransportError === options.onTransportError &&
       activeSdk?.name === sdk.name && activeSdk.version === sdk.version) return state
     throw new Error('PMS monitoring client is already initialized with different options')
   }
@@ -40,6 +76,8 @@ export function init(options: MonitoringInitOptions): ClientState {
   activeTransport = options.transport ?? new HttpTransport(parsed.endpoint, parsed.publicKey, fetcher)
   activeFetcher = options.transport ? undefined : fetcher
   activeSdk = Object.freeze({ ...sdk })
+  activeDebug = options.debug ?? false
+  activeOnTransportError = options.onTransportError
   void sendEnvelope({
     version: 1,
     type: 'client_report',
@@ -74,4 +112,6 @@ export function resetClientForTests(): void {
   activeTransport = undefined
   activeFetcher = undefined
   activeSdk = undefined
+  activeDebug = false
+  activeOnTransportError = undefined
 }

@@ -45,6 +45,7 @@ describe('Vue monitoring error capture', () => {
 
     expect(sdk.HttpTransport).toBeTypeOf('function')
     expect(sdk.NoopTransport).toBeTypeOf('function')
+    expect(sdk.TransportError).toBeTypeOf('function')
   })
 
   it('identifies the Vue package in its client report', async () => {

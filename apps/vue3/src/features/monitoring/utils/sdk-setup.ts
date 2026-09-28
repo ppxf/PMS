@@ -11,6 +11,7 @@ const app = createApp(App)
 initPmsMonitoring({
   app,
   dsn: import.meta.env.VITE_PMS_DSN,
+  debug: import.meta.env.DEV,
   environment: import.meta.env.MODE,
 })
 

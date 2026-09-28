@@ -1,5 +1,15 @@
 import type { MonitoringEnvelope, Transport } from './types.js'
 
+export class TransportError extends Error {
+  readonly status?: number
+
+  constructor(message: string, options: { cause?: unknown; status?: number } = {}) {
+    super(message, options.cause === undefined ? undefined : { cause: options.cause })
+    this.name = 'TransportError'
+    this.status = options.status
+  }
+}
+
 export class HttpTransport implements Transport {
   constructor(
     private readonly endpoint: string,
@@ -8,8 +18,9 @@ export class HttpTransport implements Transport {
   ) {}
 
   async send(envelope: MonitoringEnvelope): Promise<void> {
+    let response: Response
     try {
-      const response = await this.fetcher(`${this.endpoint}/envelope`, {
+      response = await this.fetcher(`${this.endpoint}/envelope`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -17,9 +28,14 @@ export class HttpTransport implements Transport {
         },
         body: JSON.stringify(envelope),
       })
-      if (!response.ok) return
-    } catch {
-      // Telemetry cannot interrupt the host application.
+    } catch (cause) {
+      throw new TransportError('PMS telemetry network request failed', { cause })
+    }
+
+    if (!response.ok) {
+      throw new TransportError(`PMS telemetry request failed with HTTP ${response.status}`, {
+        status: response.status,
+      })
     }
   }
 }

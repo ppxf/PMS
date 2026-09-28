@@ -1,5 +1,5 @@
 export { captureException, getClientState, init } from './client.js'
-export { HttpTransport } from './http-transport.js'
+export { HttpTransport, TransportError } from './http-transport.js'
 export type {
   CaptureExceptionContext,
   ClientState,

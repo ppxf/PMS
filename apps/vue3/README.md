@@ -93,11 +93,15 @@ VITE_API_BASE_URL=http://localhost:3000/api
 ```ts
 import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'
 
-initPmsMonitoring({ app, dsn: import.meta.env.VITE_PMS_DSN })
+initPmsMonitoring({
+  app,
+  dsn: import.meta.env.VITE_PMS_DSN,
+  debug: import.meta.env.DEV,
+})
 captureException(new Error('PMS SDK test error'))
 ```
 
-初始化会发送一次连接报告，并启用 Vue、`window.error` 和 `unhandledrejection` 自动捕获。`captureException` 是手动验证或手动上报入口。SDK 使用 DSN 中的 public key 通过 `X-PMS-Key` 向 `/api/sdk/:projectId/envelope` 写入 Envelope；该 key 只有采集写权限，管理查询仍需 JWT 和资源所有权校验。允许上报的业务站点来源需加入后端统一的 `CORS_ORIGINS`，生产环境禁止配置 `*`。
+初始化会发送一次连接报告，并启用 Vue、`window.error` 和 `unhandledrejection` 自动捕获。`captureException` 是手动验证或手动上报入口。开发环境启用 `debug` 后，上报失败会在控制台输出不包含 DSN/public key 的诊断信息；如需结构化处理，可在初始化参数中提供 `onTransportError(error, envelope)`。SDK 使用 DSN 中的 public key 通过 `X-PMS-Key` 向 `/api/sdk/:projectId/envelope` 写入 Envelope；该 key 只有采集写权限，管理查询仍需 JWT 和资源所有权校验。允许上报的业务站点来源需加入后端统一的 `CORS_ORIGINS`，生产环境禁止配置 `*`。
 
 错误由服务端同步写入事件表，并按服务端 fingerprint 写入错误归组表；`eventId` 幂等。首版没有队列、重试、离线缓存、批量上报、Source Map、Tracing、Logging 或 Metrics。
 

@@ -12,6 +12,7 @@ describe('SDK setup helpers', () => {
       "import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'",
     )
     expect(snippet).toContain('dsn: import.meta.env.VITE_PMS_DSN')
+    expect(snippet).toContain('debug: import.meta.env.DEV')
     expect(snippet).toContain('environment: import.meta.env.MODE')
     expect(snippet).toContain("captureException(new Error('PMS SDK test error'))")
     expect(snippet).not.toContain('/api/sdk/check')
