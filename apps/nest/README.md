@@ -83,11 +83,11 @@ SDK 初始化会发送 `client_report` 并更新项目 `last_seen_at`。错误�
 DSN 的公开地址由下列变量决定：
 
 ```dotenv
-MONITORING_PUBLIC_URL=http://localhost:3001
-MONITORING_CORS_ORIGINS=http://localhost:3002
+PUBLIC_URL=http://localhost:3001
+CORS_ORIGINS=http://localhost:5173,http://localhost:3002
 ```
 
-`MONITORING_CORS_ORIGINS` 是允许浏览器 SDK 上报的逗号分隔来源列表，会与管理端 `CORS_ORIGINS` 合并。生产环境必须显式配置，且禁止使用 `*`。本地开发可使用 HTTP，生产环境必须为 `MONITORING_PUBLIC_URL` 配置 HTTPS 地址。
+`CORS_ORIGINS` 是统一的逗号分隔来源列表，同时允许管理端访问和浏览器 SDK 上报。生产环境必须显式配置，且禁止使用 `*`。本地开发可使用 HTTP，生产环境必须为 `PUBLIC_URL` 配置 HTTPS 地址。
 
 ## 数据库结构管理
 

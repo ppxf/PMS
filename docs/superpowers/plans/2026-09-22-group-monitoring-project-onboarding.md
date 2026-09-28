@@ -47,7 +47,7 @@
 
 - `src/users/entities/user.entity.ts`：补充 groups 关系。
 - `src/app.module.ts`：装配 GroupsModule 和 MonitoringProjectsModule。
-- `src/config/configuration.ts`、`env.validation.ts` 及测试：增加 `MONITORING_PUBLIC_URL`。
+- `src/config/configuration.ts`、`env.validation.ts` 及测试：增加 `PUBLIC_URL`。
 - `.env.example`、`README.md`：记录监控公开地址和接口。
 - `test/app.e2e-spec.ts`：增加完整所有权和连接校验流程。
 
@@ -96,7 +96,7 @@ expect(createSlug('中文项目', 'project')).toMatch(/^project-[a-z0-9]{6}$/)
 expect(configuration().monitoring.publicUrl).toBe('http://localhost:3001')
 ```
 
-生产环境验证测试必须断言缺少 `MONITORING_PUBLIC_URL` 时抛错，非 HTTPS 地址时抛错。
+生产环境验证测试必须断言缺少 `PUBLIC_URL` 时抛错，非 HTTPS 地址时抛错。
 
 - [x] **步骤 2：运行红灯测试**
 
@@ -106,7 +106,7 @@ expect(configuration().monitoring.publicUrl).toBe('http://localhost:3001')
 
 - [x] **步骤 3：实现最少代码**
 
-`createSlug(name, fallbackPrefix)` 对 ASCII 名称规范化；结果为空时用 `randomBytes(3).toString('hex')` 生成六位后缀。配置读取 `MONITORING_PUBLIC_URL`，开发默认 `http://localhost:3001`；生产环境要求 HTTPS。
+`createSlug(name, fallbackPrefix)` 对 ASCII 名称规范化；结果为空时用 `randomBytes(3).toString('hex')` 生成六位后缀。配置读取 `PUBLIC_URL`，开发默认 `http://localhost:3001`；生产环境要求 HTTPS。
 
 - [x] **步骤 4：运行绿灯测试**
 
@@ -425,7 +425,7 @@ expect(wrapper.text()).not.toContain('Replay')
 
 - [x] **步骤 5：更新文档**
 
-Nest README 记录 `MONITORING_PUBLIC_URL`、组/项目接口和公开 check 接口；Vue README 记录引导路由、项目创建默认值和本地 fetch 校验步骤。明确当前不采集事件。
+Nest README 记录 `PUBLIC_URL`、组/项目接口和公开 check 接口；Vue README 记录引导路由、项目创建默认值和本地 fetch 校验步骤。明确当前不采集事件。
 
 - [x] **步骤 6：运行完整质量门禁**
 

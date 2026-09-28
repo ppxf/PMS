@@ -181,10 +181,10 @@ POST /api/sdk/:projectId/envelope
 新增：
 
 ```dotenv
-MONITORING_CORS_ORIGINS=http://localhost:3002,https://app.example.com
+CORS_ORIGINS=http://localhost:5173,http://localhost:3002,https://app.example.com
 ```
 
-服务端 CORS 允许管理端 `CORS_ORIGINS` 与监控客户端 `MONITORING_CORS_ORIGINS` 的并集。生产环境禁止通配符。SDK 不发送 Cookie 或 JWT。
+服务端使用统一的 `CORS_ORIGINS` 允许管理端访问和监控客户端上报。生产环境禁止通配符。SDK 不发送 Cookie 或 JWT。
 
 ## 数据模型
 

@@ -463,7 +463,7 @@ git commit -m "feat: 接收并同步归组监控错误"
 
 - [ ] **步骤 1：编写失败的查询、权限、CORS 和 E2E 测试**
 
-测试列表默认 `page=1&pageSize=20`、最近发生倒序、详情最近 20 条事件、资源所有权过滤以及不属于用户的 issue 返回 404。配置测试断言监控来源与管理来源合并、生产环境拒绝 `MONITORING_CORS_ORIGINS=*`。
+测试列表默认 `page=1&pageSize=20`、最近发生倒序、详情最近 20 条事件、资源所有权过滤以及不属于用户的 issue 返回 404。配置测试断言统一的来源列表同时覆盖管理端和监控客户端，并在生产环境拒绝 `CORS_ORIGINS=*`。
 
 E2E 至少验证：合法 client report 更新连接状态；两个相同错误产生两条事件和一个 `eventCount=2` 的 Issue；另一个用户无法查询该 Issue。
 
@@ -490,7 +490,7 @@ Service 先通过 `findOwnedBySlug` 得到项目，再以 `project.id` 查询 Is
 
 - [ ] **步骤 4：实现 CORS 和 E2E 所需装配**
 
-配置增加 `monitoring.corsOrigins`；`main.ts` 将其与 `app.corsOrigins` 去重合并。生产校验要求 `MONITORING_CORS_ORIGINS` 存在且不包含 `*`。本地默认包含 `http://localhost:3002`。
+`main.ts` 统一使用 `app.corsOrigins`。生产校验要求 `CORS_ORIGINS` 存在且不包含 `*`，本地默认同时包含管理端和 `http://localhost:3002`。
 
 - [ ] **步骤 5：运行 Nest 完整验证**
 

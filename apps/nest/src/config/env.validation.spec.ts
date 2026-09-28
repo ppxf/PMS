@@ -30,8 +30,7 @@ describe('validateEnvironment authentication settings', () => {
       SMTP_FROM: 'PMS <no-reply@example.com>',
       APP_FRONTEND_URL: 'https://pms.example.com',
       CORS_ORIGINS: 'https://pms.example.com',
-      MONITORING_PUBLIC_URL: 'https://monitor.example.com',
-      MONITORING_CORS_ORIGINS: 'https://shop.example.com',
+      PUBLIC_URL: 'https://monitor.example.com',
     };
 
     expect(validateEnvironment(config)).toBe(config);
@@ -70,8 +69,7 @@ describe('validateEnvironment authentication settings', () => {
       SMTP_FROM: 'PMS <no-reply@example.com>',
       APP_FRONTEND_URL: 'https://pms.example.com',
       CORS_ORIGINS: 'https://pms.example.com',
-      MONITORING_PUBLIC_URL: 'https://monitor.example.com',
-      MONITORING_CORS_ORIGINS: 'https://shop.example.com',
+      PUBLIC_URL: 'https://monitor.example.com',
       EMAIL_VERIFICATION_EXPIRES_IN_MINUTES: '1440',
       PASSWORD_RESET_EXPIRES_IN_MINUTES: '30',
     };
@@ -108,8 +106,7 @@ describe('validateEnvironment authentication settings', () => {
         SMTP_FROM: 'PMS <no-reply@example.com>',
         APP_FRONTEND_URL: 'https://pms.example.com',
         CORS_ORIGINS: '*',
-        MONITORING_PUBLIC_URL: 'https://monitor.example.com',
-        MONITORING_CORS_ORIGINS: 'https://shop.example.com',
+        PUBLIC_URL: 'https://monitor.example.com',
       }),
     ).toThrow('CORS_ORIGINS');
   });
@@ -127,9 +124,8 @@ describe('validateEnvironment authentication settings', () => {
         SMTP_FROM: 'PMS <no-reply@example.com>',
         APP_FRONTEND_URL: 'https://pms.example.com',
         CORS_ORIGINS: 'https://pms.example.com',
-        MONITORING_CORS_ORIGINS: 'https://shop.example.com',
       }),
-    ).toThrow('MONITORING_PUBLIC_URL');
+    ).toThrow('PUBLIC_URL');
   });
 
   it('requires HTTPS for the production monitoring public URL', () => {
@@ -145,33 +141,26 @@ describe('validateEnvironment authentication settings', () => {
         SMTP_FROM: 'PMS <no-reply@example.com>',
         APP_FRONTEND_URL: 'https://pms.example.com',
         CORS_ORIGINS: 'https://pms.example.com',
-        MONITORING_CORS_ORIGINS: 'https://shop.example.com',
-        MONITORING_PUBLIC_URL: 'http://monitor.example.com',
+        PUBLIC_URL: 'http://monitor.example.com',
       }),
-    ).toThrow('MONITORING_PUBLIC_URL');
+    ).toThrow('PUBLIC_URL');
   });
 
-  it('requires explicit monitoring CORS origins in production', () => {
-    expect(() => validateEnvironment(completeProduction({ MONITORING_CORS_ORIGINS: undefined }))).toThrow(
-      'MONITORING_CORS_ORIGINS',
-    );
-  });
-
-  it.each(['   ', ', ,']) (
-    'rejects a production monitoring CORS allowlist without an effective origin: %p',
+  it.each(['   ', ', ,'])(
+    'rejects a production CORS allowlist without an effective origin: %p',
     (origins) => {
       expect(() =>
-        validateEnvironment(
-          completeProduction({ MONITORING_CORS_ORIGINS: origins }),
-        ),
-      ).toThrow('MONITORING_CORS_ORIGINS must contain at least one origin');
+        validateEnvironment(completeProduction({ CORS_ORIGINS: origins })),
+      ).toThrow('CORS_ORIGINS must contain at least one origin');
     },
   );
 
-  it('rejects a monitoring wildcard origin in production', () => {
-    expect(() => validateEnvironment(completeProduction({ MONITORING_CORS_ORIGINS: 'https://shop.example.com, *' }))).toThrow(
-      'MONITORING_CORS_ORIGINS',
-    );
+  it('rejects a wildcard among production CORS origins', () => {
+    expect(() =>
+      validateEnvironment(
+        completeProduction({ CORS_ORIGINS: 'https://pms.example.com, *' }),
+      ),
+    ).toThrow('CORS_ORIGINS');
   });
 });
 
@@ -187,8 +176,7 @@ function completeProduction(overrides: Record<string, unknown> = {}) {
     SMTP_FROM: 'PMS <no-reply@example.com>',
     APP_FRONTEND_URL: 'https://pms.example.com',
     CORS_ORIGINS: 'https://pms.example.com',
-    MONITORING_PUBLIC_URL: 'https://monitor.example.com',
-    MONITORING_CORS_ORIGINS: 'https://shop.example.com',
+    PUBLIC_URL: 'https://monitor.example.com',
     ...overrides,
   };
 }

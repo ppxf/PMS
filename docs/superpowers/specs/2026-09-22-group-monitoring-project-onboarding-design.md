@@ -68,7 +68,7 @@
 
 ## DSN 与本地校验
 
-后端通过 `MONITORING_PUBLIC_URL` 配置 DSN 主机：
+后端通过 `PUBLIC_URL` 配置 DSN 主机：
 
 - 本地示例：`http://localhost:3001`
 - 生产示例：`https://monitor.example.com`
@@ -210,7 +210,7 @@ SDK 指引页展示单包 tarball 安装命令、`VITE_PMS_DSN` 环境变量和 
 新增：
 
 ```env
-MONITORING_PUBLIC_URL=http://localhost:3001
+PUBLIC_URL=http://localhost:3001
 ```
 
 生产环境必须显式配置 HTTPS 地址。本地默认值与 Nest 开发服务地址一致。

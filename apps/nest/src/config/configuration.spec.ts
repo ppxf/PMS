@@ -6,8 +6,7 @@ describe('configuration CORS settings', () => {
   beforeEach(() => {
     process.env = { ...originalEnvironment };
     delete process.env.CORS_ORIGINS;
-    delete process.env.MONITORING_CORS_ORIGINS;
-    delete process.env.MONITORING_PUBLIC_URL;
+    delete process.env.PUBLIC_URL;
   });
 
   afterAll(() => {
@@ -20,33 +19,30 @@ describe('configuration CORS settings', () => {
     expect(configuration().app.corsOrigins).toEqual([
       'http://localhost:5173',
       'http://127.0.0.1:5173',
-    ]);
-    expect(configuration().monitoring.corsOrigins).toEqual([
       'http://localhost:3002',
     ]);
-  });
-
-  it('normalizes a separate monitoring SDK origin allowlist', () => {
-    process.env.MONITORING_CORS_ORIGINS =
-      ' https://shop.example.com, , https://checkout.example.com ';
-
-    expect(configuration().monitoring.corsOrigins).toEqual([
-      'https://shop.example.com',
-      'https://checkout.example.com',
-    ]);
+    expect(configuration().monitoring).not.toHaveProperty('corsOrigins');
   });
 
   it('normalizes a comma-separated origin allowlist', () => {
     process.env.CORS_ORIGINS =
-      ' https://pms.example.com, https://admin.example.com ';
+      ' https://pms.example.com, , https://shop.example.com ';
 
     expect(configuration().app.corsOrigins).toEqual([
       'https://pms.example.com',
-      'https://admin.example.com',
+      'https://shop.example.com',
     ]);
   });
 
   it('uses the local monitoring address by default', () => {
     expect(configuration().monitoring.publicUrl).toBe('http://localhost:3001');
+  });
+
+  it('uses PUBLIC_URL as the monitoring address', () => {
+    process.env.PUBLIC_URL = 'https://monitor.example.com';
+
+    expect(configuration().monitoring.publicUrl).toBe(
+      'https://monitor.example.com',
+    );
   });
 });
