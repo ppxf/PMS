@@ -52,7 +52,27 @@ export interface MonitoringIssueSummary {
   firstSeenAt: string
   lastSeenAt: string
   environment: string | null
-  release: string | null
+}
+
+export interface BrowserEventContexts {
+  request?: { headers: Record<string, string>; cookies: Record<string, string> }
+  browser?: { name?: string; version?: string; userAgent?: string }
+  os?: { name?: string }
+  device?: {
+    platform?: string
+    screenWidth?: number
+    screenHeight?: number
+    viewportWidth?: number
+    viewportHeight?: number
+    pixelRatio?: number
+  }
+  culture?: { locale?: string; languages?: string[]; timezone?: string }
+  memory?: {
+    usedJSHeapSize?: number
+    totalJSHeapSize?: number
+    jsHeapSizeLimit?: number
+    deviceMemoryGiB?: number
+  }
 }
 
 export interface MonitoringEventDetail {
@@ -67,8 +87,8 @@ export interface MonitoringEventDetail {
   stacktrace: string | null
   url: string | null
   environment: string | null
-  release: string | null
   tags: Record<string, string>
+  contexts?: BrowserEventContexts
 }
 
 export interface MonitoringIssueDetail extends MonitoringIssueSummary {

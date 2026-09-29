@@ -86,8 +86,8 @@ export class MonitoringEventsService {
           stacktrace: event.exception.stacktrace ?? null,
           url: event.url ?? null,
           environment: event.environment ?? null,
-          release: event.release ?? null,
           tags: event.tags ?? {},
+          contexts: event.contexts ? { ...event.contexts } : {},
         });
         await manager.update(MonitoringErrorIssue, issue.id, {
           latestEventId: event.eventId,
@@ -127,7 +127,7 @@ export class MonitoringEventsService {
       select: {
         id: true, title: true, exceptionType: true, culprit: true, status: true,
         eventCount: true, firstSeenAt: true, lastSeenAt: true,
-        latestEvent: { environment: true, release: true },
+        latestEvent: { environment: true },
       },
       order: { lastSeenAt: 'DESC' },
       skip: (query.page - 1) * query.pageSize,
@@ -177,7 +177,6 @@ export class MonitoringEventsService {
       culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
       firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
       environment: issue.latestEvent?.environment ?? null,
-      release: issue.latestEvent?.release ?? null,
     };
   }
 
@@ -185,14 +184,14 @@ export class MonitoringEventsService {
     return {
       id: true, timestamp: true, receivedAt: true, source: true, level: true,
       message: true, exceptionType: true, exceptionValue: true, stacktrace: true,
-      url: true, environment: true, release: true, tags: true,
+      url: true, environment: true, tags: true, contexts: true,
     } as const;
   }
 
   private toEvent(event: MonitoringEvent) {
     const { id, timestamp, receivedAt, source, level, message, exceptionType,
-      exceptionValue, stacktrace, url, environment, release, tags } = event;
+      exceptionValue, stacktrace, url, environment, tags, contexts } = event;
     return { id, timestamp, receivedAt, source, level, message, exceptionType,
-      exceptionValue, stacktrace, url, environment, release, tags };
+      exceptionValue, stacktrace, url, environment, tags, contexts };
   }
 }

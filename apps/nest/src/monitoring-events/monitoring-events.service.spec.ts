@@ -40,8 +40,11 @@ function errorEnvelope(eventId = firstEventId): IngestEnvelopeDto {
       },
       url: 'https://example.com/page',
       environment: 'production',
-      release: '1.0.0',
       tags: { component: 'App' },
+      contexts: {
+        request: { headers: { 'User-Agent': 'Mozilla/5.0' }, cookies: { session_id: '[Filtered]' } },
+        browser: { name: 'Chrome', version: '152.0.0.0' },
+      },
     },
   };
 }
@@ -314,8 +317,8 @@ describe('MonitoringEventsService', () => {
       stacktrace: 'TypeError: Render failed\n    at render (app.js:1:1)',
       url: 'https://example.com/page',
       environment: 'production',
-      release: '1.0.0',
       tags: { component: 'App' },
+      contexts: errorEnvelope().event!.contexts,
     });
     expect(app.state().projects[0].lastSeenAt).toEqual(
       new Date('2026-09-23T03:01:00.000Z'),
@@ -480,15 +483,15 @@ describe('MonitoringEventsService', () => {
     delete input.event!.exception.stacktrace;
     delete input.event!.url;
     delete input.event!.environment;
-    delete input.event!.release;
     delete input.event!.tags;
+    delete input.event!.contexts;
     await app.service.ingest(projectId, publicKey, input);
     expect(app.state().events[0]).toMatchObject({
       stacktrace: null,
       url: null,
       environment: null,
-      release: null,
       tags: {},
+      contexts: {},
     });
     expect(app.state().issues[0].culprit).toBeNull();
   });
@@ -526,7 +529,6 @@ describe('MonitoringEventsService management queries', () => {
     latestEvent: Object.assign(new MonitoringEvent(), {
       id: secondEventId,
       environment: 'production',
-      release: '1.0.0',
     }),
   });
 
@@ -547,7 +549,8 @@ describe('MonitoringEventsService management queries', () => {
         source: 'vue', level: 'error', message: 'Render failed',
         exceptionType: 'TypeError', exceptionValue: 'Cannot render',
         stacktrace: 'stack', url: 'https://example.com',
-        environment: 'production', release: '1.0.0', tags: { component: 'App' },
+        environment: 'production', tags: { component: 'App' },
+        contexts: { browser: { name: 'Chrome' } },
       }),
     ];
     const eventRepository = { find: jest.fn().mockResolvedValue(recentEvents) };
@@ -575,7 +578,7 @@ describe('MonitoringEventsService management queries', () => {
         culprit: 'at render', status: 'unresolved', eventCount: 2,
         firstSeenAt: new Date('2026-09-23T02:00:00.000Z'),
         lastSeenAt: new Date('2026-09-23T03:00:00.000Z'),
-        environment: 'production', release: '1.0.0',
+        environment: 'production',
       }],
       total: 1, page: 2, pageSize: 10,
     });

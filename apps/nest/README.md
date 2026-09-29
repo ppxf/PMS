@@ -95,6 +95,14 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:3002
 
 正式部署生产环境前，需要基于届时确认的全部实体统一生成并审查一份完整数据库基线 migration，覆盖用户、认证令牌、组、监控项目、错误归组和错误事件等全部表、外键、约束与索引。生产环境必须保持 `DB_SYNCHRONIZE=false`，并通过部署流程显式执行该完整 migration。
 
+已有数据库升级浏览器错误上下文结构时，需要执行以下等价变更：
+
+```sql
+ALTER TABLE monitoring_events DROP COLUMN IF EXISTS release;
+ALTER TABLE monitoring_events
+  ADD COLUMN IF NOT EXISTS contexts jsonb NOT NULL DEFAULT '{}'::jsonb;
+```
+
 ## 首版限制
 
 当前不支持队列、自动重试、离线缓存、批量上报、Source Map、Tracing、Logging 或 Metrics，也不兼容 Sentry Envelope。仓库测试覆盖服务与仓储替身上的事务和查询契约，但尚未提供真实 PostgreSQL 集成测试证据。

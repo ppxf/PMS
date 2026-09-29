@@ -23,6 +23,9 @@ describe('monitoring core initialization and capture', () => {
   beforeEach(() => {
     resetClientForTests()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 202 })))
+    vi.stubGlobal('location', { href: 'https://app.example.com/page' })
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 Chrome/152.0.0.0', language: 'zh-CN', languages: ['zh-CN'] })
+    vi.stubGlobal('document', { referrer: '', cookie: '' })
   })
   afterEach(() => {
     vi.restoreAllMocks()
@@ -33,7 +36,6 @@ describe('monitoring core initialization and capture', () => {
     const state = init({
       dsn: 'https://public-key@monitor.example.com/api/sdk/550e8400-e29b-41d4-a716-446655440000/',
       environment: 'production',
-      release: 'web@1.2.0',
     })
 
     expect(state).toEqual({
@@ -43,7 +45,6 @@ describe('monitoring core initialization and capture', () => {
       publicKey: 'public-key',
       projectId: '550e8400-e29b-41d4-a716-446655440000',
       environment: 'production',
-      release: 'web@1.2.0',
     })
     expect(getClientState()).toEqual(state)
   })
@@ -97,8 +98,8 @@ describe('monitoring core initialization and capture', () => {
 
   it('sends one client report to the DSN envelope endpoint on init', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
-    init({ dsn, fetch: fetcher, environment: 'production', release: 'web@1.2.0' })
-    init({ dsn: `${dsn}/`, fetch: fetcher, environment: 'production', release: 'web@1.2.0' })
+    init({ dsn, fetch: fetcher, environment: 'production' })
+    init({ dsn: `${dsn}/`, fetch: fetcher, environment: 'production' })
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
 
     expect(fetcher).toHaveBeenCalledWith(
@@ -116,7 +117,6 @@ describe('monitoring core initialization and capture', () => {
       type: 'client_report',
       sdk: { name: '@pms/monitoring-core', version: '0.1.0' },
       environment: 'production',
-      release: 'web@1.2.0',
     })
   })
 
@@ -163,10 +163,9 @@ describe('monitoring core initialization and capture', () => {
 
   it('normalizes and sends an exception event', async () => {
     const transport = new RecordingTransport()
-    init({ dsn, transport, environment: 'production', release: 'web@1.2.0' })
+    init({ dsn, transport, environment: 'production' })
     await captureException(new TypeError('boom'), {
       source: 'manual',
-      url: 'https://app.example.com/page',
       tags: { section: 'checkout' },
     })
 
@@ -180,8 +179,10 @@ describe('monitoring core initialization and capture', () => {
       exception: { type: 'TypeError', value: 'boom' },
       url: 'https://app.example.com/page',
       environment: 'production',
-      release: 'web@1.2.0',
       tags: { section: 'checkout' },
+      contexts: expect.objectContaining({
+        browser: expect.objectContaining({ name: 'Chrome', version: '152.0.0.0' }),
+      }),
     })
     expect(transport.eventEnvelopes[0]?.event.eventId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     expect(Date.parse(transport.eventEnvelopes[0]?.event.timestamp ?? '')).not.toBeNaN()
@@ -219,12 +220,13 @@ describe('monitoring core initialization and capture', () => {
 
   it('caps event fields and tag count at the protocol limits', async () => {
     const transport = new RecordingTransport()
-    init({ dsn, transport, environment: 'e'.repeat(200), release: 'r'.repeat(200) })
+    init({ dsn, transport, environment: 'e'.repeat(200) })
+    vi.stubGlobal('location', { href: `https://example.com/${'u'.repeat(2200)}` })
     const error = new Error('m'.repeat(2100))
     error.name = 'T'.repeat(200)
     error.stack = 's'.repeat(70_000)
     const tags = Object.fromEntries(Array.from({ length: 55 }, (_, index) => [`key-${index}-${'k'.repeat(70)}`, 'v'.repeat(300)]))
-    await captureException(error, { source: 'manual', url: 'u'.repeat(2200), tags })
+    await captureException(error, { source: 'manual', tags })
 
     const event = transport.eventEnvelopes[0]?.event
     expect(event?.message).toHaveLength(2_000)
@@ -233,7 +235,6 @@ describe('monitoring core initialization and capture', () => {
     expect(event?.exception.stacktrace).toHaveLength(65_536)
     expect(event?.url).toHaveLength(2_048)
     expect(event?.environment).toHaveLength(128)
-    expect(event?.release).toHaveLength(128)
     expect(Object.entries(event?.tags ?? {})).toHaveLength(50)
     expect(Object.keys(event?.tags ?? {})[0]).toHaveLength(64)
     expect(Object.values(event?.tags ?? {})[0]).toHaveLength(256)

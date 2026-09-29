@@ -62,4 +62,35 @@ describe('HTTP authentication', () => {
     expect(reasons[0]).toBeInstanceOf(AppError)
     expect(reasons[1]).toBeInstanceOf(AppError)
   })
+
+  it('rejects a 401 response without waiting for unauthorized navigation to finish', async () => {
+    configureHttpAuthProvider({
+      getAccessToken: () => 'expired',
+      onUnauthorized: () => new Promise<void>(() => undefined),
+    })
+    axiosInstance.defaults.adapter = (config) => {
+      const response = {
+        config,
+        data: { success: false, statusCode: 401, message: 'Unauthorized' },
+        headers: {},
+        status: 401,
+        statusText: 'Unauthorized',
+      }
+      return Promise.reject(
+        new AxiosError(
+          'Unauthorized',
+          'ERR_BAD_REQUEST',
+          { ...config, headers: config.headers ?? new AxiosHeaders() },
+          undefined,
+          response,
+        ),
+      )
+    }
+
+    let rejection: unknown
+    void http.get('/protected').catch((error: unknown) => {
+      rejection = error
+    })
+    await vi.waitFor(() => expect(rejection).toBeInstanceOf(AppError))
+  })
 })

@@ -1,9 +1,16 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 import { validateSync } from 'class-validator';
 import {
+  BrowserContextDto,
+  BrowserEventContextsDto,
+  CultureContextDto,
+  DeviceContextDto,
   ErrorExceptionDto,
   IngestEnvelopeDto,
+  MemoryContextDto,
   MonitoringErrorEventDto,
+  OperatingSystemContextDto,
+  RequestContextDto,
   SdkMetadataDto,
 } from './dto/ingest-envelope.dto';
 
@@ -24,6 +31,39 @@ function rawObject(
   return value as Record<string, unknown>;
 }
 
+function safeMap(value: unknown, path: string): Record<string, unknown> {
+  const map = rawObject(value, path);
+  if (Object.keys(map).some((key) => ['__proto__', 'prototype', 'constructor'].includes(key))) {
+    throw new BadRequestException(`${path} contains a reserved key`);
+  }
+  return map;
+}
+
+const sensitiveNameParts = [
+  'authorization', 'cookie', 'set-cookie', 'token', 'session', 'password',
+  'passwd', 'secret', 'credential', 'jwt', 'auth',
+];
+
+function sanitizeContextMap(value: unknown, path: string): Record<string, string> {
+  const map = safeMap(value, path);
+  return Object.fromEntries(Object.entries(map).map(([key, entry]) => [
+    key,
+    sensitiveNameParts.some((part) => key.toLowerCase().includes(part))
+      ? '[Filtered]'
+      : entry,
+  ])) as Record<string, string>;
+}
+
+function contextValue<T extends object>(
+  contexts: Record<string, unknown>,
+  key: string,
+  allowedKeys: readonly string[],
+  Type: new () => T,
+): T | undefined {
+  if (contexts[key] === undefined) return undefined;
+  return Object.assign(new Type(), rawObject(contexts[key], `contexts.${key}`, allowedKeys));
+}
+
 @Injectable()
 export class IngestEnvelopePipe implements PipeTransform<
   unknown,
@@ -37,7 +77,7 @@ export class IngestEnvelopePipe implements PipeTransform<
       root,
       'envelope',
       root.type === 'client_report'
-        ? ['version', 'type', 'sentAt', 'sdk', 'environment', 'release']
+        ? ['version', 'type', 'sentAt', 'sdk', 'environment']
         : ['version', 'type', 'sentAt', 'event'],
     );
     const envelope = Object.assign(new IngestEnvelopeDto(), root);
@@ -52,8 +92,8 @@ export class IngestEnvelopePipe implements PipeTransform<
         'exception',
         'url',
         'environment',
-        'release',
         'tags',
+        'contexts',
       ]);
       envelope.event = Object.assign(new MonitoringErrorEventDto(), event);
       if (event.exception !== undefined) {
@@ -67,14 +107,29 @@ export class IngestEnvelopePipe implements PipeTransform<
         );
       }
       if (event.tags !== undefined) {
-        const tags = rawObject(event.tags, 'tags');
-        if (
-          Object.keys(tags).some((key) =>
-            ['__proto__', 'prototype', 'constructor'].includes(key),
-          )
-        ) {
-          throw new BadRequestException('tags contains a reserved key');
+        safeMap(event.tags, 'tags');
+      }
+      if (event.contexts !== undefined) {
+        const contexts = rawObject(event.contexts, 'contexts', [
+          'request', 'browser', 'os', 'device', 'culture', 'memory',
+        ]);
+        const dto = Object.assign(new BrowserEventContextsDto(), contexts);
+        if (contexts.request !== undefined) {
+          const request = rawObject(contexts.request, 'contexts.request', ['headers', 'cookies']);
+          dto.request = Object.assign(new RequestContextDto(), request);
+          if (request.headers !== undefined) dto.request.headers = sanitizeContextMap(request.headers, 'contexts.request.headers');
+          if (request.cookies !== undefined) dto.request.cookies = sanitizeContextMap(request.cookies, 'contexts.request.cookies');
         }
+        dto.browser = contextValue(contexts, 'browser', ['name', 'version', 'userAgent'], BrowserContextDto);
+        dto.os = contextValue(contexts, 'os', ['name'], OperatingSystemContextDto);
+        dto.device = contextValue(contexts, 'device', [
+          'platform', 'screenWidth', 'screenHeight', 'viewportWidth', 'viewportHeight', 'pixelRatio',
+        ], DeviceContextDto);
+        dto.culture = contextValue(contexts, 'culture', ['locale', 'languages', 'timezone'], CultureContextDto);
+        dto.memory = contextValue(contexts, 'memory', [
+          'usedJSHeapSize', 'totalJSHeapSize', 'jsHeapSizeLimit', 'deviceMemoryGiB',
+        ], MemoryContextDto);
+        envelope.event.contexts = dto;
       }
     }
     if (root.sdk !== undefined) {

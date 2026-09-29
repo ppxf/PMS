@@ -187,7 +187,7 @@ describe('AppController (e2e)', () => {
       source: event.source, level: event.level, message: event.message,
       exceptionType: event.exceptionType, exceptionValue: event.exceptionValue,
       stacktrace: event.stacktrace, url: event.url, environment: event.environment,
-      release: event.release, tags: event.tags,
+      tags: event.tags, contexts: event.contexts,
     });
     const eventsService = {
       ingest: jest.fn((id: string, key: string | undefined, envelope: any) => {
@@ -226,8 +226,8 @@ describe('AppController (e2e)', () => {
           level: event.level, message: event.message,
           exceptionType: event.exception.type, exceptionValue: event.exception.value,
           stacktrace: event.exception.stacktrace ?? null, url: event.url ?? null,
-          environment: event.environment ?? null, release: event.release ?? null,
-          tags: event.tags ?? {},
+          environment: event.environment ?? null, tags: event.tags ?? {},
+          contexts: event.contexts ?? {},
         };
         events.push(stored);
         issue.latestEventId = stored.id;
@@ -250,7 +250,6 @@ describe('AppController (e2e)', () => {
               culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
               firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
               environment: latest?.environment ?? null,
-              release: latest?.release ?? null,
             };
           }),
           total: scoped.length, page: query.page, pageSize: query.pageSize,
@@ -268,7 +267,6 @@ describe('AppController (e2e)', () => {
           culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
           firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
           environment: latestEvent?.environment ?? null,
-          release: latestEvent?.release ?? null,
           latestEvent: latestEvent ? toEventResponse(latestEvent) : null,
           recentEvents: recentEvents.map(toEventResponse),
         };
@@ -441,7 +439,12 @@ describe('AppController (e2e)', () => {
         eventId: '40000000-0000-4000-8000-000000000001',
         timestamp: '2026-09-23T02:59:58.000Z', type: 'error', level: 'error', source: 'vue',
         message: 'Render failed', exception: { type: 'TypeError', value: 'Cannot render', stacktrace: 'at render' },
-        url: 'https://shop.example.com', environment: 'production', release: '1.0.0', tags: { component: 'App' },
+        url: 'https://shop.example.com', environment: 'production', tags: { component: 'App' },
+        contexts: {
+          request: { headers: { 'User-Agent': 'Mozilla/5.0' }, cookies: { session_id: '[Filtered]' } },
+          browser: { name: 'Chrome', version: '152.0.0.0' },
+          memory: { usedJSHeapSize: 1048576 },
+        },
       },
     };
     await request(app.getHttpServer()).post(`/sdk/${project.id}/envelope`)
@@ -461,14 +464,15 @@ describe('AppController (e2e)', () => {
       .send({ ...baseEnvelope, event: { ...baseEnvelope.event, eventId: '40000000-0000-4000-8000-000000000002' } }).expect(202);
     const list = await request(app.getHttpServer()).get('/groups/acme-team/projects/web/issues')
       .set('Authorization', `Bearer ${ownerToken}`).expect(200);
-    expect(list.body.data).toMatchObject({ total: 1, page: 1, pageSize: 20, items: [{ eventCount: 2, environment: 'production', release: '1.0.0' }] });
+    expect(list.body.data).toMatchObject({ total: 1, page: 1, pageSize: 20, items: [{ eventCount: 2, environment: 'production' }] });
+    expect(list.body.data.items[0]).not.toHaveProperty('release');
     const issueId = list.body.data.items[0].id as string;
     await request(app.getHttpServer()).get(`/groups/acme-team/projects/web/issues/${issueId}`)
       .set('Authorization', `Bearer ${ownerToken}`).expect(200)
       .expect((response: Response) => {
         expect(response.body.data).toMatchObject({
           id: issueId,
-          latestEvent: { release: '1.0.0' },
+          latestEvent: { contexts: baseEnvelope.event.contexts },
         });
         expect(response.body.data.recentEvents).toHaveLength(2);
         expect(response.body.data.recentEvents[0]).toMatchObject({
@@ -517,7 +521,7 @@ describe('AppController (e2e)', () => {
         receivedAt, source: 'vue', level: 'error', message: `Issue ${index}`,
         exceptionType: 'Error', exceptionValue: `Issue ${index}`,
         stacktrace: null, url: null, environment: `env-${index}`,
-        release: null, tags: {},
+        tags: {}, contexts: {},
       });
     }
 
@@ -540,7 +544,7 @@ describe('AppController (e2e)', () => {
       .get('/groups/acme-team/projects/web/issues?page=2&pageSize=10')
       .set('Authorization', `Bearer ${token}`).expect(200);
     expect(nullableList.body.data.items[1]).toMatchObject({
-      id: nullableIssueId, environment: null, release: null,
+      id: nullableIssueId, environment: null,
     });
     await request(app.getHttpServer())
       .get(`/groups/acme-team/projects/web/issues/${nullableIssueId}`)

@@ -55,7 +55,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'dashboard',
         component: () => import('@/features/dashboard/views/DashboardView.vue'),
         meta: {
-          title: '工作台',
+          title: '首页',
           requiresAuth: true,
         },
       },
@@ -78,6 +78,13 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '创建监控项目', requiresAuth: true },
       },
       {
+        path: 'groups/:groupSlug/projects/:projectSlug',
+        redirect: (to) => ({
+          name: 'project-setup',
+          params: { groupSlug: to.params.groupSlug, projectSlug: to.params.projectSlug },
+        }),
+      },
+      {
         path: 'groups/:groupSlug/projects/:projectSlug/setup',
         name: 'project-setup',
         component: () => import('@/features/monitoring/views/ProjectSetupView.vue'),
@@ -96,7 +103,7 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '错误详情', requiresAuth: true },
       },
       {
-        path: 'groups/:groupSlug/projects/:projectSlug',
+        path: 'groups/:groupSlug/projects/:projectSlug/config',
         name: 'project-detail',
         component: () => import('@/features/monitoring/views/ProjectDetailView.vue'),
         meta: { title: '监控项目', requiresAuth: true },

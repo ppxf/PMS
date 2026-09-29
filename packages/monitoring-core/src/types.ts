@@ -8,6 +8,50 @@ export interface MonitoringException {
   stacktrace?: string
 }
 
+export interface RequestContext {
+  headers: Record<string, string>
+  cookies: Record<string, string>
+}
+
+export interface BrowserContext {
+  name?: string
+  version?: string
+  userAgent?: string
+}
+
+export interface OperatingSystemContext { name?: string }
+
+export interface DeviceContext {
+  platform?: string
+  screenWidth?: number
+  screenHeight?: number
+  viewportWidth?: number
+  viewportHeight?: number
+  pixelRatio?: number
+}
+
+export interface CultureContext {
+  locale?: string
+  languages?: string[]
+  timezone?: string
+}
+
+export interface MemoryContext {
+  usedJSHeapSize?: number
+  totalJSHeapSize?: number
+  jsHeapSizeLimit?: number
+  deviceMemoryGiB?: number
+}
+
+export interface BrowserEventContexts {
+  request?: RequestContext
+  browser?: BrowserContext
+  os?: OperatingSystemContext
+  device?: DeviceContext
+  culture?: CultureContext
+  memory?: MemoryContext
+}
+
 export interface MonitoringEvent {
   eventId: string
   timestamp: string
@@ -18,8 +62,8 @@ export interface MonitoringEvent {
   exception: MonitoringException
   url?: string
   environment?: string
-  release?: string
   tags?: Record<string, string>
+  contexts?: BrowserEventContexts
 }
 
 export interface MonitoringSdkMetadata {
@@ -33,7 +77,6 @@ export interface ClientReportEnvelope {
   sentAt: string
   sdk: MonitoringSdkMetadata
   environment?: string
-  release?: string
 }
 
 export interface EventEnvelope {
@@ -58,7 +101,6 @@ export class NoopTransport implements Transport {
 
 export interface CaptureExceptionContext {
   source?: MonitoringEventSource
-  url?: string
   tags?: Record<string, string>
 }
 
@@ -67,7 +109,6 @@ export interface MonitoringInitOptions {
   debug?: boolean
   environment?: string
   onTransportError?: (error: unknown, envelope: MonitoringEnvelope) => void | Promise<void>
-  release?: string
   transport?: Transport
   fetch?: typeof globalThis.fetch
   sdk?: MonitoringSdkMetadata
@@ -80,5 +121,4 @@ export interface ClientState {
   publicKey: string
   projectId: string
   environment?: string
-  release?: string
 }

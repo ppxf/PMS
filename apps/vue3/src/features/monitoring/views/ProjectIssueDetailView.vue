@@ -29,6 +29,24 @@ function formatDate(value: string | null | undefined): string {
 }
 
 const tags = computed(() => Object.entries(issue.value?.latestEvent?.tags ?? {}))
+const requestHeaders = computed(() => sortedEntries(issue.value?.latestEvent?.contexts?.request?.headers))
+const requestCookies = computed(() => sortedEntries(issue.value?.latestEvent?.contexts?.request?.cookies))
+
+function sortedEntries(value: Record<string, string> | undefined): [string, string][] {
+  return Object.entries(value ?? {}).sort(([left], [right]) => left.localeCompare(right))
+}
+
+function formatBytes(value: number | undefined): string {
+  if (value === undefined) return '-'
+  if (value < 1024) return `${value} B`
+  if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KiB`
+  return `${(value / 1024 ** 2).toFixed(1)} MiB`
+}
+
+function formatBrowser(): string {
+  const browser = issue.value?.latestEvent?.contexts?.browser
+  return [browser?.name, browser?.version].filter(Boolean).join(' ') || '-'
+}
 
 async function loadIssue(): Promise<void> {
   error.value = ''
@@ -79,7 +97,6 @@ onMounted(loadIssue)
             <div><dt class="text-muted-foreground">来源</dt><dd>{{ issue.latestEvent.source }}</dd></div>
             <div><dt class="text-muted-foreground">URL</dt><dd class="break-all">{{ issue.latestEvent.url ?? '-' }}</dd></div>
             <div><dt class="text-muted-foreground">环境</dt><dd>{{ issue.latestEvent.environment ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">版本</dt><dd>{{ issue.latestEvent.release ?? '-' }}</dd></div>
           </dl>
           <div>
             <h3 class="mb-2 text-sm font-medium">标签</h3>
@@ -99,19 +116,72 @@ onMounted(loadIssue)
       </Card>
 
       <Card>
+        <CardHeader><CardTitle class="text-base">请求信息</CardTitle></CardHeader>
+        <CardContent class="space-y-5">
+          <div>
+            <h3 class="mb-2 text-sm font-medium">URL</h3>
+            <p class="break-all text-sm">{{ issue.latestEvent?.url ?? '-' }}</p>
+          </div>
+          <div>
+            <h3 class="mb-2 text-sm font-medium">Headers</h3>
+            <dl v-if="requestHeaders.length" class="space-y-2 text-sm">
+              <div v-for="[key, value] in requestHeaders" :key="key" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
+                <dt class="text-muted-foreground">{{ key }}</dt><dd class="break-all">{{ value }}</dd>
+              </div>
+            </dl>
+            <p v-else class="text-sm text-muted-foreground">-</p>
+          </div>
+          <div>
+            <h3 class="mb-2 text-sm font-medium">Cookies</h3>
+            <dl v-if="requestCookies.length" class="space-y-2 text-sm">
+              <div v-for="[key, value] in requestCookies" :key="key" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
+                <dt class="text-muted-foreground">{{ key }}</dt><dd class="break-all">{{ value }}</dd>
+              </div>
+            </dl>
+            <p v-else class="text-sm text-muted-foreground">-</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle class="text-base">浏览器上下文</CardTitle></CardHeader>
+        <CardContent class="grid gap-6 lg:grid-cols-2">
+          <dl class="grid gap-3 text-sm sm:grid-cols-2">
+            <div><dt class="text-muted-foreground">浏览器</dt><dd>{{ formatBrowser() }}</dd></div>
+            <div><dt class="text-muted-foreground">操作系统</dt><dd>{{ issue.latestEvent?.contexts?.os?.name ?? '-' }}</dd></div>
+            <div><dt class="text-muted-foreground">平台</dt><dd>{{ issue.latestEvent?.contexts?.device?.platform ?? '-' }}</dd></div>
+            <div><dt class="text-muted-foreground">屏幕</dt><dd>{{ issue.latestEvent?.contexts?.device?.screenWidth ?? '-' }} × {{ issue.latestEvent?.contexts?.device?.screenHeight ?? '-' }}</dd></div>
+            <div><dt class="text-muted-foreground">视口</dt><dd>{{ issue.latestEvent?.contexts?.device?.viewportWidth ?? '-' }} × {{ issue.latestEvent?.contexts?.device?.viewportHeight ?? '-' }}</dd></div>
+            <div><dt class="text-muted-foreground">像素比</dt><dd>{{ issue.latestEvent?.contexts?.device?.pixelRatio ?? '-' }}</dd></div>
+            <div><dt class="text-muted-foreground">语言</dt><dd>{{ issue.latestEvent?.contexts?.culture?.locale ?? '-' }}</dd></div>
+            <div><dt class="text-muted-foreground">语言列表</dt><dd>{{ issue.latestEvent?.contexts?.culture?.languages?.join(', ') || '-' }}</dd></div>
+            <div><dt class="text-muted-foreground">时区</dt><dd>{{ issue.latestEvent?.contexts?.culture?.timezone ?? '-' }}</dd></div>
+          </dl>
+          <div>
+            <h3 class="mb-3 text-sm font-medium">内存</h3>
+            <dl class="grid gap-3 text-sm sm:grid-cols-2">
+              <div><dt class="text-muted-foreground">JS 堆已用</dt><dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.usedJSHeapSize) }}</dd></div>
+              <div><dt class="text-muted-foreground">JS 堆总量</dt><dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.totalJSHeapSize) }}</dd></div>
+              <div><dt class="text-muted-foreground">JS 堆上限</dt><dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.jsHeapSizeLimit) }}</dd></div>
+              <div><dt class="text-muted-foreground">设备内存</dt><dd>{{ issue.latestEvent?.contexts?.memory?.deviceMemoryGiB !== undefined ? `${issue.latestEvent.contexts.memory.deviceMemoryGiB} GiB` : '-' }}</dd></div>
+            </dl>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle class="text-base">最近事件</CardTitle></CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>时间</TableHead><TableHead>来源</TableHead><TableHead>环境</TableHead><TableHead>版本</TableHead><TableHead>信息</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>时间</TableHead><TableHead>来源</TableHead><TableHead>环境</TableHead><TableHead>信息</TableHead></TableRow></TableHeader>
             <TableBody>
               <TableRow v-for="event in issue.recentEvents" :key="event.id">
                 <TableCell>{{ formatDate(event.timestamp) }}</TableCell>
                 <TableCell>{{ event.source }}</TableCell>
                 <TableCell>{{ event.environment ?? '-' }}</TableCell>
-                <TableCell>{{ event.release ?? '-' }}</TableCell>
                 <TableCell>{{ event.exceptionValue }}</TableCell>
               </TableRow>
-              <TableRow v-if="issue.recentEvents.length === 0"><TableCell :colspan="5" class="text-center">暂无最近事件</TableCell></TableRow>
+              <TableRow v-if="issue.recentEvents.length === 0"><TableCell :colspan="4" class="text-center">暂无最近事件</TableCell></TableRow>
             </TableBody>
           </Table>
         </CardContent>

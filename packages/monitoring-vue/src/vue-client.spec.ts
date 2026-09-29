@@ -23,6 +23,13 @@ function browserTarget() {
   const target = new EventTarget()
   Object.assign(target, { location: { href: 'https://example.test/current' } })
   Object.defineProperty(globalThis, 'window', { configurable: true, value: target })
+  vi.stubGlobal('location', { href: 'https://example.test/current' })
+  vi.stubGlobal('navigator', {
+    userAgent: 'Mozilla/5.0 Chrome/152.0.0.0',
+    language: 'zh-CN',
+    languages: ['zh-CN'],
+  })
+  vi.stubGlobal('document', { referrer: '', cookie: '' })
   return target
 }
 
@@ -35,6 +42,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.unstubAllGlobals()
   if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow)
   else Reflect.deleteProperty(globalThis, 'window')
 })
@@ -97,6 +105,10 @@ describe('Vue monitoring error capture', () => {
     expect(transport.eventEnvelopes[0]?.event.source).toBe('window')
     expect(transport.eventEnvelopes[0]?.event.message).toBe('script failed')
     expect(transport.eventEnvelopes[0]?.event.url).toBe('https://example.test/current')
+    expect(transport.eventEnvelopes[0]?.event.contexts?.browser).toMatchObject({
+      name: 'Chrome',
+      version: '152.0.0.0',
+    })
   })
 
   it('uses the error event message when no Error object exists', async () => {

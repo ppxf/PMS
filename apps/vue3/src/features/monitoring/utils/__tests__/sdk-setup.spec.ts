@@ -14,6 +14,7 @@ describe('SDK setup helpers', () => {
     expect(snippet).toContain('dsn: import.meta.env.VITE_PMS_DSN')
     expect(snippet).toContain('debug: import.meta.env.DEV')
     expect(snippet).toContain('environment: import.meta.env.MODE')
+    expect(snippet).not.toContain('release')
     expect(snippet).toContain("captureException(new Error('PMS SDK test error'))")
     expect(snippet).not.toContain('/api/sdk/check')
     expect(snippet).not.toContain('fetch(')

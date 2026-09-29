@@ -197,6 +197,8 @@ describe('IngestEnvelopeDto', () => {
     ['event SDK', { ...eventEnvelope(), sdk: clientReport().sdk }],
     ['event root environment', { ...eventEnvelope(), environment: 'prod' }],
     ['event root release', { ...eventEnvelope(), release: 'v1' }],
+    ['event release', { ...eventEnvelope(), event: { ...eventEnvelope().event, release: 'v1' } }],
+    ['report release', { ...clientReport(), release: 'v1' }],
   ])('rejects %s', async (_name, input) => {
     await expect(validate(input)).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -296,7 +298,6 @@ describe('IngestEnvelopeDto', () => {
     ['message', 2000],
     ['url', 2048],
     ['environment', 128],
-    ['release', 128],
   ])('enforces the %s length boundary', async (key, limit) => {
     const input = eventEnvelope();
     await expect(
@@ -331,7 +332,7 @@ describe('IngestEnvelopeDto', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it.each(['environment', 'release'])(
+  it.each(['environment'])(
     'enforces report %s length',
     async (key) => {
       await expect(
@@ -342,6 +343,56 @@ describe('IngestEnvelopeDto', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     },
   );
+
+  it('accepts bounded browser contexts and preserves filtered values', async () => {
+    const input = eventEnvelope();
+    const contexts = {
+      request: {
+        headers: { 'User-Agent': 'Mozilla/5.0', Authorization: '[Filtered]' },
+        cookies: { theme: 'dark', session_id: '[Filtered]' },
+      },
+      browser: { name: 'Chrome', version: '152.0.0.0', userAgent: 'Mozilla/5.0' },
+      os: { name: 'Windows' },
+      device: { platform: 'Win32', screenWidth: 1920, viewportWidth: 1280, pixelRatio: 1 },
+      culture: { locale: 'zh-CN', languages: ['zh-CN'], timezone: 'Asia/Shanghai' },
+      memory: { usedJSHeapSize: 1048576, deviceMemoryGiB: 16 },
+    };
+    await expect(validate({ ...input, event: { ...input.event, contexts } }))
+      .resolves.toMatchObject({ event: { contexts } });
+  });
+
+  it('filters sensitive context values even when a client bypasses the SDK', async () => {
+    const input = eventEnvelope();
+    const result = await validate({
+      ...input,
+      event: {
+        ...input.event,
+        contexts: {
+          request: {
+            headers: { Authorization: 'Bearer secret', 'X-Trace': 'safe' },
+            cookies: { session_id: 'secret', theme: 'dark' },
+          },
+        },
+      },
+    });
+    expect(result.event?.contexts?.request).toEqual({
+      headers: { Authorization: '[Filtered]', 'X-Trace': 'safe' },
+      cookies: { session_id: '[Filtered]', theme: 'dark' },
+    });
+  });
+
+  it.each([
+    ['too many headers', { request: { headers: Object.fromEntries(Array.from({ length: 51 }, (_, index) => [`h${index}`, 'v'])), cookies: {} } }],
+    ['long header key', { request: { headers: { ['h'.repeat(129)]: 'v' }, cookies: {} } }],
+    ['long cookie value', { request: { headers: {}, cookies: { key: 'v'.repeat(2049) } } }],
+    ['unknown context', { runtime: { name: 'node' } }],
+    ['negative memory', { memory: { usedJSHeapSize: -1 } }],
+    ['too many languages', { culture: { languages: Array.from({ length: 11 }, () => 'zh-CN') } }],
+  ])('rejects browser contexts with %s', async (_name, contexts) => {
+    const input = eventEnvelope();
+    await expect(validate({ ...input, event: { ...input.event, contexts } }))
+      .rejects.toBeInstanceOf(BadRequestException);
+  });
 
   it('limits stacktrace to 64 KiB of UTF-8', async () => {
     const input = eventEnvelope();

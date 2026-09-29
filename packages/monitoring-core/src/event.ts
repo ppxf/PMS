@@ -1,9 +1,9 @@
 import type { CaptureExceptionContext, MonitoringEvent } from './types.js'
+import { captureBrowserContext } from './browser-context.js'
 
 const MESSAGE_LIMIT = 2_000
 const SHORT_LIMIT = 128
 const STACK_LIMIT = 65_536
-const URL_LIMIT = 2_048
 
 export function truncate(value: string, length: number): string {
   return value.slice(0, length)
@@ -59,9 +59,10 @@ function normalizeTags(tags: Record<string, string> | undefined): Record<string,
 export function createEvent(
   error: unknown,
   context: CaptureExceptionContext,
-  options: { environment?: string; release?: string },
+  options: { environment?: string },
 ): MonitoringEvent {
   const exception = normalizeException(error)
+  const browser = captureBrowserContext()
   return {
     eventId: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
@@ -70,9 +71,8 @@ export function createEvent(
     source: context.source ?? 'manual',
     message: exception.value,
     exception,
-    ...(context.url ? { url: truncate(context.url, URL_LIMIT) } : {}),
+    ...browser,
     ...(options.environment ? { environment: truncate(options.environment, SHORT_LIMIT) } : {}),
-    ...(options.release ? { release: truncate(options.release, SHORT_LIMIT) } : {}),
     ...(context.tags ? { tags: normalizeTags(context.tags) } : {}),
   }
 }

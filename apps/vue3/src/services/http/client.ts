@@ -39,12 +39,16 @@ axiosInstance.interceptors.response.use(
       const provider = getHttpAuthProvider()
 
       if (provider && !unauthorizedTask) {
-        unauthorizedTask = Promise.resolve(provider.onUnauthorized()).finally(() => {
+        try {
+          unauthorizedTask = Promise.resolve(provider.onUnauthorized())
+            .catch(() => undefined)
+            .finally(() => {
+              unauthorizedTask = null
+            })
+        } catch {
           unauthorizedTask = null
-        })
+        }
       }
-
-      await unauthorizedTask
     }
 
     return Promise.reject(appError)

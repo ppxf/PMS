@@ -59,7 +59,7 @@ onMounted(load)
         <RouterLink
           v-for="project in projects"
           :key="project.id"
-          :to="{ name: 'project-detail', params: { groupSlug, projectSlug: project.slug } }"
+          :to="{ name: 'project-setup', params: { groupSlug, projectSlug: project.slug } }"
         >
           <Card class="h-full transition-colors hover:bg-muted/30">
             <CardHeader>

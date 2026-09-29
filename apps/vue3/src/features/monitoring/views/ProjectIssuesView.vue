@@ -57,10 +57,6 @@ const columns = columnHelper.columns([
     header: '环境',
     cell: ({ row }) => h(Badge, { variant: 'secondary' }, () => row.original.environment ?? '-'),
   }),
-  columnHelper.accessor('release', {
-    header: '版本',
-    cell: ({ row }) => row.original.release ?? '-',
-  }),
   columnHelper.accessor('firstSeenAt', {
     header: '首次出现',
     cell: ({ row }) => formatDate(row.original.firstSeenAt),

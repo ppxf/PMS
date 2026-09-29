@@ -18,16 +18,9 @@ const appStates = new WeakMap<App, ClientState>()
 const installedApps = new WeakSet<App>()
 const installedWindows = new WeakSet<Window>()
 
-function capture(error: unknown, source: MonitoringEventSource, browserWindow?: Window): void {
-  let url: string | undefined
+function capture(error: unknown, source: MonitoringEventSource): void {
   try {
-    url = browserWindow?.location.href
-  } catch {
-    // Location can be inaccessible in a restricted browser context.
-  }
-
-  try {
-    void captureCoreException(error, { source, ...(url ? { url } : {}) }).catch(() => undefined)
+    void captureCoreException(error, { source }).catch(() => undefined)
   } catch {
     // Reporting failures must never reach Vue or browser error handlers.
   }
@@ -37,7 +30,7 @@ function installVueHandler(app: App): void {
   if (installedApps.has(app)) return
   const originalHandler = app.config.errorHandler
   app.config.errorHandler = function (this: unknown, error, instance, info) {
-    capture(error, 'vue', typeof window === 'undefined' ? undefined : window)
+    capture(error, 'vue')
     originalHandler?.call(this, error, instance, info)
   }
   installedApps.add(app)
@@ -46,10 +39,10 @@ function installVueHandler(app: App): void {
 function installBrowserHandlers(browserWindow: Window): void {
   if (installedWindows.has(browserWindow)) return
   browserWindow.addEventListener('error', (event) => {
-    capture(event.error ?? event.message, 'window', browserWindow)
+    capture(event.error ?? event.message, 'window')
   })
   browserWindow.addEventListener('unhandledrejection', (event) => {
-    capture(event.reason, 'unhandledrejection', browserWindow)
+    capture(event.reason, 'unhandledrejection')
   })
   installedWindows.add(browserWindow)
 }

@@ -1,14 +1,18 @@
 import { Type } from 'class-transformer';
 import {
   Equals,
+  ArrayMaxSize,
+  IsArray,
   IsByteLength,
   IsDefined,
   IsIn,
   IsISO8601,
   IsObject,
+  IsNumber,
   IsString,
   IsUUID,
   MaxLength,
+  Min,
   Validate,
   ValidateIf,
   ValidateNested,
@@ -52,6 +56,21 @@ class BoundedTagsConstraint implements ValidatorConstraintInterface {
   }
 }
 
+@ValidatorConstraint({ name: 'boundedContextMap', async: false })
+export class BoundedContextMapConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+    const entries = Object.entries(value);
+    return entries.length <= 50 && entries.every(([key, entry]) =>
+      [...key].length <= 128 && typeof entry === 'string' && [...entry].length <= 2048,
+    );
+  }
+
+  defaultMessage(): string {
+    return 'context map must contain at most 50 string entries with keys up to 128 and values up to 2048 characters';
+  }
+}
+
 @ValidatorConstraint({ name: 'rfc3339Timestamp', async: false })
 class Rfc3339TimestampConstraint implements ValidatorConstraintInterface {
   validate(value: unknown): boolean {
@@ -90,6 +109,151 @@ export class ErrorExceptionDto {
   @IsString()
   @IsByteLength(0, 65536)
   stacktrace?: string;
+}
+
+export class RequestContextDto {
+  @IsObject()
+  @Validate(BoundedContextMapConstraint)
+  headers!: Record<string, string>;
+
+  @IsObject()
+  @Validate(BoundedContextMapConstraint)
+  cookies!: Record<string, string>;
+}
+
+export class BrowserContextDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(128)
+  name?: string;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(128)
+  version?: string;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(1024)
+  userAgent?: string;
+}
+
+export class OperatingSystemContextDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(128)
+  name?: string;
+}
+
+export class DeviceContextDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(128)
+  platform?: string;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  screenWidth?: number;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  screenHeight?: number;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  viewportWidth?: number;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  viewportHeight?: number;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  pixelRatio?: number;
+}
+
+export class CultureContextDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(64)
+  locale?: string;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  languages?: string[];
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(128)
+  timezone?: string;
+}
+
+export class MemoryContextDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  usedJSHeapSize?: number;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  totalJSHeapSize?: number;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  jsHeapSizeLimit?: number;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  deviceMemoryGiB?: number;
+}
+
+export class BrowserEventContextsDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => RequestContextDto)
+  request?: RequestContextDto;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => BrowserContextDto)
+  browser?: BrowserContextDto;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => OperatingSystemContextDto)
+  os?: OperatingSystemContextDto;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => DeviceContextDto)
+  device?: DeviceContextDto;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => CultureContextDto)
+  culture?: CultureContextDto;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => MemoryContextDto)
+  memory?: MemoryContextDto;
 }
 
 export class MonitoringErrorEventDto {
@@ -131,13 +295,14 @@ export class MonitoringErrorEventDto {
   environment?: string;
 
   @ValidateIf((_object, value: unknown) => value !== undefined)
-  @IsString()
-  @MaxLength(128)
-  release?: string;
-
-  @ValidateIf((_object, value: unknown) => value !== undefined)
   @Validate(BoundedTagsConstraint)
   tags?: Record<string, string>;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => BrowserEventContextsDto)
+  contexts?: BrowserEventContextsDto;
 }
 
 export class IngestEnvelopeDto {
@@ -179,9 +344,4 @@ export class IngestEnvelopeDto {
   @MaxLength(128)
   environment?: string;
 
-  @ValidateIf((_object, value: unknown) => value !== undefined)
-  @Validate(EnvelopeFieldConstraint, ['client_report'])
-  @IsString()
-  @MaxLength(128)
-  release?: string;
 }

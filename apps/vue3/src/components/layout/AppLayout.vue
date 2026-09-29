@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FolderKanban, LayoutDashboard, LogOut, ShieldCheck, Users } from '@lucide/vue'
+import {
+  Bug,
+  FolderKanban,
+  FolderOpen,
+  LayoutDashboard,
+  LogOut,
+  Plug,
+  Settings,
+  ShieldCheck,
+  Users,
+} from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { Button } from '@/components/ui/button'
@@ -15,8 +25,16 @@ defineOptions({ name: 'AppLayout' })
 interface NavigationItem {
   label: string
   routeName: string
+  activeRouteNames: string[]
   icon: Component
   permissions?: PermissionRequirement
+}
+
+interface ProjectNavigationItem {
+  label: string
+  routeName: string
+  activeRouteNames: string[]
+  icon: Component
 }
 
 const route = useRoute()
@@ -25,24 +43,61 @@ const auth = useAuthStore()
 
 const navigation: NavigationItem[] = [
   {
-    label: '工作台',
+    label: '首页',
     routeName: 'dashboard',
+    activeRouteNames: ['dashboard'],
     icon: LayoutDashboard,
   },
   {
     label: '组与项目',
     routeName: 'groups',
+    activeRouteNames: ['groups', 'group-detail', 'create-project'],
     icon: FolderKanban,
   },
   {
     label: '用户管理',
     routeName: 'users',
+    activeRouteNames: ['users'],
     icon: Users,
     permissions: 'user:read',
   },
 ]
 
+const projectNavigation: ProjectNavigationItem[] = [
+  {
+    label: '查看 SDK 接入',
+    routeName: 'project-setup',
+    activeRouteNames: ['project-setup'],
+    icon: Plug,
+  },
+  {
+    label: '查看错误',
+    routeName: 'project-issues',
+    activeRouteNames: ['project-issues', 'project-issue-detail'],
+    icon: Bug,
+  },
+  {
+    label: '功能配置',
+    routeName: 'project-detail',
+    activeRouteNames: ['project-detail'],
+    icon: Settings,
+  },
+]
+
 const visibleNavigation = computed(() => navigation.filter((item) => auth.can(item.permissions)))
+const currentRouteName = computed(() => String(route.name ?? ''))
+const currentProject = computed(() => {
+  const groupSlug = route.params.groupSlug
+  const projectSlug = route.params.projectSlug
+
+  if (typeof groupSlug !== 'string' || typeof projectSlug !== 'string') return null
+
+  return { groupSlug, projectSlug }
+})
+
+function isActive(routeNames: string[]): boolean {
+  return routeNames.includes(currentRouteName.value)
+}
 
 async function logout(): Promise<void> {
   auth.logout()
@@ -71,11 +126,39 @@ async function logout(): Promise<void> {
           :key="item.routeName"
           :to="{ name: item.routeName }"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          active-class="bg-muted text-foreground"
+          :class="{ 'bg-muted text-foreground': isActive(item.activeRouteNames) }"
+          active-class=""
         >
           <component :is="item.icon" class="size-4" />
           {{ item.label }}
         </RouterLink>
+
+        <div v-if="currentProject">
+          <p
+            data-testid="current-project-navigation"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
+          >
+            <FolderOpen class="size-4" />
+            当前项目
+          </p>
+          <RouterLink
+            v-for="item in projectNavigation"
+            :key="item.routeName"
+            :to="{
+              name: item.routeName,
+              params: {
+                groupSlug: currentProject.groupSlug,
+                projectSlug: currentProject.projectSlug,
+              },
+            }"
+            class="ml-3 flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            :class="{ 'bg-muted text-foreground': isActive(item.activeRouteNames) }"
+            active-class=""
+          >
+            <component :is="item.icon" class="size-4" />
+            {{ item.label }}
+          </RouterLink>
+        </div>
       </nav>
     </aside>
 

@@ -101,6 +101,10 @@ describe('project views', () => {
     expect(wrapper.text()).toContain('初始化时会发送连接报告')
     expect(wrapper.text()).toContain('Vue、window.error 和 unhandledrejection')
     expect(wrapper.text()).toContain('手动验证或手动上报')
+    expect(wrapper.text()).not.toContain('release:')
+    expect(wrapper.text()).not.toContain('VITE_RELEASE')
+    expect(wrapper.text()).not.toContain('返回组详情')
+    expect(wrapper.text()).not.toContain('进入项目详情')
     expect(wrapper.text()).not.toContain('/api/sdk/check')
     expect(wrapper.text()).not.toContain('fetch(')
     await wrapper.get('[data-testid="copy-dsn"]').trigger('click')
@@ -122,11 +126,8 @@ describe('project views', () => {
     expect(wrapper.text()).toContain('Error Monitoring')
     expect(wrapper.text()).toContain('等待连接')
     expect(wrapper.text()).not.toContain('Replay')
-    expect(wrapper.text()).toContain('查看错误')
-    const issueLink = wrapper.findComponent({ name: 'RouterLink' })
-    expect(issueLink.props('to')).toEqual({
-      name: 'project-issues',
-      params: { groupSlug: 'acme', projectSlug: 'frontend' },
-    })
+    expect(wrapper.text()).not.toContain('查看错误')
+    expect(wrapper.text()).not.toContain('查看 SDK 接入指引')
+    expect(wrapper.findComponent({ name: 'RouterLink' }).exists()).toBe(false)
   })
 })

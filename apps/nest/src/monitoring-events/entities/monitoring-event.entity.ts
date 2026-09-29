@@ -52,9 +52,9 @@ export class MonitoringEvent {
   @Column({ type: 'varchar', length: 128, nullable: true })
   environment!: string | null;
 
-  @Column({ type: 'varchar', length: 128, nullable: true })
-  release!: string | null;
-
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   tags!: Record<string, string>;
+
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
+  contexts!: Record<string, unknown>;
 }

@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getProject } from '../api/monitoring.api'
 import type { MonitoringProject } from '../model/types'
@@ -61,15 +60,6 @@ onMounted(async () => {
           </div>
         </CardContent>
       </Card>
-
-      <div class="flex flex-wrap gap-3">
-        <Button as-child>
-          <RouterLink :to="{ name: 'project-issues', params: { groupSlug, projectSlug } }">查看错误</RouterLink>
-        </Button>
-        <Button as-child variant="outline">
-          <RouterLink :to="{ name: 'project-setup', params: { groupSlug, projectSlug } }">查看 SDK 接入指引</RouterLink>
-        </Button>
-      </div>
     </template>
   </section>
 </template>

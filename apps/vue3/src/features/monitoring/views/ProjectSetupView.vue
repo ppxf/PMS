@@ -118,19 +118,6 @@ onMounted(load)
           </p>
         </CardContent>
       </Card>
-
-      <div class="flex gap-3">
-        <Button as-child variant="outline"
-          ><RouterLink :to="{ name: 'group-detail', params: { groupSlug } }"
-            >返回组详情</RouterLink
-          ></Button
-        >
-        <Button as-child
-          ><RouterLink :to="{ name: 'project-detail', params: { groupSlug, projectSlug } }"
-            >进入项目详情</RouterLink
-          ></Button
-        >
-      </div>
     </template>
   </section>
 </template>

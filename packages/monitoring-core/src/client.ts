@@ -60,7 +60,6 @@ export function init(options: MonitoringInitOptions): ClientState {
     initialized: true,
     ...parsed,
     ...(options.environment ? { environment: options.environment } : {}),
-    ...(options.release ? { release: options.release } : {}),
   }
 
   if (state) {
@@ -84,7 +83,6 @@ export function init(options: MonitoringInitOptions): ClientState {
     sentAt: new Date().toISOString(),
     sdk: activeSdk,
     ...(options.environment ? { environment: truncate(options.environment, 128) } : {}),
-    ...(options.release ? { release: truncate(options.release, 128) } : {}),
   })
   return state
 }
