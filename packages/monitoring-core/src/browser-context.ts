@@ -102,6 +102,10 @@ function identifyClientHintBrowser(): { name?: string; version?: string } {
   }
 }
 
+function quoteClientHint(value: string): string {
+  return `"${value.replace(/(["\\])/gu, '\\$1')}"`
+}
+
 function identifyOperatingSystem(userAgent: string | undefined): string | undefined {
   if (!userAgent) return undefined
   if (/Windows/i.test(userAgent)) return 'Windows'
@@ -123,11 +127,27 @@ export function captureBrowserContext(): BrowserContextSnapshot {
   const referrer = text(read(() => globalThis.document.referrer), VALUE_LIMIT)
   const cookies = parseCookies(read(() => globalThis.document.cookie))
   const acceptLanguage = (languages?.length ? languages : locale ? [locale] : []).join(',')
+  const userAgentData = read(() => (globalThis.navigator as Navigator & {
+    userAgentData?: {
+      brands?: Array<{ brand?: string; version?: string }>
+      mobile?: boolean
+      platform?: string
+    }
+  }).userAgentData)
+  const clientHintBrands = userAgentData?.brands
+    ?.filter((brand): brand is { brand: string; version: string } =>
+      typeof brand.brand === 'string' && typeof brand.version === 'string',
+    )
+    .map(({ brand, version }) => `${quoteClientHint(brand)};v=${quoteClientHint(version)}`)
+    .join(', ')
   const headers = Object.fromEntries(
     [
       ['User-Agent', userAgent],
       ['Accept-Language', acceptLanguage || undefined],
       ['Referer', referrer],
+      ['Sec-CH-UA', clientHintBrands || undefined],
+      ['Sec-CH-UA-Mobile', userAgentData?.mobile === undefined ? undefined : userAgentData.mobile ? '?1' : '?0'],
+      ['Sec-CH-UA-Platform', userAgentData?.platform ? quoteClientHint(userAgentData.platform) : undefined],
     ].filter((entry): entry is [string, string] => entry[1] !== undefined),
   )
   const request = Object.keys(headers).length || Object.keys(cookies).length

@@ -31,6 +31,8 @@ describe('browser context capture', () => {
       platform: 'Win32',
       deviceMemory: 16,
       userAgentData: {
+        mobile: false,
+        platform: 'Windows',
         brands: [
           { brand: 'Chromium', version: '152' },
           { brand: 'Google Chrome', version: '152.0.0.0' },
@@ -57,6 +59,9 @@ describe('browser context capture', () => {
         'User-Agent': expect.stringContaining('Chrome/152.0.0.0'),
         'Accept-Language': 'zh-CN,en-US',
         Referer: 'https://app.example.com/cart',
+        'Sec-CH-UA': '"Chromium";v="152", "Google Chrome";v="152.0.0.0"',
+        'Sec-CH-UA-Mobile': '?0',
+        'Sec-CH-UA-Platform': '"Windows"',
       },
       cookies: { theme: 'dark', session_id: '[Filtered]', AUTH_TOKEN: '[Filtered]' },
     })

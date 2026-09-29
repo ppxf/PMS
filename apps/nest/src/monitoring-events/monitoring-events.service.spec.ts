@@ -334,34 +334,16 @@ describe('MonitoringEventsService', () => {
     ]);
   });
 
-  it('merges ingress headers and filtered cookies into the stored request context', async () => {
+  it('preserves the browser page request context without server enrichment', async () => {
     const app = fixture();
     const input = errorEnvelope();
+    const expectedRequest = structuredClone(input.event!.contexts!.request);
 
-    await app.service.ingest(
-      projectId,
-      publicKey,
-      input,
-      {
-        accept: 'text/html,application/xhtml+xml',
-        'accept-encoding': 'gzip, deflate, br',
-        authorization: 'Bearer secret',
-        cookie: 'theme=dark; session_id=secret',
-        'sec-ch-ua': ['"Chromium";v="152"', '"Google Chrome";v="152"'],
-        'x-pms-key': publicKey,
-      },
+    await app.service.ingest(projectId, publicKey, input);
+
+    expect(app.state().events[0].contexts.request).toEqual(
+      expectedRequest,
     );
-
-    expect(app.state().events[0].contexts.request).toEqual({
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Encoding': 'gzip, deflate, br',
-        Authorization: '[Filtered]',
-        'Sec-Ch-Ua': '"Chromium";v="152", "Google Chrome";v="152"',
-      },
-      cookies: { session_id: '[Filtered]', theme: 'dark' },
-    });
   });
 
   it('accepts duplicate eventId without updating count, latest event or lastSeen', async () => {

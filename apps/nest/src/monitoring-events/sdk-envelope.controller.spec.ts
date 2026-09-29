@@ -32,53 +32,23 @@ describe('SdkEnvelopeController', () => {
         '550e8400-e29b-41d4-a716-446655440000',
         'public-key',
         envelope,
-        {},
       ),
     ).resolves.toBeUndefined();
     expect(ingest).toHaveBeenCalledWith(
       '550e8400-e29b-41d4-a716-446655440000',
       'public-key',
       envelope,
-      {},
     );
     expect(envelope).toBeInstanceOf(IngestEnvelopeDto);
     await controller.ingest(
       '550e8400-e29b-41d4-a716-446655440000',
       undefined,
       envelope,
-      {},
     );
     expect(ingest).toHaveBeenLastCalledWith(
       '550e8400-e29b-41d4-a716-446655440000',
       undefined,
       envelope,
-      {},
-    );
-  });
-
-  it('forwards all ingress headers for request context enrichment', async () => {
-    const ingest = jest.fn(() => Promise.resolve(undefined));
-    const controller = new SdkEnvelopeController({ ingest } as never);
-    const envelope = {
-      version: 1,
-      type: 'client_report',
-      sentAt: '2026-09-23T03:00:00.000Z',
-      sdk: { name: '@pms/sdk-vue', version: '0.1.0' },
-    } as IngestEnvelopeDto;
-    const headers = { accept: 'application/json', 'x-pms-key': 'public-key' };
-
-    await controller.ingest(
-      '550e8400-e29b-41d4-a716-446655440000',
-      'public-key',
-      envelope,
-      headers,
-    );
-
-    expect(ingest).toHaveBeenCalledWith(
-      '550e8400-e29b-41d4-a716-446655440000',
-      'public-key',
-      envelope,
-      headers,
     );
   });
 
@@ -117,5 +87,6 @@ describe('SdkEnvelopeController', () => {
       index: 1,
     });
     expect(args[`${RouteParamtypes.BODY}:2`]).toMatchObject({ index: 2 });
+    expect(args[`${RouteParamtypes.HEADERS}:3`]).toBeUndefined();
   });
 });
