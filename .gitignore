@@ -13,4 +13,4 @@ coverage/
 .agents/
 .npmrc
 .superpowers/
-doc/
+docs/

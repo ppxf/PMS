@@ -45,13 +45,18 @@ const columns = columnHelper.columns([
   columnHelper.accessor('status', {
     header: '状态',
     cell: ({ row }) =>
-      h(Badge, { variant: 'secondary' }, () =>
-        row.original.status === 'unresolved' ? '未解决' : row.original.status,
+      h(Badge, { variant: row.original.status === 'resolved' ? 'success' : 'secondary' }, () =>
+        row.original.status === 'unresolved' ? '未解决' : '已解决',
       ),
   }),
   columnHelper.accessor('eventCount', {
     header: '次数',
-    cell: ({ row }) => `${row.original.eventCount} 次`,
+    cell: ({ row }) =>
+      h(
+        Badge,
+        { variant: row.original.status === 'resolved' ? 'success' : 'destructive' },
+        () => `${row.original.eventCount} 次`,
+      ),
   }),
   columnHelper.accessor('environment', {
     header: '环境',

@@ -47,11 +47,15 @@ export interface MonitoringIssueSummary {
   title: string
   exceptionType: string
   culprit: string | null
-  status: 'unresolved'
+  status: 'unresolved' | 'resolved'
   eventCount: number
   firstSeenAt: string
   lastSeenAt: string
   environment: string | null
+  resolvedAt: string | null
+  resolutionReason: 'manual' | 'auto_inactivity' | null
+  reopenedAt: string | null
+  reopenCount: number
 }
 
 export interface BrowserEventContexts {

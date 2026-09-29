@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { get, post } = vi.hoisted(() => ({
+const { get, patch, post } = vi.hoisted(() => ({
   get: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  patch: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   post: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }))
 
-vi.mock('@/services/http', () => ({ http: { get, post } }))
+vi.mock('@/services/http', () => ({ http: { get, patch, post } }))
 
 import {
   createGroup,
@@ -17,6 +18,7 @@ import {
   listGroups,
   listProjectIssues,
   listProjects,
+  updateProjectIssueStatus,
 } from '../monitoring.api'
 
 describe('monitoring API', () => {
@@ -71,6 +73,15 @@ describe('monitoring API', () => {
     expect(get).toHaveBeenNthCalledWith(
       2,
       '/groups/team/projects/web/issues/00000000-0000-4000-8000-000000000001',
+    )
+  })
+
+  it('updates an issue status within its project scope', async () => {
+    patch.mockResolvedValue({ status: 'resolved' })
+    await updateProjectIssueStatus('team', 'web', 'issue-1', 'resolved')
+    expect(patch).toHaveBeenCalledWith(
+      '/groups/team/projects/web/issues/issue-1/status',
+      { status: 'resolved' },
     )
   })
 })

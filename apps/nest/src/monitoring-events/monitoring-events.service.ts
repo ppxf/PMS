@@ -3,7 +3,11 @@ import { DataSource, QueryFailedError } from 'typeorm';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { IngestEnvelopeDto } from './dto/ingest-envelope.dto';
-import { MonitoringErrorIssue } from './entities/monitoring-error-issue.entity';
+import {
+  MonitoringErrorIssue,
+  MonitoringErrorIssueResolutionReason,
+  MonitoringErrorIssueStatus,
+} from './entities/monitoring-error-issue.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
 import { createErrorFingerprint, findCulprit } from './fingerprint';
 
@@ -52,18 +56,24 @@ export class MonitoringEventsService {
         // latest_event_id unset until the event exists to satisfy its FK.
         const [issue] = await manager.query<{ id: string }[]>(
           `INSERT INTO monitoring_error_issues
-             (project_id, fingerprint, title, exception_type, culprit, first_seen_at, last_seen_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $6)
-           ON CONFLICT (project_id, fingerprint) DO UPDATE SET
+             (project_id, environment, fingerprint, title, exception_type, culprit, first_seen_at, last_seen_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+           ON CONFLICT (project_id, environment, fingerprint) DO UPDATE SET
              event_count = monitoring_error_issues.event_count + 1,
              last_seen_at = EXCLUDED.last_seen_at,
              title = EXCLUDED.title,
              exception_type = EXCLUDED.exception_type,
              culprit = EXCLUDED.culprit,
+             reopened_at = CASE WHEN monitoring_error_issues.status = 'resolved' THEN now() ELSE monitoring_error_issues.reopened_at END,
+             reopen_count = CASE WHEN monitoring_error_issues.status = 'resolved' THEN monitoring_error_issues.reopen_count + 1 ELSE monitoring_error_issues.reopen_count END,
+             status = 'unresolved',
+             resolved_at = NULL,
+             resolution_reason = NULL,
              updated_at = now()
            RETURNING id`,
           [
             project.id,
+            event.environment ?? 'unknown',
             fingerprint,
             event.message,
             event.exception.type,
@@ -126,8 +136,10 @@ export class MonitoringEventsService {
       relations: { latestEvent: true },
       select: {
         id: true, title: true, exceptionType: true, culprit: true, status: true,
+        environment: true, resolvedAt: true, resolutionReason: true,
+        reopenedAt: true, reopenCount: true,
         eventCount: true, firstSeenAt: true, lastSeenAt: true,
-        latestEvent: { environment: true },
+        latestEvent: { id: true },
       },
       order: { lastSeenAt: 'DESC' },
       skip: (query.page - 1) * query.pageSize,
@@ -153,6 +165,8 @@ export class MonitoringEventsService {
       relations: { latestEvent: true },
       select: {
         id: true, title: true, exceptionType: true, culprit: true, status: true,
+        environment: true, resolvedAt: true, resolutionReason: true,
+        reopenedAt: true, reopenCount: true,
         eventCount: true, firstSeenAt: true, lastSeenAt: true,
         latestEvent: this.eventSelection(),
       },
@@ -171,12 +185,45 @@ export class MonitoringEventsService {
     };
   }
 
+  async updateOwnedIssueStatus(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    issueId: string,
+    status: MonitoringErrorIssueStatus,
+  ) {
+    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    const repository = this.dataSource.getRepository(MonitoringErrorIssue);
+    const issue = await repository.findOneBy({ id: issueId, projectId: project.id });
+    if (!issue) throw new NotFoundException('监控错误不存在');
+
+    const now = new Date();
+    if (status === MonitoringErrorIssueStatus.Resolved) {
+      await repository.update(issueId, {
+        status,
+        resolvedAt: now,
+        resolutionReason: MonitoringErrorIssueResolutionReason.Manual,
+      });
+    } else {
+      await repository.update(issueId, {
+        status,
+        resolvedAt: null,
+        resolutionReason: null,
+        reopenedAt: now,
+        reopenCount: () => 'reopen_count + 1',
+      });
+    }
+    return this.getOwnedIssue(userId, groupSlug, projectSlug, issueId);
+  }
+
   private toIssueSummary(issue: MonitoringErrorIssue) {
     return {
       id: issue.id, title: issue.title, exceptionType: issue.exceptionType,
       culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
       firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
-      environment: issue.latestEvent?.environment ?? null,
+      environment: issue.environment, resolvedAt: issue.resolvedAt,
+      resolutionReason: issue.resolutionReason,
+      reopenedAt: issue.reopenedAt, reopenCount: issue.reopenCount,
     };
   }
 

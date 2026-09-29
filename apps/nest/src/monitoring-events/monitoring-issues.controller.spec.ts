@@ -2,11 +2,13 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { ListIssuesQueryDto } from './dto/list-issues-query.dto';
 import { MonitoringIssuesController } from './monitoring-issues.controller';
+import { MonitoringErrorIssueStatus } from './entities/monitoring-error-issue.entity';
 
 describe('MonitoringIssuesController', () => {
   const events = {
     listOwnedIssues: jest.fn(),
     getOwnedIssue: jest.fn(),
+    updateOwnedIssueStatus: jest.fn(),
   };
   const controller = new MonitoringIssuesController(events as never);
   const request = { user: { id: 'user-1', email: 'owner@example.com' } };
@@ -20,6 +22,20 @@ describe('MonitoringIssuesController', () => {
     ).resolves.toEqual({ items: [], total: 0, page: 2, pageSize: 50 });
     expect(events.listOwnedIssues).toHaveBeenCalledWith(
       'user-1', 'acme', 'web', { page: 2, pageSize: 50 },
+    );
+  });
+
+  it('forwards manual status changes within the authenticated project scope', async () => {
+    events.updateOwnedIssueStatus.mockResolvedValue({ status: 'resolved' });
+    await controller.updateStatus(
+      request as never,
+      'acme',
+      'web',
+      'issue-id',
+      { status: MonitoringErrorIssueStatus.Resolved },
+    );
+    expect(events.updateOwnedIssueStatus).toHaveBeenCalledWith(
+      'user-1', 'acme', 'web', 'issue-id', 'resolved',
     );
   });
 

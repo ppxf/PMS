@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getProjectIssue } from '../api/monitoring.api'
+import { getProjectIssue, updateProjectIssueStatus } from '../api/monitoring.api'
 import type { MonitoringIssueDetail } from '../model/types'
 
 const route = useRoute()
@@ -21,6 +21,7 @@ const projectSlug = String(route.params.projectSlug)
 const issueId = String(route.params.issueId)
 const issue = ref<MonitoringIssueDetail | null>(null)
 const error = ref('')
+const statusUpdating = ref(false)
 const headersExpanded = ref(false)
 const cookiesExpanded = ref(false)
 const defaultRequestEntryCount = 5
@@ -66,6 +67,20 @@ async function loadIssue(): Promise<void> {
   }
 }
 
+async function toggleIssueStatus(): Promise<void> {
+  if (!issue.value || statusUpdating.value) return
+  statusUpdating.value = true
+  error.value = ''
+  try {
+    const status = issue.value.status === 'unresolved' ? 'resolved' : 'unresolved'
+    issue.value = await updateProjectIssueStatus(groupSlug, projectSlug, issueId, status)
+  } catch {
+    error.value = '无法更新错误状态'
+  } finally {
+    statusUpdating.value = false
+  }
+}
+
 onMounted(loadIssue)
 </script>
 
@@ -80,12 +95,43 @@ onMounted(loadIssue)
       <div>
         <div class="flex flex-wrap items-center gap-3">
           <h2 class="text-2xl font-semibold tracking-tight">{{ issue.title }}</h2>
-          <Badge data-testid="issue-status" variant="secondary">
-            {{ issue.status === 'unresolved' ? '未解决' : issue.status }}
+          <Badge
+            data-testid="issue-status"
+            :variant="issue.status === 'resolved' ? 'success' : 'secondary'"
+          >
+            {{ issue.status === 'unresolved' ? '未解决' : '已解决' }}
           </Badge>
-          <Badge variant="destructive">{{ issue.eventCount }} 次</Badge>
+          <Badge
+            data-testid="issue-count"
+            :variant="issue.status === 'resolved' ? 'success' : 'destructive'"
+          >{{ issue.eventCount }} 次</Badge>
+          <Button
+            data-testid="issue-status-action"
+            type="button"
+            size="sm"
+            variant="outline"
+            :disabled="statusUpdating"
+            @click="toggleIssueStatus"
+          >{{ issue.status === 'unresolved' ? '标记为已解决' : '重新打开' }}</Button>
         </div>
         <p class="mt-1 text-muted-foreground">{{ issue.exceptionType }} · {{ issue.culprit ?? '-' }}</p>
+        <p
+          v-if="issue.resolutionReason === 'auto_inactivity' && issue.resolvedAt"
+          data-testid="resolution-summary"
+          class="mt-2 text-sm text-muted-foreground"
+        >
+          连续 7 天未再次出现，已自动解决 · {{ formatDate(issue.resolvedAt) }}
+        </p>
+        <p
+          v-else-if="issue.resolutionReason === 'manual' && issue.resolvedAt"
+          data-testid="resolution-summary"
+          class="mt-2 text-sm text-muted-foreground"
+        >
+          手动标记为已解决 · {{ formatDate(issue.resolvedAt) }}
+        </p>
+        <p v-if="issue.reopenedAt && issue.reopenCount > 0" class="mt-2 text-sm text-muted-foreground">
+          最近重新打开：{{ formatDate(issue.reopenedAt) }} · 重新打开 {{ issue.reopenCount }} 次
+        </p>
         <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div>
             <dt class="inline text-muted-foreground">首次出现：</dt>

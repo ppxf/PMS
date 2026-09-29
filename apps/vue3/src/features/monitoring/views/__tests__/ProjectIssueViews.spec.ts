@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 
-const { getProjectIssue, listProjectIssues } = vi.hoisted(() => ({
+const { getProjectIssue, listProjectIssues, updateProjectIssueStatus } = vi.hoisted(() => ({
   getProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   listProjectIssues: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  updateProjectIssueStatus: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }))
 
-vi.mock('../../api/monitoring.api', () => ({ getProjectIssue, listProjectIssues }))
+vi.mock('../../api/monitoring.api', () => ({ getProjectIssue, listProjectIssues, updateProjectIssueStatus }))
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => ({
@@ -64,6 +65,10 @@ const issue = {
   firstSeenAt: '2026-09-23T02:00:00.000Z',
   lastSeenAt: '2026-09-23T03:00:00.000Z',
   environment: 'production',
+  resolvedAt: null,
+  resolutionReason: null,
+  reopenedAt: null,
+  reopenCount: 0,
 }
 
 describe('project issue views', () => {
@@ -108,6 +113,74 @@ describe('project issue views', () => {
     await flushPromises()
     expect(listProjectIssues).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('暂无错误')
+  })
+
+  it('renders resolved summaries and automatic resolution details', async () => {
+    const resolvedIssue = {
+      ...issue,
+      status: 'resolved' as const,
+      resolvedAt: '2026-09-29T03:00:00.000Z',
+      resolutionReason: 'auto_inactivity' as const,
+    }
+    listProjectIssues.mockResolvedValue({
+      items: [resolvedIssue], total: 1, page: 1, pageSize: 20,
+    })
+    const list = mount(ProjectIssuesView, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    await flushPromises()
+    expect(list.text()).toContain('已解决')
+
+    getProjectIssue.mockResolvedValue({
+      ...resolvedIssue, latestEvent: event, recentEvents: [event],
+    })
+    const detail = mount(ProjectIssueDetailView)
+    await flushPromises()
+    expect(detail.get('[data-testid="issue-status"]').text()).toBe('已解决')
+    expect(detail.get('[data-testid="issue-status"]').attributes('data-variant')).toBe('success')
+    expect(detail.get('[data-testid="issue-count"]').attributes('data-variant')).toBe('success')
+    expect(detail.get('[data-testid="resolution-summary"]').text()).toContain(
+      '连续 7 天未再次出现，已自动解决',
+    )
+    expect(detail.get('[data-testid="resolution-summary"]').text()).toContain(
+      new Date(resolvedIssue.resolvedAt).toLocaleString(),
+    )
+  })
+
+  it('allows manual resolution and reopening from the detail page', async () => {
+    getProjectIssue.mockResolvedValue({ ...issue, latestEvent: event, recentEvents: [event] })
+    updateProjectIssueStatus.mockResolvedValue({
+      ...issue,
+      status: 'resolved',
+      resolvedAt: '2026-09-29T04:00:00.000Z',
+      resolutionReason: 'manual',
+      latestEvent: event,
+      recentEvents: [event],
+    })
+    const wrapper = mount(ProjectIssueDetailView)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="issue-status-action"]').trigger('click')
+    await flushPromises()
+    expect(updateProjectIssueStatus).toHaveBeenCalledWith(
+      'team', 'web', issue.id, 'resolved',
+    )
+    expect(wrapper.get('[data-testid="issue-status"]').text()).toBe('已解决')
+    expect(wrapper.text()).toContain('手动标记为已解决')
+
+    updateProjectIssueStatus.mockResolvedValue({
+      ...issue,
+      reopenedAt: '2026-09-29T05:00:00.000Z',
+      reopenCount: 1,
+      latestEvent: event,
+      recentEvents: [event],
+    })
+    await wrapper.get('[data-testid="issue-status-action"]').trigger('click')
+    await flushPromises()
+    expect(updateProjectIssueStatus).toHaveBeenLastCalledWith(
+      'team', 'web', issue.id, 'unresolved',
+    )
+    expect(wrapper.text()).toContain('重新打开 1 次')
   })
 
   it('renders issue detail metadata, tags, stacktrace and recent events', async () => {

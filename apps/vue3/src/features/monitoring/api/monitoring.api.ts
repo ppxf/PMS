@@ -39,3 +39,14 @@ export const getProjectIssue = (groupSlug: string, projectSlug: string, issueId:
   http.get<MonitoringIssueDetail>(
     `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`,
   )
+
+export const updateProjectIssueStatus = (
+  groupSlug: string,
+  projectSlug: string,
+  issueId: string,
+  status: 'unresolved' | 'resolved',
+) =>
+  http.patch<MonitoringIssueDetail, { status: 'unresolved' | 'resolved' }>(
+    `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/status`,
+    { status },
+  )

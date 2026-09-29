@@ -168,7 +168,7 @@ function fixture() {
         },
         query: (
           sql: string,
-          parameters: [string, string, string, string, string | null, Date],
+          parameters: [string, string, string, string, string, string | null, Date],
         ) => {
           operations.push('transaction:upsert');
           const normalized = sql.replace(/\s+/gu, ' ').trim();
@@ -176,13 +176,13 @@ function fixture() {
           // a missing project conflict column, or eagerly setting latest_event_id.
           expect(normalized).toMatch(/INSERT INTO monitoring_error_issues/u);
           expect(normalized).toMatch(
-            /\(project_id, fingerprint, title, exception_type, culprit, first_seen_at, last_seen_at\)/u,
+            /\(project_id, environment, fingerprint, title, exception_type, culprit, first_seen_at, last_seen_at\)/u,
           );
           expect(normalized).toMatch(
-            /VALUES \(\$1, \$2, \$3, \$4, \$5, \$6, \$6\)/u,
+            /VALUES \(\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$7\)/u,
           );
           expect(normalized).toMatch(
-            /ON CONFLICT \(project_id, fingerprint\) DO UPDATE SET/u,
+            /ON CONFLICT \(project_id, environment, fingerprint\) DO UPDATE SET/u,
           );
           expect(normalized).toMatch(
             /event_count = monitoring_error_issues\.event_count \+ 1/u,
@@ -193,30 +193,46 @@ function fixture() {
             /exception_type = EXCLUDED\.exception_type/u,
           );
           expect(normalized).toMatch(/culprit = EXCLUDED\.culprit/u);
+          expect(normalized).toMatch(/status = 'unresolved'/u);
+          expect(normalized).toMatch(/resolved_at = NULL/u);
+          expect(normalized).toMatch(/resolution_reason = NULL/u);
+          expect(normalized).toMatch(/reopened_at = CASE WHEN monitoring_error_issues\.status = 'resolved' THEN now\(\)/u);
+          expect(normalized).toMatch(/reopen_count = CASE WHEN monitoring_error_issues\.status = 'resolved' THEN monitoring_error_issues\.reopen_count \+ 1/u);
           expect(normalized).toMatch(/RETURNING id/u);
           expect(normalized).not.toMatch(/latest_event_id/u);
-          const [id, fingerprint, title, exceptionType, culprit, seenAt] =
+          const [id, environment, fingerprint, title, exceptionType, culprit, seenAt] =
             parameters;
           let issue = draft.issues.find(
-            (item) => item.projectId === id && item.fingerprint === fingerprint,
+            (item) => item.projectId === id && item.environment === environment && item.fingerprint === fingerprint,
           );
           if (issue) {
+            const wasResolved = issue.status === MonitoringErrorIssueStatus.Resolved;
             Object.assign(issue, {
               eventCount: issue.eventCount + 1,
               title,
               exceptionType,
               culprit,
               lastSeenAt: seenAt,
+              status: MonitoringErrorIssueStatus.Unresolved,
+              resolvedAt: null,
+              resolutionReason: null,
+              reopenedAt: wasResolved ? seenAt : issue.reopenedAt,
+              reopenCount: wasResolved ? issue.reopenCount + 1 : issue.reopenCount,
             });
           } else {
             issue = Object.assign(new MonitoringErrorIssue(), {
               id: `issue-${draft.issues.length + 1}`,
               projectId: id,
+              environment,
               fingerprint,
               title,
               exceptionType,
               culprit,
               status: MonitoringErrorIssueStatus.Unresolved,
+              resolvedAt: null,
+              resolutionReason: null,
+              reopenedAt: null,
+              reopenCount: 0,
               eventCount: 1,
               firstSeenAt: seenAt,
               lastSeenAt: seenAt,
@@ -300,6 +316,7 @@ describe('MonitoringEventsService', () => {
       title: 'Render failed',
       exceptionType: 'TypeError',
       culprit: 'at render (app.js:1:1)',
+      environment: 'production',
       firstSeenAt: receivedAt,
       lastSeenAt: new Date('2026-09-23T03:01:00.000Z'),
     });
@@ -392,6 +409,42 @@ describe('MonitoringEventsService', () => {
     expect(app.state().issues[0].fingerprint).toBe(
       app.state().issues[1].fingerprint,
     );
+  });
+
+  it('isolates the same fingerprint across environments', async () => {
+    const app = fixture();
+    const development = errorEnvelope(secondEventId);
+    development.event!.environment = 'development';
+
+    await app.service.ingest(projectId, publicKey, errorEnvelope());
+    await app.service.ingest(projectId, publicKey, development);
+
+    expect(app.state().issues).toHaveLength(2);
+    expect(app.state().issues.map((item) => item.environment)).toEqual([
+      'production',
+      'development',
+    ]);
+  });
+
+  it('records reopening when a resolved issue receives the same error again', async () => {
+    const app = fixture();
+    await app.service.ingest(projectId, publicKey, errorEnvelope());
+    Object.assign(app.state().issues[0], {
+      status: MonitoringErrorIssueStatus.Resolved,
+      resolvedAt: receivedAt,
+      resolutionReason: 'auto_inactivity',
+    });
+    jest.setSystemTime(new Date('2026-09-29T05:00:00.000Z'));
+
+    await app.service.ingest(projectId, publicKey, errorEnvelope(secondEventId));
+
+    expect(app.state().issues[0]).toMatchObject({
+      status: MonitoringErrorIssueStatus.Unresolved,
+      resolvedAt: null,
+      resolutionReason: null,
+      reopenedAt: new Date('2026-09-29T05:00:00.000Z'),
+      reopenCount: 1,
+    });
   });
 
   it('accepts client reports with error monitoring disabled and writes only lastSeen', async () => {
@@ -506,6 +559,7 @@ describe('MonitoringEventsService', () => {
       contexts: {},
     });
     expect(app.state().issues[0].culprit).toBeNull();
+    expect(app.state().issues[0].environment).toBe('unknown');
   });
 
   it('truncates only stored culprit while grouping by the complete frame', async () => {
@@ -534,6 +588,11 @@ describe('MonitoringEventsService management queries', () => {
     exceptionType: 'TypeError',
     culprit: 'at render',
     status: MonitoringErrorIssueStatus.Unresolved,
+    environment: 'production',
+    resolvedAt: null,
+    resolutionReason: null,
+    reopenedAt: null,
+    reopenCount: 0,
     eventCount: 2,
     firstSeenAt: new Date('2026-09-23T02:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T03:00:00.000Z'),
@@ -550,6 +609,8 @@ describe('MonitoringEventsService management queries', () => {
       findOne: jest.fn().mockResolvedValue(
         options && 'foundIssue' in options ? options.foundIssue : issue,
       ),
+      findOneBy: jest.fn().mockResolvedValue(issue),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const recentEvents = [
       Object.assign(new MonitoringEvent(), {
@@ -590,7 +651,8 @@ describe('MonitoringEventsService management queries', () => {
         culprit: 'at render', status: 'unresolved', eventCount: 2,
         firstSeenAt: new Date('2026-09-23T02:00:00.000Z'),
         lastSeenAt: new Date('2026-09-23T03:00:00.000Z'),
-        environment: 'production',
+        environment: 'production', resolvedAt: null, resolutionReason: null,
+        reopenedAt: null, reopenCount: 0,
       }],
       total: 1, page: 2, pageSize: 10,
     });
@@ -616,6 +678,32 @@ describe('MonitoringEventsService management queries', () => {
     expect(app.eventRepository.find).toHaveBeenCalledWith(expect.objectContaining({
       where: { issueId, projectId }, take: 20, order: { receivedAt: 'DESC' },
     }));
+  });
+
+  it('manually resolves and reopens an owned issue with audit metadata', async () => {
+    const app = queryFixture();
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-29T06:00:00.000Z'));
+
+    await app.service.updateOwnedIssueStatus(
+      'user-1', 'acme', 'web', issueId, MonitoringErrorIssueStatus.Resolved,
+    );
+    expect(app.issueRepository.update).toHaveBeenNthCalledWith(1, issueId, {
+      status: MonitoringErrorIssueStatus.Resolved,
+      resolvedAt: new Date('2026-09-29T06:00:00.000Z'),
+      resolutionReason: 'manual',
+    });
+
+    await app.service.updateOwnedIssueStatus(
+      'user-1', 'acme', 'web', issueId, MonitoringErrorIssueStatus.Unresolved,
+    );
+    expect(app.issueRepository.update).toHaveBeenNthCalledWith(2, issueId, {
+      status: MonitoringErrorIssueStatus.Unresolved,
+      resolvedAt: null,
+      resolutionReason: null,
+      reopenedAt: new Date('2026-09-29T06:00:00.000Z'),
+      reopenCount: expect.any(Function),
+    });
+    jest.useRealTimers();
   });
 
   it('uses the same 404 for a missing or cross-project issue', async () => {

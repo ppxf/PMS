@@ -14,12 +14,18 @@ import { MonitoringEvent } from './monitoring-event.entity';
 
 export enum MonitoringErrorIssueStatus {
   Unresolved = 'unresolved',
+  Resolved = 'resolved',
+}
+
+export enum MonitoringErrorIssueResolutionReason {
+  Manual = 'manual',
+  AutoInactivity = 'auto_inactivity',
 }
 
 @Entity({ name: 'monitoring_error_issues' })
 @Index(
   'uq_monitoring_error_issues_project_fingerprint',
-  ['projectId', 'fingerprint'],
+  ['projectId', 'environment', 'fingerprint'],
   {
     unique: true,
   },
@@ -38,6 +44,9 @@ export class MonitoringErrorIssue {
   @Column({ type: 'char', length: 64 })
   fingerprint!: string;
 
+  @Column({ type: 'varchar', length: 64, default: 'unknown' })
+  environment!: string;
+
   @Column({ type: 'varchar', length: 2000 })
   title!: string;
 
@@ -53,6 +62,18 @@ export class MonitoringErrorIssue {
     default: MonitoringErrorIssueStatus.Unresolved,
   })
   status!: MonitoringErrorIssueStatus;
+
+  @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })
+  resolvedAt!: Date | null;
+
+  @Column({ name: 'resolution_reason', type: 'varchar', length: 32, nullable: true })
+  resolutionReason!: MonitoringErrorIssueResolutionReason | null;
+
+  @Column({ name: 'reopened_at', type: 'timestamptz', nullable: true })
+  reopenedAt!: Date | null;
+
+  @Column({ name: 'reopen_count', type: 'integer', default: 0 })
+  reopenCount!: number;
 
   @Column({ name: 'event_count', type: 'integer', default: 1 })
   eventCount!: number;
