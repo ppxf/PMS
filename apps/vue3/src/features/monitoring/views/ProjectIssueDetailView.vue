@@ -21,6 +21,9 @@ const projectSlug = String(route.params.projectSlug)
 const issueId = String(route.params.issueId)
 const issue = ref<MonitoringIssueDetail | null>(null)
 const error = ref('')
+const headersExpanded = ref(false)
+const cookiesExpanded = ref(false)
+const defaultRequestEntryCount = 5
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '-'
@@ -31,6 +34,12 @@ function formatDate(value: string | null | undefined): string {
 const tags = computed(() => Object.entries(issue.value?.latestEvent?.tags ?? {}))
 const requestHeaders = computed(() => sortedEntries(issue.value?.latestEvent?.contexts?.request?.headers))
 const requestCookies = computed(() => sortedEntries(issue.value?.latestEvent?.contexts?.request?.cookies))
+const visibleRequestHeaders = computed(() =>
+  headersExpanded.value ? requestHeaders.value : requestHeaders.value.slice(0, defaultRequestEntryCount),
+)
+const visibleRequestCookies = computed(() =>
+  cookiesExpanded.value ? requestCookies.value : requestCookies.value.slice(0, defaultRequestEntryCount),
+)
 
 function sortedEntries(value: Record<string, string> | undefined): [string, string][] {
   return Object.entries(value ?? {}).sort(([left], [right]) => left.localeCompare(right))
@@ -125,20 +134,38 @@ onMounted(loadIssue)
           <div>
             <h3 class="mb-2 text-sm font-medium">Headers</h3>
             <dl v-if="requestHeaders.length" class="space-y-2 text-sm">
-              <div v-for="[key, value] in requestHeaders" :key="key" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
+              <div v-for="[key, value] in visibleRequestHeaders" :key="key" data-testid="request-header-row" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
                 <dt class="text-muted-foreground">{{ key }}</dt><dd class="break-all">{{ value }}</dd>
               </div>
             </dl>
             <p v-else class="text-sm text-muted-foreground">-</p>
+            <Button
+              v-if="requestHeaders.length > defaultRequestEntryCount"
+              data-testid="request-headers-toggle"
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="mt-2"
+              @click="headersExpanded = !headersExpanded"
+            >{{ headersExpanded ? '收起' : `展开全部（${requestHeaders.length}）` }}</Button>
           </div>
           <div>
             <h3 class="mb-2 text-sm font-medium">Cookies</h3>
             <dl v-if="requestCookies.length" class="space-y-2 text-sm">
-              <div v-for="[key, value] in requestCookies" :key="key" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
+              <div v-for="[key, value] in visibleRequestCookies" :key="key" data-testid="request-cookie-row" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
                 <dt class="text-muted-foreground">{{ key }}</dt><dd class="break-all">{{ value }}</dd>
               </div>
             </dl>
             <p v-else class="text-sm text-muted-foreground">-</p>
+            <Button
+              v-if="requestCookies.length > defaultRequestEntryCount"
+              data-testid="request-cookies-toggle"
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="mt-2"
+              @click="cookiesExpanded = !cookiesExpanded"
+            >{{ cookiesExpanded ? '收起' : `展开全部（${requestCookies.length}）` }}</Button>
           </div>
         </CardContent>
       </Card>

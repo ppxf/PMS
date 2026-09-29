@@ -87,7 +87,9 @@ function identifyClientHintBrowser(): { name?: string; version?: string } {
     userAgentData?: { brands?: Array<{ brand?: string; version?: string }> }
   }).userAgentData?.brands)
   const selected = brands?.find(({ brand }) =>
-    brand && !/^(Chromium|Not[ _]A Brand)$/iu.test(brand),
+    brand
+      && brand !== 'Chromium'
+      && brand.replace(/[^a-z]/giu, '').toLowerCase() !== 'notabrand',
   )
   if (!selected?.brand) return {}
   const names: Record<string, string> = {

@@ -4,6 +4,24 @@ import { captureBrowserContext } from './browser-context.js'
 describe('browser context capture', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('ignores Chromium GREASE brands and returns the real browser version', () => {
+    vi.stubGlobal('navigator', {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/152.0.0.0 Safari/537.36',
+      userAgentData: {
+        brands: [
+          { brand: 'Not;A_Brand', version: '24' },
+          { brand: 'Chromium', version: '152' },
+          { brand: 'Google Chrome', version: '152' },
+        ],
+      },
+    })
+
+    expect(captureBrowserContext().contexts?.browser).toMatchObject({
+      name: 'Chrome',
+      version: '152',
+    })
+  })
+
   it('captures page, request, browser, device, culture and memory data safely', () => {
     vi.stubGlobal('location', { href: 'https://app.example.com/checkout?step=2' })
     vi.stubGlobal('navigator', {

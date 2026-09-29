@@ -146,6 +146,45 @@ describe('project issue views', () => {
     expect(wrapper.text()).toContain('Chrome')
   })
 
+  it('shows five request headers and cookies by default and expands them independently', async () => {
+    const headers = Object.fromEntries(
+      Array.from({ length: 7 }, (_, index) => [`Header-${index + 1}`, `value-${index + 1}`]),
+    )
+    const cookies = Object.fromEntries(
+      Array.from({ length: 7 }, (_, index) => [`cookie-${index + 1}`, `value-${index + 1}`]),
+    )
+    getProjectIssue.mockResolvedValue({
+      ...issue,
+      latestEvent: {
+        ...event,
+        contexts: { ...event.contexts, request: { headers, cookies } },
+      },
+      recentEvents: [],
+    })
+    const wrapper = mount(ProjectIssueDetailView)
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="request-header-row"]')).toHaveLength(5)
+    expect(wrapper.findAll('[data-testid="request-cookie-row"]')).toHaveLength(5)
+
+    const headersToggle = wrapper.get('[data-testid="request-headers-toggle"]')
+    expect(headersToggle.text()).toContain('展开全部（7）')
+    await headersToggle.trigger('click')
+    expect(wrapper.findAll('[data-testid="request-header-row"]')).toHaveLength(7)
+    expect(wrapper.findAll('[data-testid="request-cookie-row"]')).toHaveLength(5)
+    expect(headersToggle.text()).toBe('收起')
+
+    await headersToggle.trigger('click')
+    expect(wrapper.findAll('[data-testid="request-header-row"]')).toHaveLength(5)
+
+    const cookiesToggle = wrapper.get('[data-testid="request-cookies-toggle"]')
+    expect(cookiesToggle.text()).toContain('展开全部（7）')
+    await cookiesToggle.trigger('click')
+    expect(wrapper.findAll('[data-testid="request-cookie-row"]')).toHaveLength(7)
+    expect(wrapper.findAll('[data-testid="request-header-row"]')).toHaveLength(5)
+    expect(cookiesToggle.text()).toBe('收起')
+  })
+
   it('safely renders missing event metadata', async () => {
     getProjectIssue.mockResolvedValue({
       ...issue,

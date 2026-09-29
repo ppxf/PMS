@@ -7,6 +7,87 @@ import { MonitoringErrorIssue } from './entities/monitoring-error-issue.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
 import { createErrorFingerprint, findCulprit } from './fingerprint';
 
+export type IngressHeaders = Record<string, string | string[] | undefined>;
+
+const contextEntryLimit = 50;
+const contextKeyLimit = 128;
+const contextValueLimit = 2048;
+const sensitiveNameParts = [
+  'authorization', 'cookie', 'set-cookie', 'token', 'session', 'password',
+  'passwd', 'secret', 'credential', 'jwt', 'auth',
+];
+
+function isSensitiveName(name: string): boolean {
+  const normalized = name.toLowerCase();
+  return sensitiveNameParts.some((part) => normalized.includes(part));
+}
+
+function displayHeaderName(name: string): string {
+  return name
+    .split('-')
+    .map((part) => part ? `${part[0].toUpperCase()}${part.slice(1).toLowerCase()}` : part)
+    .join('-');
+}
+
+function boundedContextMap(entries: Iterable<[string, string]>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [rawKey, rawValue] of entries) {
+    if (Object.keys(result).length >= contextEntryLimit) break;
+    const key = [...rawKey].slice(0, contextKeyLimit).join('');
+    if (!key) continue;
+    result[key] = isSensitiveName(key)
+      ? '[Filtered]'
+      : [...rawValue].slice(0, contextValueLimit).join('');
+  }
+  return result;
+}
+
+function parseIngressCookies(value: string | undefined): Array<[string, string]> {
+  if (!value) return [];
+  return value.split(';').flatMap((part): Array<[string, string]> => {
+    const separator = part.indexOf('=');
+    if (separator < 0) return [];
+    const key = part.slice(0, separator).trim();
+    if (!key) return [];
+    return [[key, part.slice(separator + 1).trim()]];
+  });
+}
+
+function mergeIngressRequestContext(
+  envelope: IngestEnvelopeDto,
+  ingressHeaders: IngressHeaders | undefined,
+): void {
+  if (envelope.type !== 'event' || !ingressHeaders) return;
+  const event = envelope.event!;
+  const existing = event.contexts?.request;
+  const incomingHeaders: Array<[string, string]> = [];
+  let serializedCookies: string | undefined;
+
+  for (const [name, rawValue] of Object.entries(ingressHeaders)) {
+    if (rawValue === undefined) continue;
+    const value = Array.isArray(rawValue) ? rawValue.join(', ') : rawValue;
+    const normalizedName = name.toLowerCase();
+    if (normalizedName === 'cookie') {
+      serializedCookies = value;
+      continue;
+    }
+    if (normalizedName === 'x-pms-key') continue;
+    incomingHeaders.push([displayHeaderName(name), value]);
+  }
+
+  event.contexts ??= {};
+  event.contexts.request = {
+    headers: boundedContextMap([
+      ...Object.entries(existing?.headers ?? {}),
+      ...incomingHeaders,
+    ]),
+    cookies: boundedContextMap([
+      ...Object.entries(existing?.cookies ?? {}),
+      ...parseIngressCookies(serializedCookies),
+    ]),
+  };
+}
+
 @Injectable()
 export class MonitoringEventsService {
   constructor(
@@ -18,6 +99,7 @@ export class MonitoringEventsService {
     projectId: string,
     publicKey: string | undefined,
     envelope: IngestEnvelopeDto,
+    ingressHeaders?: IngressHeaders,
   ): Promise<void> {
     const project = await this.projects.findForIngestion(projectId, publicKey);
     if (envelope.type === 'client_report') {
@@ -29,6 +111,8 @@ export class MonitoringEventsService {
     if (!project.errorMonitoringEnabled) {
       throw new ForbiddenException('项目未启用错误监控');
     }
+
+    mergeIngressRequestContext(envelope, ingressHeaders);
 
     // The public controller's nested DTO guarantees an event for this variant.
     const event = envelope.event!;
