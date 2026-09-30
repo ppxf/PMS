@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsInt, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class ListIssuesQueryDto {
   @Transform(({ value }) => (value === undefined ? 1 : Number(value)))
@@ -11,4 +11,12 @@ export class ListIssuesQueryDto {
   @IsInt()
   @IsIn([10, 20, 50, 100])
   pageSize = 20;
+
+  @Transform(({ value }) =>
+    typeof value === 'string' && value.trim() ? value.trim() : undefined,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
 }

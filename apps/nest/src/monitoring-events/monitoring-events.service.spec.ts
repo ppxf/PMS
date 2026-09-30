@@ -605,8 +605,18 @@ describe('MonitoringEventsService management queries', () => {
   });
 
   function queryFixture(options?: { foundIssue?: MonitoringErrorIssue | null }) {
+    const queryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[issue], 1]),
+    };
     const issueRepository = {
       findAndCount: jest.fn().mockResolvedValue([[issue], 1]),
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
       findOne: jest.fn().mockResolvedValue(
         options && 'foundIssue' in options ? options.foundIssue : issue,
       ),
@@ -638,7 +648,7 @@ describe('MonitoringEventsService management queries', () => {
     };
     return {
       service: new MonitoringEventsService(dataSource as never, projects as never),
-      issueRepository, eventRepository, projects, recentEvents,
+      issueRepository, eventRepository, projects, recentEvents, queryBuilder,
     };
   }
 
@@ -659,10 +669,24 @@ describe('MonitoringEventsService management queries', () => {
       total: 1, page: 2, pageSize: 10,
     });
     expect(app.projects.findOwnedBySlug).toHaveBeenCalledWith('user-1', 'acme', 'web');
-    expect(app.issueRepository.findAndCount).toHaveBeenCalledWith(expect.objectContaining({
-      where: { projectId }, skip: 10, take: 10, order: { lastSeenAt: 'DESC' },
-      relations: { latestEvent: true },
-    }));
+    expect(app.queryBuilder.where).toHaveBeenCalledWith(
+      'issue.projectId = :projectId', { projectId },
+    );
+    expect(app.queryBuilder.skip).toHaveBeenCalledWith(10);
+    expect(app.queryBuilder.take).toHaveBeenCalledWith(10);
+  });
+
+  it('searches issue summaries across displayed fields within the owned project', async () => {
+    const app = queryFixture();
+    await app.service.listOwnedIssues('user-1', 'acme', 'web', {
+      page: 1, pageSize: 20, search: 'vue',
+    });
+
+    expect(app.issueRepository.createQueryBuilder).toHaveBeenCalledWith('issue');
+    expect(app.queryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('latestEvent.source'),
+      { search: '%vue%' },
+    );
   });
 
   it('returns a scoped issue detail and twenty newest project events', async () => {

@@ -119,6 +119,26 @@ describe('project issue views', () => {
     expect(wrapper.text()).toContain('暂无错误')
   })
 
+  it('debounces server-side search and resets pagination', async () => {
+    listProjectIssues.mockResolvedValue({ items: [issue], total: 21, page: 1, pageSize: 20 })
+    const wrapper = mount(ProjectIssuesView, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    await flushPromises()
+    await wrapper.get('button[aria-label="下一页"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('input[aria-label="搜索错误列表"]').setValue('vue')
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    await flushPromises()
+
+    expect(listProjectIssues).toHaveBeenLastCalledWith('team', 'web', {
+      page: 1,
+      pageSize: 20,
+      search: 'vue',
+    })
+  })
+
   it('renders resolved summaries and automatic resolution details', async () => {
     const resolvedIssue = {
       ...issue,

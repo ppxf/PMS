@@ -29,7 +29,11 @@ export const getProject = (groupSlug: string, projectSlug: string) =>
 export const getProjectConnection = (groupSlug: string, projectSlug: string) =>
   http.get<ProjectConnection>(`/groups/${groupSlug}/projects/${projectSlug}/connection`)
 
-export const listProjectIssues = (groupSlug: string, projectSlug: string, query: PageQuery) =>
+export const listProjectIssues = (
+  groupSlug: string,
+  projectSlug: string,
+  query: PageQuery & { search?: string },
+) =>
   http.get<PageResult<MonitoringIssueSummary>>(
     `/groups/${groupSlug}/projects/${projectSlug}/issues`,
     { params: query },

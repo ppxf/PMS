@@ -128,23 +128,33 @@ export class MonitoringEventsService {
     userId: string,
     groupSlug: string,
     projectSlug: string,
-    query: { page: number; pageSize: number },
+    query: { page: number; pageSize: number; search?: string },
   ) {
     const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
-    const [issues, total] = await this.dataSource.getRepository(MonitoringErrorIssue).findAndCount({
-      where: { projectId: project.id },
-      relations: { latestEvent: true },
-      select: {
-        id: true, title: true, exceptionType: true, culprit: true, status: true,
-        environment: true, resolvedAt: true, resolutionReason: true,
-        reopenedAt: true, reopenCount: true,
-        eventCount: true, firstSeenAt: true, lastSeenAt: true,
-        latestEvent: { id: true, source: true },
-      },
-      order: { lastSeenAt: 'DESC' },
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    });
+    const issuesQuery = this.dataSource.getRepository(MonitoringErrorIssue)
+      .createQueryBuilder('issue')
+      .leftJoinAndSelect('issue.latestEvent', 'latestEvent')
+      .where('issue.projectId = :projectId', { projectId: project.id });
+    if (query.search) {
+      issuesQuery.andWhere(
+        `CONCAT_WS(' ',
+          issue.title,
+          issue.exceptionType,
+          latestEvent.source,
+          issue.status,
+          CASE issue.status WHEN 'unresolved' THEN '未解决' WHEN 'resolved' THEN '已解决' END,
+          CAST(issue.eventCount AS TEXT),
+          TO_CHAR(issue.firstSeenAt, 'YYYY-MM-DD HH24:MI:SS'),
+          TO_CHAR(issue.lastSeenAt, 'YYYY-MM-DD HH24:MI:SS')
+        ) ILIKE :search`,
+        { search: `%${query.search}%` },
+      );
+    }
+    const [issues, total] = await issuesQuery
+      .orderBy('issue.lastSeenAt', 'DESC')
+      .skip((query.page - 1) * query.pageSize)
+      .take(query.pageSize)
+      .getManyAndCount();
     return {
       items: issues.map((issue) => this.toIssueSummary(issue)),
       total,

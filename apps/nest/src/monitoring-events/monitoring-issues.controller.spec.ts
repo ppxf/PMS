@@ -48,13 +48,13 @@ describe('MonitoringIssuesController', () => {
   });
 
   it.each([
-    [{}, 1, 20, 0],
-    [{ page: '2', pageSize: '50' }, 2, 50, 0],
-    [{ page: '0' }, 0, 20, 1],
-    [{ pageSize: '25' }, 1, 25, 1],
-  ])('transforms and validates pagination %p', (input, page, pageSize, errors) => {
+    [{}, 1, 20, undefined, 0],
+    [{ page: '2', pageSize: '50', search: '  vue error  ' }, 2, 50, 'vue error', 0],
+    [{ page: '0' }, 0, 20, undefined, 1],
+    [{ pageSize: '25' }, 1, 25, undefined, 1],
+  ])('transforms and validates issue list query %p', (input, page, pageSize, search, errors) => {
     const query = plainToInstance(ListIssuesQueryDto, input);
-    expect(query).toMatchObject({ page, pageSize });
+    expect(query).toMatchObject({ page, pageSize, ...(search === undefined ? {} : { search }) });
     expect(validateSync(query)).toHaveLength(errors);
   });
 });

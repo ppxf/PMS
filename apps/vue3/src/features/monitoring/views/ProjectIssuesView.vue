@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { h, onMounted, ref, watch } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import { RouterLink, useRoute } from 'vue-router'
 import { createColumnHelper } from '@tanstack/vue-table'
 import { DataTable } from '@/components/data-table'
 import type { DataTableFeatures } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { listProjectIssues } from '../api/monitoring.api'
 import type { MonitoringIssueSummary } from '../model/types'
 
@@ -17,6 +19,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const error = ref('')
+const searchInput = ref('')
+const search = ref('')
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '-'
@@ -79,6 +83,7 @@ async function loadIssues(): Promise<void> {
     const result = await listProjectIssues(groupSlug, projectSlug, {
       page: page.value,
       pageSize: pageSize.value,
+      ...(search.value ? { search: search.value } : {}),
     })
     issues.value = result.items
     total.value = result.total
@@ -89,7 +94,13 @@ async function loadIssues(): Promise<void> {
   }
 }
 
-watch([page, pageSize], loadIssues)
+const applySearch = useDebounceFn((value: string) => {
+  page.value = 1
+  search.value = value.trim()
+}, 300)
+
+watch(searchInput, (value) => applySearch(value))
+watch([page, pageSize, search], loadIssues)
 onMounted(loadIssues)
 </script>
 
@@ -99,6 +110,13 @@ onMounted(loadIssues)
       <h2 class="text-2xl font-semibold tracking-tight">错误列表</h2>
       <p class="mt-1 text-muted-foreground">查看项目中聚合后的前端错误。</p>
     </div>
+
+    <Input
+      v-model="searchInput"
+      class="max-w-md"
+      aria-label="搜索错误列表"
+      placeholder="搜索错误、异常类型、来源、状态、次数或时间"
+    />
 
     <DataTable
       v-model:page="page"
