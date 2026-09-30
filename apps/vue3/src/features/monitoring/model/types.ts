@@ -51,6 +51,7 @@ export interface MonitoringIssueSummary {
   eventCount: number
   firstSeenAt: string
   lastSeenAt: string
+  source: 'vue' | 'window' | 'unhandledrejection' | 'manual' | null
   environment: string | null
   resolvedAt: string | null
   resolutionReason: 'manual' | 'auto_inactivity' | null

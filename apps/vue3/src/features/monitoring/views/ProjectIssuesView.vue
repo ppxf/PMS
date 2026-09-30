@@ -42,6 +42,10 @@ const columns = columnHelper.columns([
       ),
   }),
   columnHelper.accessor('exceptionType', { header: '异常类型' }),
+  columnHelper.accessor('source', {
+    header: '来源',
+    cell: ({ row }) => row.original.source ?? '-',
+  }),
   columnHelper.accessor('status', {
     header: '状态',
     cell: ({ row }) =>
@@ -57,10 +61,6 @@ const columns = columnHelper.columns([
         { variant: row.original.status === 'resolved' ? 'success' : 'destructive' },
         () => `${row.original.eventCount} 次`,
       ),
-  }),
-  columnHelper.accessor('environment', {
-    header: '环境',
-    cell: ({ row }) => h(Badge, { variant: 'secondary' }, () => row.original.environment ?? '-'),
   }),
   columnHelper.accessor('firstSeenAt', {
     header: '首次出现',

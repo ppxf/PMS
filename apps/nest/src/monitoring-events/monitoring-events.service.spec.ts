@@ -599,6 +599,7 @@ describe('MonitoringEventsService management queries', () => {
     latestEventId: secondEventId,
     latestEvent: Object.assign(new MonitoringEvent(), {
       id: secondEventId,
+      source: 'vue',
       environment: 'production',
     }),
   });
@@ -651,6 +652,7 @@ describe('MonitoringEventsService management queries', () => {
         culprit: 'at render', status: 'unresolved', eventCount: 2,
         firstSeenAt: new Date('2026-09-23T02:00:00.000Z'),
         lastSeenAt: new Date('2026-09-23T03:00:00.000Z'),
+        source: 'vue',
         environment: 'production', resolvedAt: null, resolutionReason: null,
         reopenedAt: null, reopenCount: 0,
       }],

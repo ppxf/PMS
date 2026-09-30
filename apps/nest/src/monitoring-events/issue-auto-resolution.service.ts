@@ -24,6 +24,8 @@ export class IssueAutoResolutionService
   constructor(private readonly dataSource: DataSource) {}
 
   onModuleInit(): void {
+    if (process.env.NODE_ENV !== 'production') return;
+
     this.timer = setInterval(() => {
       void this.runScheduledScan();
     }, ONE_HOUR_MS);
@@ -37,19 +39,20 @@ export class IssueAutoResolutionService
 
   async resolveInactiveProductionIssues(now = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - SEVEN_DAYS_MS);
-    const result = await this.dataSource.getRepository(MonitoringErrorIssue).update(
-      {
-        status: MonitoringErrorIssueStatus.Unresolved,
-        environment: 'production',
-        lastSeenAt: LessThanOrEqual(cutoff),
-      },
-      {
-        status: MonitoringErrorIssueStatus.Resolved,
-        resolvedAt: now,
-        resolutionReason:
-          MonitoringErrorIssueResolutionReason.AutoInactivity,
-      },
-    );
+    const result = await this.dataSource
+      .getRepository(MonitoringErrorIssue)
+      .update(
+        {
+          status: MonitoringErrorIssueStatus.Unresolved,
+          environment: 'production',
+          lastSeenAt: LessThanOrEqual(cutoff),
+        },
+        {
+          status: MonitoringErrorIssueStatus.Resolved,
+          resolvedAt: now,
+          resolutionReason: MonitoringErrorIssueResolutionReason.AutoInactivity,
+        },
+      );
     return result.affected ?? 0;
   }
 

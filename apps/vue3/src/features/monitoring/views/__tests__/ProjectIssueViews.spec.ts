@@ -64,6 +64,7 @@ const issue = {
   eventCount: 2,
   firstSeenAt: '2026-09-23T02:00:00.000Z',
   lastSeenAt: '2026-09-23T03:00:00.000Z',
+  source: 'vue' as const,
   environment: 'production',
   resolvedAt: null,
   resolutionReason: null,
@@ -83,10 +84,13 @@ describe('project issue views', () => {
 
     expect(wrapper.text()).toContain('Render failed')
     expect(wrapper.text()).toContain('TypeError')
+    expect(wrapper.text()).toContain('来源')
+    expect(wrapper.text()).toContain('vue')
+    expect(wrapper.text()).not.toContain('环境')
     expect(wrapper.text()).toContain('状态')
     expect(wrapper.text()).toContain('未解决')
     expect(wrapper.text()).toContain('2 次')
-    expect(wrapper.text()).toContain('production')
+    expect(wrapper.text()).not.toContain('production')
     expect(wrapper.text()).not.toContain('版本')
     expect(wrapper.text()).toContain('首次出现')
     expect(wrapper.text()).toContain('最近出现')
