@@ -105,6 +105,8 @@ captureException(new Error('PMS SDK test error'))
 
 错误由服务端同步写入事件表，并按服务端 fingerprint 写入错误归组表；`eventId` 幂等。首版没有队列、重试、离线缓存、批量上报、Source Map、Tracing、Logging 或 Metrics。
 
+错误列表支持当前错误与已归档错误视图。错误详情可以永久归档、按累计 `10`、`100`、`1000` 次归档、恢复、删除或永久删除。归档期间仍保存事件并累计次数；永久删除需要连续两次确认，且操作不可恢复，未来相同错误不会再被记录。
+
 ## 权限控制
 
 路由权限在 `RouteMeta.permissions` 中声明，由全局守卫处理：

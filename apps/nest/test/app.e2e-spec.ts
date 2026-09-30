@@ -189,6 +189,17 @@ describe('AppController (e2e)', () => {
       stacktrace: event.stacktrace, url: event.url, environment: event.environment,
       tags: event.tags, contexts: event.contexts,
     });
+    const deleteOwnedIssue = async (
+      userId: string, groupSlug: string, projectSlug: string, issueId: string,
+    ) => {
+      const project = await findOwnedProject(userId, groupSlug, projectSlug);
+      const index = issues.findIndex((item) => item.id === issueId && item.projectId === project.id);
+      if (index < 0) throw new NotFoundException('监控错误不存在');
+      issues.splice(index, 1);
+      for (let eventIndex = events.length - 1; eventIndex >= 0; eventIndex -= 1) {
+        if (events[eventIndex].issueId === issueId) events.splice(eventIndex, 1);
+      }
+    };
     const eventsService = {
       ingest: jest.fn((id: string, key: string | undefined, envelope: any) => {
         const project = projects.find((item) => item.id === id && item.publicKey === key);
@@ -214,7 +225,8 @@ describe('AppController (e2e)', () => {
             id: '30000000-0000-4000-8000-000000000001', projectId: id, fingerprint,
             title: event.message, exceptionType: event.exception.type, culprit: 'at render',
             status: 'unresolved', eventCount: 0, firstSeenAt: receivedAt,
-            lastSeenAt: receivedAt, latestEventId: null,
+            lastSeenAt: receivedAt, latestEventId: null, visibility: 'active',
+            archiveThreshold: null, archivedAt: null,
           };
           issues.push(issue);
         }
@@ -237,6 +249,9 @@ describe('AppController (e2e)', () => {
         const project = await findOwnedProject(userId, groupSlug, projectSlug);
         const scoped = issues
           .filter((item) => item.projectId === project.id)
+          .filter((item) => query.view === 'archived'
+            ? item.visibility === 'archived_permanent' || item.visibility === 'archived_until_count'
+            : (item.visibility ?? 'active') === 'active')
           .sort((first, second) => second.lastSeenAt.getTime() - first.lastSeenAt.getTime());
         const pageItems = scoped.slice(
           (query.page - 1) * query.pageSize,
@@ -249,6 +264,9 @@ describe('AppController (e2e)', () => {
               id: issue.id, title: issue.title, exceptionType: issue.exceptionType,
               culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
               firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
+              visibility: issue.visibility ?? 'active',
+              archiveThreshold: issue.archiveThreshold ?? null,
+              archivedAt: issue.archivedAt ?? null,
               environment: latest?.environment ?? null,
             };
           }),
@@ -266,11 +284,39 @@ describe('AppController (e2e)', () => {
           id: issue.id, title: issue.title, exceptionType: issue.exceptionType,
           culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
           firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
+          visibility: issue.visibility ?? 'active',
+          archiveThreshold: issue.archiveThreshold ?? null,
+          archivedAt: issue.archivedAt ?? null,
           environment: latestEvent?.environment ?? null,
           latestEvent: latestEvent ? toEventResponse(latestEvent) : null,
           recentEvents: recentEvents.map(toEventResponse),
         };
       }),
+      archiveOwnedIssue: jest.fn(async (
+        userId: string, groupSlug: string, projectSlug: string, issueId: string,
+        input: { mode: 'permanent' | 'until_count'; threshold?: number },
+      ) => {
+        const project = await findOwnedProject(userId, groupSlug, projectSlug);
+        const issue = issues.find((item) => item.id === issueId && item.projectId === project.id);
+        if (!issue) throw new NotFoundException('监控错误不存在');
+        issue.visibility = input.mode === 'permanent' ? 'archived_permanent' : 'archived_until_count';
+        issue.archiveThreshold = input.threshold ?? null;
+        issue.archivedAt = new Date();
+        return { ...issue };
+      }),
+      restoreOwnedIssue: jest.fn(async (
+        userId: string, groupSlug: string, projectSlug: string, issueId: string,
+      ) => {
+        const project = await findOwnedProject(userId, groupSlug, projectSlug);
+        const issue = issues.find((item) => item.id === issueId && item.projectId === project.id);
+        if (!issue) throw new NotFoundException('监控错误不存在');
+        issue.visibility = 'active';
+        issue.archiveThreshold = null;
+        issue.archivedAt = null;
+        return { ...issue };
+      }),
+      deleteOwnedIssue: jest.fn(deleteOwnedIssue),
+      permanentlyDeleteOwnedIssue: jest.fn(deleteOwnedIssue),
     };
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -485,6 +531,34 @@ describe('AppController (e2e)', () => {
       });
     await request(app.getHttpServer()).get(`/groups/acme-team/projects/web/issues/${issueId}`)
       .set('Authorization', `Bearer ${otherToken}`).expect(404);
+    await request(app.getHttpServer())
+      .patch(`/groups/acme-team/projects/web/issues/${issueId}/archive`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ mode: 'until_count', threshold: 10 })
+      .expect(200)
+      .expect((response: Response) => {
+        expect(response.body.data).toMatchObject({
+          visibility: 'archived_until_count', archiveThreshold: 10,
+        });
+      });
+    await request(app.getHttpServer())
+      .get('/groups/acme-team/projects/web/issues?view=archived')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200)
+      .expect((response: Response) => expect(response.body.data.total).toBe(1));
+    await request(app.getHttpServer())
+      .patch(`/groups/acme-team/projects/web/issues/${issueId}/restore`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200)
+      .expect((response: Response) => {
+        expect(response.body.data).toMatchObject({
+          visibility: 'active', archiveThreshold: null, archivedAt: null,
+        });
+      });
+    await request(app.getHttpServer())
+      .delete(`/groups/acme-team/projects/web/issues/${issueId}/permanent`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(204);
     await request(app.getHttpServer()).post(`/sdk/${project.id}/envelope`)
       .set('X-PMS-Key', project.publicKey).send({ version: 1, type: 'event' }).expect(400);
     await request(app.getHttpServer()).post(`/sdk/${project.id}/envelope`)

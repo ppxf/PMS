@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -22,7 +23,17 @@ export enum MonitoringErrorIssueResolutionReason {
   AutoInactivity = 'auto_inactivity',
 }
 
+export enum MonitoringErrorIssueVisibility {
+  Active = 'active',
+  ArchivedPermanent = 'archived_permanent',
+  ArchivedUntilCount = 'archived_until_count',
+}
+
 @Entity({ name: 'monitoring_error_issues' })
+@Check(
+  'chk_monitoring_error_issues_archive',
+  `(visibility = 'archived_until_count' AND archive_threshold IN (10, 100, 1000)) OR (visibility <> 'archived_until_count' AND archive_threshold IS NULL)`,
+)
 @Index(
   'uq_monitoring_error_issues_project_fingerprint',
   ['projectId', 'environment', 'fingerprint'],
@@ -77,6 +88,19 @@ export class MonitoringErrorIssue {
 
   @Column({ name: 'event_count', type: 'integer', default: 1 })
   eventCount!: number;
+
+  @Column({
+    type: 'varchar',
+    length: 32,
+    default: MonitoringErrorIssueVisibility.Active,
+  })
+  visibility!: MonitoringErrorIssueVisibility;
+
+  @Column({ name: 'archive_threshold', type: 'integer', nullable: true })
+  archiveThreshold!: number | null;
+
+  @Column({ name: 'archived_at', type: 'timestamptz', nullable: true })
+  archivedAt!: Date | null;
 
   @Column({ name: 'first_seen_at', type: 'timestamptz' })
   firstSeenAt!: Date;

@@ -1,13 +1,21 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { IngestEnvelopeDto } from './dto/ingest-envelope.dto';
+import type { ArchiveIssueDto } from './dto/archive-issue.dto';
 import {
   MonitoringErrorIssue,
   MonitoringErrorIssueResolutionReason,
   MonitoringErrorIssueStatus,
+  MonitoringErrorIssueVisibility,
 } from './entities/monitoring-error-issue.entity';
+import { MonitoringErrorSuppression } from './entities/monitoring-error-suppression.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
 import { createErrorFingerprint, findCulprit } from './fingerprint';
 
@@ -48,6 +56,22 @@ export class MonitoringEventsService {
           stacktrace: event.exception.stacktrace,
           url: event.url,
         });
+        const environment = event.environment ?? 'unknown';
+        await this.lockErrorIdentity(
+          manager,
+          project.id,
+          environment,
+          fingerprint,
+        );
+        if (
+          await manager.existsBy(MonitoringErrorSuppression, {
+            projectId: project.id,
+            environment,
+            fingerprint,
+          })
+        ) {
+          return;
+        }
         const culprit =
           [...findCulprit(event.exception.stacktrace, event.url)]
             .slice(0, 512)
@@ -69,11 +93,29 @@ export class MonitoringEventsService {
              status = 'unresolved',
              resolved_at = NULL,
              resolution_reason = NULL,
+             visibility = CASE
+               WHEN monitoring_error_issues.visibility = 'archived_until_count'
+                AND monitoring_error_issues.event_count + 1 >= monitoring_error_issues.archive_threshold
+               THEN 'active'
+               ELSE monitoring_error_issues.visibility
+             END,
+             archive_threshold = CASE
+               WHEN monitoring_error_issues.visibility = 'archived_until_count'
+                AND monitoring_error_issues.event_count + 1 >= monitoring_error_issues.archive_threshold
+               THEN NULL
+               ELSE monitoring_error_issues.archive_threshold
+             END,
+             archived_at = CASE
+               WHEN monitoring_error_issues.visibility = 'archived_until_count'
+                AND monitoring_error_issues.event_count + 1 >= monitoring_error_issues.archive_threshold
+               THEN NULL
+               ELSE monitoring_error_issues.archived_at
+             END,
              updated_at = now()
            RETURNING id`,
           [
             project.id,
-            event.environment ?? 'unknown',
+            environment,
             fingerprint,
             event.message,
             event.exception.type,
@@ -128,13 +170,30 @@ export class MonitoringEventsService {
     userId: string,
     groupSlug: string,
     projectSlug: string,
-    query: { page: number; pageSize: number; search?: string },
+    query: {
+      page: number;
+      pageSize: number;
+      search?: string;
+      view?: 'active' | 'archived';
+    },
   ) {
     const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
     const issuesQuery = this.dataSource.getRepository(MonitoringErrorIssue)
       .createQueryBuilder('issue')
       .leftJoinAndSelect('issue.latestEvent', 'latestEvent')
       .where('issue.projectId = :projectId', { projectId: project.id });
+    if (query.view === 'archived') {
+      issuesQuery.andWhere('issue.visibility IN (:...visibilities)', {
+        visibilities: [
+          MonitoringErrorIssueVisibility.ArchivedPermanent,
+          MonitoringErrorIssueVisibility.ArchivedUntilCount,
+        ],
+      });
+    } else {
+      issuesQuery.andWhere('issue.visibility = :visibility', {
+        visibility: MonitoringErrorIssueVisibility.Active,
+      });
+    }
     if (query.search) {
       issuesQuery.andWhere(
         `CONCAT_WS(' ',
@@ -177,6 +236,7 @@ export class MonitoringEventsService {
         id: true, title: true, exceptionType: true, culprit: true, status: true,
         environment: true, resolvedAt: true, resolutionReason: true,
         reopenedAt: true, reopenCount: true,
+        visibility: true, archiveThreshold: true, archivedAt: true,
         eventCount: true, firstSeenAt: true, lastSeenAt: true,
         latestEvent: this.eventSelection(),
       },
@@ -226,12 +286,110 @@ export class MonitoringEventsService {
     return this.getOwnedIssue(userId, groupSlug, projectSlug, issueId);
   }
 
+  async archiveOwnedIssue(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    issueId: string,
+    input: ArchiveIssueDto,
+  ) {
+    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    const repository = this.dataSource.getRepository(MonitoringErrorIssue);
+    const issue = await repository.findOneBy({ id: issueId, projectId: project.id });
+    if (!issue) throw new NotFoundException('监控错误不存在');
+    if (
+      input.mode === 'until_count' &&
+      (input.threshold === undefined || input.threshold <= issue.eventCount)
+    ) {
+      throw new BadRequestException('归档阈值必须大于当前累计次数');
+    }
+
+    await repository.update(issueId, {
+      visibility: input.mode === 'permanent'
+        ? MonitoringErrorIssueVisibility.ArchivedPermanent
+        : MonitoringErrorIssueVisibility.ArchivedUntilCount,
+      archiveThreshold: input.mode === 'until_count' ? input.threshold : null,
+      archivedAt: new Date(),
+    });
+    return this.getOwnedIssue(userId, groupSlug, projectSlug, issueId);
+  }
+
+  async restoreOwnedIssue(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    issueId: string,
+  ) {
+    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    const repository = this.dataSource.getRepository(MonitoringErrorIssue);
+    const issue = await repository.findOneBy({ id: issueId, projectId: project.id });
+    if (!issue) throw new NotFoundException('监控错误不存在');
+    await repository.update(issueId, {
+      visibility: MonitoringErrorIssueVisibility.Active,
+      archiveThreshold: null,
+      archivedAt: null,
+    });
+    return this.getOwnedIssue(userId, groupSlug, projectSlug, issueId);
+  }
+
+  async deleteOwnedIssue(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    issueId: string,
+  ): Promise<void> {
+    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.dataSource.transaction(async (manager) => {
+      const issue = await manager.findOneBy(MonitoringErrorIssue, {
+        id: issueId,
+        projectId: project.id,
+      });
+      if (!issue) throw new NotFoundException('监控错误不存在');
+      await manager.delete(MonitoringErrorIssue, issue.id);
+    });
+  }
+
+  async permanentlyDeleteOwnedIssue(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    issueId: string,
+  ): Promise<void> {
+    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.dataSource.transaction(async (manager) => {
+      const issue = await manager.findOneBy(MonitoringErrorIssue, {
+        id: issueId,
+        projectId: project.id,
+      });
+      if (!issue) throw new NotFoundException('监控错误不存在');
+      await this.lockErrorIdentity(
+        manager,
+        project.id,
+        issue.environment,
+        issue.fingerprint,
+      );
+      await manager.upsert(
+        MonitoringErrorSuppression,
+        {
+          projectId: project.id,
+          environment: issue.environment,
+          fingerprint: issue.fingerprint,
+        },
+        ['projectId', 'environment', 'fingerprint'],
+      );
+      await manager.delete(MonitoringErrorIssue, issue.id);
+    });
+  }
+
   private toIssueSummary(issue: MonitoringErrorIssue) {
     return {
       id: issue.id, title: issue.title, exceptionType: issue.exceptionType,
       culprit: issue.culprit, status: issue.status, eventCount: issue.eventCount,
       firstSeenAt: issue.firstSeenAt, lastSeenAt: issue.lastSeenAt,
       source: issue.latestEvent?.source ?? null,
+      visibility: issue.visibility,
+      archiveThreshold: issue.archiveThreshold,
+      archivedAt: issue.archivedAt,
       environment: issue.environment, resolvedAt: issue.resolvedAt,
       resolutionReason: issue.resolutionReason,
       reopenedAt: issue.reopenedAt, reopenCount: issue.reopenCount,
@@ -244,6 +402,18 @@ export class MonitoringEventsService {
       message: true, exceptionType: true, exceptionValue: true, stacktrace: true,
       url: true, environment: true, tags: true, contexts: true,
     } as const;
+  }
+
+  private lockErrorIdentity(
+    manager: { query: (sql: string, parameters: unknown[]) => Promise<unknown> },
+    projectId: string,
+    environment: string,
+    fingerprint: string,
+  ): Promise<unknown> {
+    return manager.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [`${projectId}:${environment}:${fingerprint}`],
+    );
   }
 
   private toEvent(event: MonitoringEvent) {

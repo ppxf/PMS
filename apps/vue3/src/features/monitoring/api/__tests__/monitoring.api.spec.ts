@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { get, patch, post } = vi.hoisted(() => ({
+const { get, patch, post, remove } = vi.hoisted(() => ({
   get: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   patch: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   post: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  remove: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }))
 
-vi.mock('@/services/http', () => ({ http: { get, patch, post } }))
+vi.mock('@/services/http', () => ({ http: { get, patch, post, delete: remove } }))
 
 import {
   createGroup,
@@ -19,6 +20,10 @@ import {
   listProjectIssues,
   listProjects,
   updateProjectIssueStatus,
+  archiveProjectIssue,
+  restoreProjectIssue,
+  deleteProjectIssue,
+  permanentlyDeleteProjectIssue,
 } from '../monitoring.api'
 
 describe('monitoring API', () => {
@@ -82,6 +87,29 @@ describe('monitoring API', () => {
     expect(patch).toHaveBeenCalledWith(
       '/groups/team/projects/web/issues/issue-1/status',
       { status: 'resolved' },
+    )
+  })
+
+  it('uses archive, restore and delete issue endpoints', async () => {
+    patch.mockResolvedValue({ id: 'issue-1' })
+    remove.mockResolvedValue(undefined)
+    await archiveProjectIssue('team', 'web', 'issue-1', {
+      mode: 'until_count', threshold: 100,
+    })
+    await restoreProjectIssue('team', 'web', 'issue-1')
+    await deleteProjectIssue('team', 'web', 'issue-1')
+    await permanentlyDeleteProjectIssue('team', 'web', 'issue-1')
+
+    expect(patch).toHaveBeenNthCalledWith(
+      1, '/groups/team/projects/web/issues/issue-1/archive',
+      { mode: 'until_count', threshold: 100 },
+    )
+    expect(patch).toHaveBeenNthCalledWith(
+      2, '/groups/team/projects/web/issues/issue-1/restore', undefined,
+    )
+    expect(remove).toHaveBeenNthCalledWith(1, '/groups/team/projects/web/issues/issue-1')
+    expect(remove).toHaveBeenNthCalledWith(
+      2, '/groups/team/projects/web/issues/issue-1/permanent',
     )
   })
 })

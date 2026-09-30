@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MonitoringProjectsModule } from '../monitoring-projects/monitoring-projects.module';
 import { MonitoringErrorIssue } from './entities/monitoring-error-issue.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
+import { MonitoringErrorSuppression } from './entities/monitoring-error-suppression.entity';
 import { MonitoringEventsService } from './monitoring-events.service';
 import { IssueAutoResolutionService } from './issue-auto-resolution.service';
 import { MonitoringIssuesController } from './monitoring-issues.controller';
@@ -10,7 +11,11 @@ import { SdkEnvelopeController } from './sdk-envelope.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MonitoringEvent, MonitoringErrorIssue]),
+    TypeOrmModule.forFeature([
+      MonitoringEvent,
+      MonitoringErrorIssue,
+      MonitoringErrorSuppression,
+    ]),
     MonitoringProjectsModule,
   ],
   controllers: [SdkEnvelopeController, MonitoringIssuesController],

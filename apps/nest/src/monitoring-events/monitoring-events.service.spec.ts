@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EntityManager, QueryFailedError } from 'typeorm';
 import {
@@ -10,9 +10,12 @@ import { IngestEnvelopeDto } from './dto/ingest-envelope.dto';
 import {
   MonitoringErrorIssue,
   MonitoringErrorIssueStatus,
+  MonitoringErrorIssueVisibility,
 } from './entities/monitoring-error-issue.entity';
+import { MonitoringErrorSuppression } from './entities/monitoring-error-suppression.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
 import { MonitoringEventsService } from './monitoring-events.service';
+import { createErrorFingerprint } from './fingerprint';
 
 const projectId = '550e8400-e29b-41d4-a716-446655440000';
 const secondProjectId = '550e8400-e29b-41d4-a716-446655440099';
@@ -80,6 +83,11 @@ type State = {
   projects: MonitoringProject[];
   events: MonitoringEvent[];
   issues: MonitoringErrorIssue[];
+  suppressions: Array<{
+    projectId: string;
+    environment: string;
+    fingerprint: string;
+  }>;
 };
 type FailureStage = 'insert' | 'latest' | 'project';
 type UpdatePatch = { lastSeenAt?: Date | null; latestEventId?: string | null };
@@ -99,6 +107,7 @@ function fixture() {
     projects: [project(), project(secondProjectId, 'second-key')],
     events: [],
     issues: [],
+    suppressions: [],
   };
   const operations: string[] = [];
   let failure: { stage: FailureStage; error: Error } | undefined;
@@ -168,8 +177,12 @@ function fixture() {
         },
         query: (
           sql: string,
-          parameters: [string, string, string, string, string, string | null, Date],
+          parameters: unknown[],
         ) => {
+          if (sql.startsWith('SELECT pg_advisory_xact_lock')) {
+            operations.push('transaction:lock');
+            return Promise.resolve([]);
+          }
           operations.push('transaction:upsert');
           const normalized = sql.replace(/\s+/gu, ' ').trim();
           // This database-boundary assertion catches a read-modify-write upsert,
@@ -201,7 +214,7 @@ function fixture() {
           expect(normalized).toMatch(/RETURNING id/u);
           expect(normalized).not.toMatch(/latest_event_id/u);
           const [id, environment, fingerprint, title, exceptionType, culprit, seenAt] =
-            parameters;
+            parameters as [string, string, string, string, string, string | null, Date];
           let issue = draft.issues.find(
             (item) => item.projectId === id && item.environment === environment && item.fingerprint === fingerprint,
           );
@@ -218,6 +231,15 @@ function fixture() {
               resolutionReason: null,
               reopenedAt: wasResolved ? seenAt : issue.reopenedAt,
               reopenCount: wasResolved ? issue.reopenCount + 1 : issue.reopenCount,
+              ...(issue.visibility === MonitoringErrorIssueVisibility.ArchivedUntilCount &&
+              issue.archiveThreshold !== null &&
+              issue.eventCount + 1 >= issue.archiveThreshold
+                ? {
+                    visibility: MonitoringErrorIssueVisibility.Active,
+                    archiveThreshold: null,
+                    archivedAt: null,
+                  }
+                : {}),
             });
           } else {
             issue = Object.assign(new MonitoringErrorIssue(), {
@@ -234,6 +256,9 @@ function fixture() {
               reopenedAt: null,
               reopenCount: 0,
               eventCount: 1,
+              visibility: MonitoringErrorIssueVisibility.Active,
+              archiveThreshold: null,
+              archivedAt: null,
               firstSeenAt: seenAt,
               lastSeenAt: seenAt,
               latestEventId: null,
@@ -243,6 +268,17 @@ function fixture() {
             draft.issues.push(issue);
           }
           return Promise.resolve([{ id: issue.id }]);
+        },
+        existsBy: (
+          target: typeof MonitoringErrorSuppression,
+          where: { projectId: string; environment: string; fingerprint: string },
+        ) => {
+          if (target !== MonitoringErrorSuppression) throw new Error('unexpected suppression read');
+          operations.push('transaction:suppression');
+          return Promise.resolve(draft.suppressions.some((item) =>
+            item.projectId === where.projectId &&
+            item.environment === where.environment &&
+            item.fingerprint === where.fingerprint));
         },
         insert: (target: typeof MonitoringEvent, value: MonitoringEvent) => {
           operations.push('transaction:insert');
@@ -311,6 +347,9 @@ describe('MonitoringEventsService', () => {
     expect(app.state().events).toHaveLength(2);
     expect(app.state().issues).toHaveLength(1);
     expect(app.state().issues[0]).toMatchObject({
+      visibility: MonitoringErrorIssueVisibility.Active,
+      archiveThreshold: null,
+      archivedAt: null,
       eventCount: 2,
       latestEventId: secondEventId,
       title: 'Render failed',
@@ -340,15 +379,71 @@ describe('MonitoringEventsService', () => {
     expect(app.state().projects[0].lastSeenAt).toEqual(
       new Date('2026-09-23T03:01:00.000Z'),
     );
-    expect(app.operations.slice(0, 7)).toEqual([
+    expect(app.operations.slice(0, 9)).toEqual([
       'begin',
       'transaction:duplicate',
+      'transaction:lock',
+      'transaction:suppression',
       'transaction:upsert',
       'transaction:insert',
       'transaction:latest',
       'transaction:project',
       'commit',
     ]);
+  });
+
+  it('drops a permanently suppressed event without storing it', async () => {
+    const app = fixture();
+    const input = errorEnvelope();
+    const fingerprint = createErrorFingerprint({
+      exceptionType: input.event!.exception.type,
+      message: input.event!.message,
+      stacktrace: input.event!.exception.stacktrace,
+      url: input.event!.url,
+    });
+    app.state().suppressions.push({ projectId, environment: 'production', fingerprint });
+
+    await app.service.ingest(projectId, publicKey, input);
+
+    expect(app.state().issues).toEqual([]);
+    expect(app.state().events).toEqual([]);
+  });
+
+  it('keeps permanent archives hidden while recording new events', async () => {
+    const app = fixture();
+    await app.service.ingest(projectId, publicKey, errorEnvelope());
+    Object.assign(app.state().issues[0], {
+      visibility: MonitoringErrorIssueVisibility.ArchivedPermanent,
+      archivedAt: receivedAt,
+    });
+
+    await app.service.ingest(projectId, publicKey, errorEnvelope(secondEventId));
+
+    expect(app.state().issues[0]).toMatchObject({
+      visibility: MonitoringErrorIssueVisibility.ArchivedPermanent,
+      eventCount: 2,
+    });
+    expect(app.state().events).toHaveLength(2);
+  });
+
+  it('reactivates a count archive when the cumulative count reaches its threshold', async () => {
+    const app = fixture();
+    await app.service.ingest(projectId, publicKey, errorEnvelope());
+    Object.assign(app.state().issues[0], {
+      eventCount: 9,
+      visibility: MonitoringErrorIssueVisibility.ArchivedUntilCount,
+      archiveThreshold: 10,
+      archivedAt: receivedAt,
+    });
+
+    await app.service.ingest(projectId, publicKey, errorEnvelope(secondEventId));
+
+    expect(app.state().issues[0]).toMatchObject({
+      eventCount: 10,
+      visibility: MonitoringErrorIssueVisibility.Active,
+      archiveThreshold: null,
+      archivedAt: null,
+    });
   });
 
   it('preserves the browser page request context without server enrichment', async () => {
@@ -520,9 +615,11 @@ describe('MonitoringEventsService', () => {
       app.service.ingest(projectId, publicKey, errorEnvelope()),
     ).resolves.toBeUndefined();
     expect(app.state()).toEqual(before);
-    expect(app.operations.slice(-5)).toEqual([
+    expect(app.operations.slice(-7)).toEqual([
       'begin',
       'transaction:duplicate',
+      'transaction:lock',
+      'transaction:suppression',
       'transaction:upsert',
       'transaction:insert',
       'rollback',
@@ -589,6 +686,10 @@ describe('MonitoringEventsService management queries', () => {
     culprit: 'at render',
     status: MonitoringErrorIssueStatus.Unresolved,
     environment: 'production',
+    fingerprint: 'a'.repeat(64),
+    visibility: MonitoringErrorIssueVisibility.Active,
+    archiveThreshold: null,
+    archivedAt: null,
     resolvedAt: null,
     resolutionReason: null,
     reopenedAt: null,
@@ -641,14 +742,21 @@ describe('MonitoringEventsService management queries', () => {
     const projects = {
       findOwnedBySlug: jest.fn().mockResolvedValue({ id: projectId }),
     };
+    const manager = {
+      findOneBy: jest.fn().mockResolvedValue(issue),
+      query: jest.fn().mockResolvedValue([]),
+      upsert: jest.fn().mockResolvedValue({ identifiers: [] }),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
     const dataSource = {
       getRepository: jest.fn((target) =>
         target === MonitoringErrorIssue ? issueRepository : eventRepository,
       ),
+      transaction: jest.fn((run) => run(manager)),
     };
     return {
       service: new MonitoringEventsService(dataSource as never, projects as never),
-      issueRepository, eventRepository, projects, recentEvents, queryBuilder,
+      issueRepository, eventRepository, projects, recentEvents, queryBuilder, manager,
     };
   }
 
@@ -663,6 +771,7 @@ describe('MonitoringEventsService management queries', () => {
         firstSeenAt: new Date('2026-09-23T02:00:00.000Z'),
         lastSeenAt: new Date('2026-09-23T03:00:00.000Z'),
         source: 'vue',
+        visibility: 'active', archiveThreshold: null, archivedAt: null,
         environment: 'production', resolvedAt: null, resolutionReason: null,
         reopenedAt: null, reopenCount: 0,
       }],
@@ -687,6 +796,90 @@ describe('MonitoringEventsService management queries', () => {
       expect.stringContaining('latestEvent.source'),
       { search: '%vue%' },
     );
+  });
+
+  it('filters the archived list to both archive visibility modes', async () => {
+    const app = queryFixture();
+    await app.service.listOwnedIssues('user-1', 'acme', 'web', {
+      page: 1, pageSize: 20, view: 'archived',
+    });
+    expect(app.queryBuilder.andWhere).toHaveBeenCalledWith(
+      'issue.visibility IN (:...visibilities)',
+      {
+        visibilities: [
+          MonitoringErrorIssueVisibility.ArchivedPermanent,
+          MonitoringErrorIssueVisibility.ArchivedUntilCount,
+        ],
+      },
+    );
+  });
+
+  it('rejects a count archive threshold at or below the current count', async () => {
+    const app = queryFixture();
+    const previousCount = issue.eventCount;
+    issue.eventCount = 10;
+    await expect(app.service.archiveOwnedIssue('user-1', 'acme', 'web', issueId, {
+      mode: 'until_count', threshold: 10,
+    })).rejects.toBeInstanceOf(BadRequestException);
+    issue.eventCount = previousCount;
+  });
+
+  it('archives and restores an owned issue with consistent metadata', async () => {
+    const app = queryFixture();
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-30T10:00:00.000Z'));
+
+    await app.service.archiveOwnedIssue('user-1', 'acme', 'web', issueId, {
+      mode: 'until_count', threshold: 10,
+    });
+    expect(app.issueRepository.update).toHaveBeenNthCalledWith(1, issueId, {
+      visibility: MonitoringErrorIssueVisibility.ArchivedUntilCount,
+      archiveThreshold: 10,
+      archivedAt: new Date('2026-09-30T10:00:00.000Z'),
+    });
+
+    await app.service.restoreOwnedIssue('user-1', 'acme', 'web', issueId);
+    expect(app.issueRepository.update).toHaveBeenNthCalledWith(2, issueId, {
+      visibility: MonitoringErrorIssueVisibility.Active,
+      archiveThreshold: null,
+      archivedAt: null,
+    });
+    jest.useRealTimers();
+  });
+
+  it('deletes an owned issue inside a transaction', async () => {
+    const app = queryFixture();
+    await app.service.deleteOwnedIssue('user-1', 'acme', 'web', issueId);
+    expect(app.manager.findOneBy).toHaveBeenCalledWith(MonitoringErrorIssue, {
+      id: issueId, projectId,
+    });
+    expect(app.manager.delete).toHaveBeenCalledWith(MonitoringErrorIssue, issueId);
+  });
+
+  it('creates a suppression before permanently deleting an owned issue', async () => {
+    const app = queryFixture();
+    await app.service.permanentlyDeleteOwnedIssue('user-1', 'acme', 'web', issueId);
+    expect(app.manager.query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [`${projectId}:production:${issue.fingerprint}`],
+    );
+    expect(app.manager.upsert).toHaveBeenCalledWith(
+      MonitoringErrorSuppression,
+      { projectId, environment: 'production', fingerprint: issue.fingerprint },
+      ['projectId', 'environment', 'fingerprint'],
+    );
+    expect(app.manager.delete.mock.invocationCallOrder[0]).toBeGreaterThan(
+      app.manager.upsert.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('exposes only suppression identity fields', () => {
+    const suppression = Object.assign(new MonitoringErrorSuppression(), {
+      projectId,
+      environment: 'production',
+      fingerprint: 'a'.repeat(64),
+    });
+    expect(suppression).not.toHaveProperty('title');
+    expect(suppression).not.toHaveProperty('stacktrace');
   });
 
   it('returns a scoped issue detail and twenty newest project events', async () => {

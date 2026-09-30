@@ -19,4 +19,8 @@ export class ListIssuesQueryDto {
   @IsString()
   @MaxLength(200)
   search?: string;
+
+  @Transform(({ value }) => value ?? 'active')
+  @IsIn(['active', 'archived'])
+  view: 'active' | 'archived' = 'active';
 }

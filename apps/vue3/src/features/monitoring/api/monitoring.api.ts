@@ -8,6 +8,7 @@ import type {
   MonitoringIssueSummary,
   MonitoringProject,
   ProjectConnection,
+  ArchiveIssueInput,
 } from '../model/types'
 
 export const createGroup = (input: CreateGroupInput) =>
@@ -32,7 +33,7 @@ export const getProjectConnection = (groupSlug: string, projectSlug: string) =>
 export const listProjectIssues = (
   groupSlug: string,
   projectSlug: string,
-  query: PageQuery & { search?: string },
+  query: PageQuery & { search?: string; view?: 'active' | 'archived' },
 ) =>
   http.get<PageResult<MonitoringIssueSummary>>(
     `/groups/${groupSlug}/projects/${projectSlug}/issues`,
@@ -54,3 +55,38 @@ export const updateProjectIssueStatus = (
     `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/status`,
     { status },
   )
+
+export const archiveProjectIssue = (
+  groupSlug: string,
+  projectSlug: string,
+  issueId: string,
+  input: ArchiveIssueInput,
+) =>
+  http.patch<MonitoringIssueDetail, ArchiveIssueInput>(
+    `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/archive`,
+    input,
+  )
+
+export const restoreProjectIssue = (
+  groupSlug: string,
+  projectSlug: string,
+  issueId: string,
+) =>
+  http.patch<MonitoringIssueDetail, undefined>(
+    `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/restore`,
+    undefined,
+  )
+
+export const deleteProjectIssue = (
+  groupSlug: string,
+  projectSlug: string,
+  issueId: string,
+) => http.delete<void>(`/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`)
+
+export const permanentlyDeleteProjectIssue = (
+  groupSlug: string,
+  projectSlug: string,
+  issueId: string,
+) => http.delete<void>(
+  `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/permanent`,
+)

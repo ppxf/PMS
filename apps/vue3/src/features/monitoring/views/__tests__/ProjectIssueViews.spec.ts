@@ -2,13 +2,47 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 
-const { getProjectIssue, listProjectIssues, updateProjectIssueStatus } = vi.hoisted(() => ({
+const {
+  getProjectIssue,
+  listProjectIssues,
+  updateProjectIssueStatus,
+  archiveProjectIssue,
+  restoreProjectIssue,
+  deleteProjectIssue,
+  permanentlyDeleteProjectIssue,
+  routerPush,
+} = vi.hoisted(() => ({
   getProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   listProjectIssues: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   updateProjectIssueStatus: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  archiveProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  restoreProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  deleteProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  permanentlyDeleteProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  routerPush: vi.fn<(...args: unknown[]) => Promise<void>>(),
 }))
 
-vi.mock('../../api/monitoring.api', () => ({ getProjectIssue, listProjectIssues, updateProjectIssueStatus }))
+vi.mock('../../api/monitoring.api', () => ({
+  getProjectIssue,
+  listProjectIssues,
+  updateProjectIssueStatus,
+  archiveProjectIssue,
+  restoreProjectIssue,
+  deleteProjectIssue,
+  permanentlyDeleteProjectIssue,
+}))
+vi.mock('@/components/ui/dialog', async () => {
+  const { defineComponent: define } = await import('vue')
+  const Stub = define({ template: '<div><slot /></div>' })
+  return {
+    Dialog: Stub,
+    DialogContent: Stub,
+    DialogDescription: Stub,
+    DialogFooter: Stub,
+    DialogHeader: Stub,
+    DialogTitle: Stub,
+  }
+})
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => ({
@@ -18,6 +52,7 @@ vi.mock('vue-router', async (importOriginal) => ({
       issueId: '00000000-0000-4000-8000-000000000001',
     },
   }),
+  useRouter: () => ({ push: routerPush }),
 }))
 
 import ProjectIssueDetailView from '../ProjectIssueDetailView.vue'
@@ -65,6 +100,9 @@ const issue = {
   firstSeenAt: '2026-09-23T02:00:00.000Z',
   lastSeenAt: '2026-09-23T03:00:00.000Z',
   source: 'vue' as const,
+  visibility: 'active' as const,
+  archiveThreshold: null,
+  archivedAt: null,
   environment: 'production',
   resolvedAt: null,
   resolutionReason: null,
@@ -117,6 +155,41 @@ describe('project issue views', () => {
     await flushPromises()
     expect(listProjectIssues).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('暂无错误')
+  })
+
+  it('switches to archived issues and distinguishes archive modes', async () => {
+    const countArchived = {
+      ...issue,
+      visibility: 'archived_until_count' as const,
+      archiveThreshold: 100 as const,
+      archivedAt: '2026-09-30T01:00:00.000Z',
+    }
+    const permanentArchived = {
+      ...issue,
+      id: '00000000-0000-4000-8000-000000000002',
+      visibility: 'archived_permanent' as const,
+      archivedAt: '2026-09-30T02:00:00.000Z',
+    }
+    listProjectIssues
+      .mockResolvedValueOnce({ items: [], total: 0, page: 1, pageSize: 20 })
+      .mockResolvedValueOnce({
+        items: [countArchived, permanentArchived], total: 2, page: 1, pageSize: 20,
+      })
+    const wrapper = mount(ProjectIssuesView, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="show-archived"]').trigger('click')
+    await flushPromises()
+
+    expect(listProjectIssues).toHaveBeenLastCalledWith('team', 'web', {
+      page: 1, pageSize: 20, view: 'archived',
+    })
+    expect(wrapper.text()).toContain('达到 100 次后恢复')
+    expect(wrapper.text()).toContain('永久归档')
+    expect(wrapper.find('tbody tr.bg-amber-50\\/60').exists()).toBe(true)
+    expect(wrapper.find('tbody tr.bg-slate-50\\/80').exists()).toBe(true)
   })
 
   it('debounces server-side search and resets pagination', async () => {
@@ -181,7 +254,9 @@ describe('project issue views', () => {
       latestEvent: event,
       recentEvents: [event],
     })
-    const wrapper = mount(ProjectIssueDetailView)
+    const wrapper = mount(ProjectIssueDetailView, {
+      global: { stubs: { teleport: true } },
+    })
     await flushPromises()
 
     await wrapper.get('[data-testid="issue-status-action"]').trigger('click')
@@ -205,6 +280,80 @@ describe('project issue views', () => {
       'team', 'web', issue.id, 'unresolved',
     )
     expect(wrapper.text()).toContain('重新打开 1 次')
+  })
+
+  it('archives by cumulative count and restores an archived issue', async () => {
+    const tenCountIssue = { ...issue, eventCount: 10 }
+    getProjectIssue.mockResolvedValue({ ...tenCountIssue, latestEvent: event, recentEvents: [event] })
+    archiveProjectIssue.mockResolvedValue({
+      ...tenCountIssue,
+      visibility: 'archived_until_count',
+      archiveThreshold: 100,
+      archivedAt: '2026-09-30T10:00:00.000Z',
+      latestEvent: event,
+      recentEvents: [event],
+    })
+    const wrapper = mount(ProjectIssueDetailView, {
+      global: { stubs: { teleport: true } },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="archive-issue"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="archive-threshold-10"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('[data-testid="archive-mode-until-count"]').setValue()
+    await wrapper.get('[data-testid="archive-threshold-100"]').setValue()
+    await wrapper.get('[data-testid="confirm-archive"]').trigger('click')
+    await flushPromises()
+    expect(archiveProjectIssue).toHaveBeenCalledWith('team', 'web', issue.id, {
+      mode: 'until_count', threshold: 100,
+    })
+    expect(wrapper.text()).toContain('达到 100 次后恢复')
+
+    restoreProjectIssue.mockResolvedValue({
+      ...tenCountIssue, latestEvent: event, recentEvents: [event],
+    })
+    await wrapper.get('[data-testid="restore-issue"]').trigger('click')
+    await flushPromises()
+    expect(restoreProjectIssue).toHaveBeenCalledWith('team', 'web', issue.id)
+  })
+
+  it('requires a second dialog before permanently deleting an issue', async () => {
+    getProjectIssue.mockResolvedValue({ ...issue, latestEvent: event, recentEvents: [event] })
+    permanentlyDeleteProjectIssue.mockResolvedValue(undefined)
+    const wrapper = mount(ProjectIssueDetailView, {
+      global: { stubs: { teleport: true } },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="delete-issue"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="choose-permanent-delete"]').trigger('click')
+    await flushPromises()
+    expect(permanentlyDeleteProjectIssue).not.toHaveBeenCalled()
+    await wrapper.get('[data-testid="confirm-permanent-delete"]').trigger('click')
+    await flushPromises()
+
+    expect(permanentlyDeleteProjectIssue).toHaveBeenCalledWith('team', 'web', issue.id)
+    expect(routerPush).toHaveBeenCalledWith({ name: 'project-issues' })
+  })
+
+  it('deletes the current issue after one confirmation', async () => {
+    getProjectIssue.mockResolvedValue({ ...issue, latestEvent: event, recentEvents: [event] })
+    deleteProjectIssue.mockResolvedValue(undefined)
+    const wrapper = mount(ProjectIssueDetailView, {
+      global: { stubs: { teleport: true } },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-testid="delete-issue"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="confirm-delete-once"]').trigger('click')
+    await flushPromises()
+
+    expect(deleteProjectIssue).toHaveBeenCalledWith('team', 'web', issue.id)
+    expect(permanentlyDeleteProjectIssue).not.toHaveBeenCalled()
+    expect(routerPush).toHaveBeenCalledWith({ name: 'project-issues' })
   })
 
   it('renders issue detail metadata, tags, stacktrace and recent events', async () => {

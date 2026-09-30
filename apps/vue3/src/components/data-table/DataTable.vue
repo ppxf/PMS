@@ -32,6 +32,7 @@ const props = withDefaults(
     page?: number
     pageSize?: number
     rowKey?: (row: TData) => string
+    rowClass?: (row: TData) => string | undefined
     selectable?: boolean
     sorting?: SortingState
     total?: number
@@ -44,6 +45,7 @@ const props = withDefaults(
     page: 1,
     pageSize: 10,
     rowKey: undefined,
+    rowClass: undefined,
     selectable: false,
     sorting: () => [],
     total: undefined,
@@ -198,6 +200,7 @@ function changePageSize(event: Event): void {
               v-for="row in visibleRows"
               :key="row.id"
               :data-state="row.getIsSelected() ? 'selected' : undefined"
+              :class="rowClass?.(row.original)"
             >
               <TableCell v-if="selectable">
                 <Checkbox

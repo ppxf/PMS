@@ -52,12 +52,24 @@ export interface MonitoringIssueSummary {
   firstSeenAt: string
   lastSeenAt: string
   source: 'vue' | 'window' | 'unhandledrejection' | 'manual' | null
+  visibility: MonitoringIssueVisibility
+  archiveThreshold: 10 | 100 | 1000 | null
+  archivedAt: string | null
   environment: string | null
   resolvedAt: string | null
   resolutionReason: 'manual' | 'auto_inactivity' | null
   reopenedAt: string | null
   reopenCount: number
 }
+
+export type MonitoringIssueVisibility =
+  | 'active'
+  | 'archived_permanent'
+  | 'archived_until_count'
+
+export type ArchiveIssueInput =
+  | { mode: 'permanent' }
+  | { mode: 'until_count'; threshold: 10 | 100 | 1000 }
 
 export interface BrowserEventContexts {
   request?: { headers: Record<string, string>; cookies: Record<string, string> }

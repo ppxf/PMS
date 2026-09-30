@@ -75,6 +75,12 @@ PASSWORD_RESET_EXPIRES_IN_MINUTES=30
 - `GET /api/groups/:groupSlug/projects/:projectSlug/connection`
 - `GET /api/groups/:groupSlug/projects/:projectSlug/issues`
 - `GET /api/groups/:groupSlug/projects/:projectSlug/issues/:issueId`
+- `PATCH /api/groups/:groupSlug/projects/:projectSlug/issues/:issueId/archive`
+- `PATCH /api/groups/:groupSlug/projects/:projectSlug/issues/:issueId/restore`
+- `DELETE /api/groups/:groupSlug/projects/:projectSlug/issues/:issueId`
+- `DELETE /api/groups/:groupSlug/projects/:projectSlug/issues/:issueId/permanent`
+
+错误列表通过 `view=active|archived` 切换当前与已归档错误。归档支持永久归档，以及累计次数达到 `10`、`100`、`1000` 时自动恢复显示。普通删除会清除错误及历史事件，同类错误再次发生时重新创建；永久删除还会创建不可恢复的指纹阻止规则，未来相同项目、环境和指纹的事件不会入库。
 
 浏览器 SDK 将版本化 JSON Envelope 发送到 `POST /api/sdk/:projectId/envelope`，并在请求头携带 `X-PMS-Key`。DSN 中的 public key 是浏览器可见的公开采集凭据，只有向所属项目写入连接报告和错误事件的权限，不是管理密钥；Issue 列表、详情等管理查询始终使用 JWT，并执行资源所有权校验。
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { h, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { RouterLink, useRoute } from 'vue-router'
 import { createColumnHelper } from '@tanstack/vue-table'
 import { DataTable } from '@/components/data-table'
 import type { DataTableFeatures } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { listProjectIssues } from '../api/monitoring.api'
 import type { MonitoringIssueSummary } from '../model/types'
@@ -21,6 +22,7 @@ const loading = ref(false)
 const error = ref('')
 const searchInput = ref('')
 const search = ref('')
+const view = ref<'active' | 'archived'>('active')
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '-'
@@ -29,7 +31,7 @@ function formatDate(value: string | null | undefined): string {
 }
 
 const columnHelper = createColumnHelper<DataTableFeatures, MonitoringIssueSummary>()
-const columns = columnHelper.columns([
+const baseColumns = [
   columnHelper.accessor('title', {
     header: '错误',
     cell: ({ row }) =>
@@ -74,7 +76,25 @@ const columns = columnHelper.columns([
     header: '最近出现',
     cell: ({ row }) => formatDate(row.original.lastSeenAt),
   }),
-])
+]
+const archiveColumn = columnHelper.accessor('visibility', {
+  header: '归档方式',
+  cell: ({ row }) => h(
+    Badge,
+    {
+      variant: 'secondary',
+      'data-testid': `archive-label-${row.original.id}`,
+    },
+    () => row.original.visibility === 'archived_permanent'
+      ? '永久归档'
+      : `达到 ${row.original.archiveThreshold} 次后恢复`,
+  ),
+})
+const columns = computed(() => columnHelper.columns(
+  view.value === 'archived'
+    ? [...baseColumns.slice(0, 5), archiveColumn, ...baseColumns.slice(5)]
+    : baseColumns,
+))
 
 async function loadIssues(): Promise<void> {
   loading.value = true
@@ -84,6 +104,7 @@ async function loadIssues(): Promise<void> {
       page: page.value,
       pageSize: pageSize.value,
       ...(search.value ? { search: search.value } : {}),
+      ...(view.value === 'archived' ? { view: 'archived' as const } : {}),
     })
     issues.value = result.items
     total.value = result.total
@@ -100,15 +121,40 @@ const applySearch = useDebounceFn((value: string) => {
 }, 300)
 
 watch(searchInput, (value) => applySearch(value))
-watch([page, pageSize, search], loadIssues)
+watch([page, pageSize, search, view], loadIssues)
 onMounted(loadIssues)
+
+function toggleView(): void {
+  page.value = 1
+  view.value = view.value === 'active' ? 'archived' : 'active'
+}
+
+function issueRowClass(issue: MonitoringIssueSummary): string | undefined {
+  if (issue.visibility === 'archived_permanent') {
+    return 'bg-slate-50/80 dark:bg-slate-900/40'
+  }
+  if (issue.visibility === 'archived_until_count') {
+    return 'bg-amber-50/60 dark:bg-amber-950/30'
+  }
+  return undefined
+}
 </script>
 
 <template>
   <section class="space-y-6">
-    <div>
-      <h2 class="text-2xl font-semibold tracking-tight">错误列表</h2>
-      <p class="mt-1 text-muted-foreground">查看项目中聚合后的前端错误。</p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="text-2xl font-semibold tracking-tight">
+          {{ view === 'active' ? '错误列表' : '已归档错误' }}
+        </h2>
+        <p class="mt-1 text-muted-foreground">查看项目中聚合后的前端错误。</p>
+      </div>
+      <Button
+        data-testid="show-archived"
+        type="button"
+        variant="outline"
+        @click="toggleView"
+      >{{ view === 'active' ? '查看已归档' : '返回当前错误' }}</Button>
     </div>
 
     <Input
@@ -127,6 +173,7 @@ onMounted(loadIssues)
       :loading="loading"
       :total="total"
       :row-key="(issue) => issue.id"
+      :row-class="issueRowClass"
       empty-text="暂无错误"
       manual-pagination
       @retry="loadIssues"

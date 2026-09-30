@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -12,10 +20,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getProjectIssue, updateProjectIssueStatus } from '../api/monitoring.api'
+import {
+  archiveProjectIssue,
+  deleteProjectIssue,
+  getProjectIssue,
+  permanentlyDeleteProjectIssue,
+  restoreProjectIssue,
+  updateProjectIssueStatus,
+} from '../api/monitoring.api'
 import type { MonitoringIssueDetail } from '../model/types'
 
 const route = useRoute()
+const router = useRouter()
 const groupSlug = String(route.params.groupSlug)
 const projectSlug = String(route.params.projectSlug)
 const issueId = String(route.params.issueId)
@@ -24,6 +40,12 @@ const error = ref('')
 const statusUpdating = ref(false)
 const headersExpanded = ref(false)
 const cookiesExpanded = ref(false)
+const actionPending = ref(false)
+const archiveDialogOpen = ref(false)
+const deleteDialogOpen = ref(false)
+const permanentConfirmOpen = ref(false)
+const archiveMode = ref<'permanent' | 'until_count'>('permanent')
+const archiveThreshold = ref<10 | 100 | 1000>(10)
 const defaultRequestEntryCount = 5
 
 function formatDate(value: string | null | undefined): string {
@@ -40,6 +62,9 @@ const visibleRequestHeaders = computed(() =>
 )
 const visibleRequestCookies = computed(() =>
   cookiesExpanded.value ? requestCookies.value : requestCookies.value.slice(0, defaultRequestEntryCount),
+)
+const availableArchiveThresholds = computed(() =>
+  ([10, 100, 1000] as const).filter((threshold) => threshold > (issue.value?.eventCount ?? 0)),
 )
 
 function sortedEntries(value: Record<string, string> | undefined): [string, string][] {
@@ -81,6 +106,79 @@ async function toggleIssueStatus(): Promise<void> {
   }
 }
 
+async function archiveIssue(): Promise<void> {
+  if (!issue.value || actionPending.value) return
+  actionPending.value = true
+  error.value = ''
+  try {
+    issue.value = await archiveProjectIssue(
+      groupSlug,
+      projectSlug,
+      issueId,
+      archiveMode.value === 'permanent'
+        ? { mode: 'permanent' }
+        : { mode: 'until_count', threshold: archiveThreshold.value },
+    )
+    archiveDialogOpen.value = false
+  } catch {
+    error.value = '无法归档错误'
+  } finally {
+    actionPending.value = false
+  }
+}
+
+function openArchiveDialog(): void {
+  archiveMode.value = 'permanent'
+  archiveThreshold.value = availableArchiveThresholds.value[0] ?? 1000
+  archiveDialogOpen.value = true
+}
+
+async function restoreIssue(): Promise<void> {
+  if (!issue.value || actionPending.value) return
+  actionPending.value = true
+  error.value = ''
+  try {
+    issue.value = await restoreProjectIssue(groupSlug, projectSlug, issueId)
+  } catch {
+    error.value = '无法恢复错误'
+  } finally {
+    actionPending.value = false
+  }
+}
+
+async function deleteIssue(): Promise<void> {
+  if (actionPending.value) return
+  actionPending.value = true
+  error.value = ''
+  try {
+    await deleteProjectIssue(groupSlug, projectSlug, issueId)
+    await router.push({ name: 'project-issues' })
+  } catch {
+    error.value = '无法删除错误'
+  } finally {
+    actionPending.value = false
+  }
+}
+
+function continuePermanentDelete(): void {
+  deleteDialogOpen.value = false
+  permanentConfirmOpen.value = true
+}
+
+async function permanentlyDeleteIssue(): Promise<void> {
+  if (actionPending.value) return
+  actionPending.value = true
+  error.value = ''
+  try {
+    await permanentlyDeleteProjectIssue(groupSlug, projectSlug, issueId)
+    await router.push({ name: 'project-issues' })
+  } catch {
+    error.value = '无法永久删除错误'
+  } finally {
+    actionPending.value = false
+  }
+}
+
 onMounted(loadIssue)
 </script>
 
@@ -113,6 +211,31 @@ onMounted(loadIssue)
             :disabled="statusUpdating"
             @click="toggleIssueStatus"
           >{{ issue.status === 'unresolved' ? '标记为已解决' : '重新打开' }}</Button>
+          <template v-if="issue.visibility === 'active'">
+            <Button
+              data-testid="archive-issue"
+              type="button"
+              size="sm"
+              variant="outline"
+              @click="openArchiveDialog"
+            >归档</Button>
+            <Button
+              data-testid="delete-issue"
+              type="button"
+              size="sm"
+              variant="destructive"
+              @click="deleteDialogOpen = true"
+            >删除</Button>
+          </template>
+          <Button
+            v-else
+            data-testid="restore-issue"
+            type="button"
+            size="sm"
+            variant="outline"
+            :disabled="actionPending"
+            @click="restoreIssue"
+          >恢复</Button>
         </div>
         <p class="mt-1 text-muted-foreground">{{ issue.exceptionType }} · {{ issue.culprit ?? '-' }}</p>
         <p
@@ -131,6 +254,15 @@ onMounted(loadIssue)
         </p>
         <p v-if="issue.reopenedAt && issue.reopenCount > 0" class="mt-2 text-sm text-muted-foreground">
           最近重新打开：{{ formatDate(issue.reopenedAt) }} · 重新打开 {{ issue.reopenCount }} 次
+        </p>
+        <p
+          v-if="issue.visibility !== 'active'"
+          class="mt-2 text-sm text-muted-foreground"
+        >
+          {{ issue.visibility === 'archived_permanent'
+            ? '永久归档'
+            : `达到 ${issue.archiveThreshold} 次后恢复` }}
+          <template v-if="issue.archivedAt"> · {{ formatDate(issue.archivedAt) }}</template>
         </p>
         <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div>
@@ -169,6 +301,98 @@ onMounted(loadIssue)
         </CardContent>
         <CardContent v-else class="text-muted-foreground">暂无最新事件</CardContent>
       </Card>
+
+      <Dialog v-model:open="archiveDialogOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>归档错误</DialogTitle>
+            <DialogDescription>归档期间仍会记录事件并累计次数。</DialogDescription>
+          </DialogHeader>
+          <div class="space-y-3 text-sm">
+            <label class="flex items-center gap-2">
+              <input v-model="archiveMode" type="radio" value="permanent">
+              永久归档
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                v-model="archiveMode"
+                data-testid="archive-mode-until-count"
+                type="radio"
+                value="until_count"
+                :disabled="availableArchiveThresholds.length === 0"
+              >
+              按累计次数归档
+            </label>
+            <div class="flex flex-wrap gap-3 pl-6">
+              <label v-for="threshold in [10, 100, 1000] as const" :key="threshold">
+                <input
+                  v-model="archiveThreshold"
+                  type="radio"
+                  name="archive-threshold"
+                  :value="threshold"
+                  :disabled="archiveMode !== 'until_count' || threshold <= issue.eventCount"
+                  :data-testid="`archive-threshold-${threshold}`"
+                >
+                {{ threshold }} 次
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" @click="archiveDialogOpen = false">取消</Button>
+            <Button
+              data-testid="confirm-archive"
+              type="button"
+              :disabled="actionPending"
+              @click="archiveIssue"
+            >确认归档</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog v-model:open="deleteDialogOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>删除错误</DialogTitle>
+            <DialogDescription>删除会同时清除这条错误的全部历史事件。</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              data-testid="confirm-delete-once"
+              type="button"
+              variant="outline"
+              :disabled="actionPending"
+              @click="deleteIssue"
+            >删除这条错误</Button>
+            <Button
+              data-testid="choose-permanent-delete"
+              type="button"
+              variant="destructive"
+              @click="continuePermanentDelete"
+            >永久删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog v-model:open="permanentConfirmOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>再次确认永久删除</DialogTitle>
+            <DialogDescription>
+              此操作不可恢复，当前历史数据会被清除，未来相同错误也不会被记录。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" @click="permanentConfirmOpen = false">取消</Button>
+            <Button
+              data-testid="confirm-permanent-delete"
+              type="button"
+              variant="destructive"
+              :disabled="actionPending"
+              @click="permanentlyDeleteIssue"
+            >确认永久删除</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader><CardTitle class="text-base">请求信息</CardTitle></CardHeader>
