@@ -35,6 +35,7 @@ interface ProjectNavigationItem {
   routeName: string
   activeRouteNames: string[]
   icon: Component
+  children?: { label: string; routeName: string }[]
 }
 
 const route = useRoute()
@@ -67,7 +68,11 @@ const projectNavigation: ProjectNavigationItem[] = [
   {
     label: '查看 SDK 接入',
     routeName: 'project-setup',
-    activeRouteNames: ['project-setup'],
+    activeRouteNames: ['project-setup', 'project-traces-setup'],
+    children: [
+      { label: '基础接入', routeName: 'project-setup' },
+      { label: 'Traces接入', routeName: 'project-traces-setup' },
+    ],
     icon: Plug,
   },
   {
@@ -81,6 +86,12 @@ const projectNavigation: ProjectNavigationItem[] = [
     routeName: 'project-detail',
     activeRouteNames: ['project-detail'],
     icon: Settings,
+  },
+  {
+    label: '查看 Traces',
+    routeName: 'project-traces',
+    activeRouteNames: ['project-traces', 'project-trace-detail'],
+    icon: Plug,
   },
 ]
 
@@ -141,23 +152,45 @@ async function logout(): Promise<void> {
             <FolderOpen class="size-4" />
             当前项目
           </p>
-          <RouterLink
-            v-for="item in projectNavigation"
-            :key="item.routeName"
-            :to="{
-              name: item.routeName,
-              params: {
-                groupSlug: currentProject.groupSlug,
-                projectSlug: currentProject.projectSlug,
-              },
-            }"
-            class="ml-3 flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            :class="{ 'bg-muted text-foreground': isActive(item.activeRouteNames) }"
-            active-class=""
-          >
-            <component :is="item.icon" class="size-4" />
-            {{ item.label }}
-          </RouterLink>
+          <template v-for="item in projectNavigation" :key="item.routeName">
+            <div v-if="item.children" class="ml-3">
+              <p
+                class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground"
+              >
+                <component :is="item.icon" class="size-4" />
+                {{ item.label }}
+              </p>
+              <div class="ml-5 space-y-1 border-l pl-3">
+                <RouterLink
+                  v-for="child in item.children"
+                  :key="child.routeName"
+                  :to="{ name: child.routeName, params: currentProject }"
+                  class="block rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  :class="{ 'bg-muted text-foreground font-medium': isActive([child.routeName]) }"
+                  :aria-current="isActive([child.routeName]) ? 'page' : undefined"
+                  active-class=""
+                >
+                  {{ child.label }}
+                </RouterLink>
+              </div>
+            </div>
+            <RouterLink
+              v-else
+              :to="{
+                name: item.routeName,
+                params: {
+                  groupSlug: currentProject.groupSlug,
+                  projectSlug: currentProject.projectSlug,
+                },
+              }"
+              class="ml-3 flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              :class="{ 'bg-muted text-foreground': isActive(item.activeRouteNames) }"
+              active-class=""
+            >
+              <component :is="item.icon" class="size-4" />
+              {{ item.label }}
+            </RouterLink>
+          </template>
         </div>
       </nav>
     </aside>

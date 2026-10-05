@@ -22,6 +22,7 @@ export class HttpTransport implements Transport {
     try {
       response = await this.fetcher.call(globalThis, `${this.endpoint}/envelope`, {
         method: 'POST',
+        credentials: 'omit',
         headers: {
           'Content-Type': 'application/json',
           'X-PMS-Key': this.publicKey,

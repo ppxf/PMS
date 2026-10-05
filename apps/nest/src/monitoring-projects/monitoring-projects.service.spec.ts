@@ -41,6 +41,7 @@ describe('MonitoringProjectsService', () => {
     expect(groups.findOwnedBySlug).toHaveBeenCalledWith('user-1', 'acme-team');
     expect(created).toMatchObject({
       errorMonitoringEnabled: true,
+      allowedOrigins: ['*'],
       loggingEnabled: false,
       metricsEnabled: false,
       name: 'My Vue App',

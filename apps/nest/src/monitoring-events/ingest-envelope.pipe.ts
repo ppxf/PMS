@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 import { validateSync } from 'class-validator';
+import { propagationTargets } from '../monitoring-projects/dto/propagation-settings.pipe';
 import {
   BrowserContextDto,
   BrowserEventContextsDto,
@@ -77,10 +78,11 @@ export class IngestEnvelopePipe implements PipeTransform<
       root,
       'envelope',
       root.type === 'client_report'
-        ? ['version', 'type', 'sentAt', 'sdk', 'environment']
+        ? ['version', 'type', 'sentAt', 'sdk', 'environment', 'propagationTargets']
         : ['version', 'type', 'sentAt', 'event'],
     );
     const envelope = Object.assign(new IngestEnvelopeDto(), root);
+    if (root.type === 'client_report' && root.propagationTargets !== undefined) envelope.propagationTargets = propagationTargets(root.propagationTargets);
     if (root.event !== undefined) {
       const event = rawObject(root.event, 'event', [
         'eventId',

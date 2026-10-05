@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createSlug } from '../common/utils/slug';
+import type { PropagationSettings } from './dto/propagation-settings.pipe';
 import { GroupsService } from '../groups/groups.service';
 import { CreateMonitoringProjectDto } from './dto/create-monitoring-project.dto';
 import {
@@ -38,6 +39,7 @@ export class MonitoringProjectsService {
     const project = this.repository.create({
       errorMonitoringEnabled: input.errorMonitoringEnabled ?? true,
       groupId: group.id,
+      allowedOrigins: ['*'],
       lastSeenAt: null,
       loggingEnabled: input.loggingEnabled ?? false,
       metricsEnabled: input.metricsEnabled ?? false,
@@ -95,6 +97,50 @@ export class MonitoringProjectsService {
     };
   }
 
+  async updateTracing(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    tracingEnabled: boolean,
+  ): Promise<MonitoringProjectResponse> {
+    const project = await this.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.repository.update(project.id, { tracingEnabled });
+    return Object.assign(project, { tracingEnabled });
+  }
+
+  async updatePropagation(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    settings: PropagationSettings,
+  ): Promise<MonitoringProjectResponse> {
+    const project = await this.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.repository.update(project.id, settings);
+    return Object.assign(project, settings);
+  }
+
+  async allowsSdkOrigin(projectId: string, origin: string): Promise<boolean> {
+    const project = await this.repository.findOne({
+      select: { allowedOrigins: true },
+      where: { id: projectId },
+    });
+    return Boolean(
+      project?.allowedOrigins?.includes('*') ||
+      project?.allowedOrigins?.includes(origin),
+    );
+  }
+
+  async updateOrigins(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    allowedOrigins: string[],
+  ): Promise<MonitoringProjectResponse> {
+    const project = await this.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.repository.update(project.id, { allowedOrigins });
+    return Object.assign(project, { allowedOrigins });
+  }
+
   async checkConnection(
     projectId: string,
     publicKey: string,
@@ -134,7 +180,7 @@ export class MonitoringProjectsService {
 
   private buildDsn(project: MonitoringProject): string {
     const url = new URL(
-      this.config.get<string>('monitoring.publicUrl', 'http://localhost:3001'),
+      this.config.get<string>('monitoring.publicUrl', 'http://localhost:3000'),
     );
     url.username = project.publicKey;
     url.pathname = `${url.pathname.replace(/\/$/, '')}/api/sdk/${project.id}`;

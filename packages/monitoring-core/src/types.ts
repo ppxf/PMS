@@ -1,3 +1,4 @@
+import type { TransactionEnvelope } from './tracing-types.js'
 export type MonitoringEventType = 'error'
 export type MonitoringLevel = 'error'
 export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual'
@@ -77,6 +78,7 @@ export interface ClientReportEnvelope {
   sentAt: string
   sdk: MonitoringSdkMetadata
   environment?: string
+  propagationTargets?: readonly string[]
 }
 
 export interface EventEnvelope {
@@ -86,7 +88,7 @@ export interface EventEnvelope {
   event: MonitoringEvent
 }
 
-export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope
+export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope
 
 export interface Transport {
   send(envelope: MonitoringEnvelope): Promise<void>
@@ -112,6 +114,9 @@ export interface MonitoringInitOptions {
   transport?: Transport
   fetch?: typeof globalThis.fetch
   sdk?: MonitoringSdkMetadata
+  tracesSampleRate?: number
+  release?: string
+  propagationTargets?: readonly string[]
 }
 
 export interface ClientState {

@@ -88,7 +88,13 @@ export const routes: RouteRecordRaw[] = [
         path: 'groups/:groupSlug/projects/:projectSlug/setup',
         name: 'project-setup',
         component: () => import('@/features/monitoring/views/ProjectSetupView.vue'),
-        meta: { title: 'Vue SDK 接入', requiresAuth: true },
+        meta: { title: '基础接入', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/setup/traces',
+        name: 'project-traces-setup',
+        component: () => import('@/features/monitoring/views/ProjectSetupView.vue'),
+        meta: { title: 'Traces接入', requiresAuth: true },
       },
       {
         path: 'groups/:groupSlug/projects/:projectSlug/issues',
@@ -101,6 +107,18 @@ export const routes: RouteRecordRaw[] = [
         name: 'project-issue-detail',
         component: () => import('@/features/monitoring/views/ProjectIssueDetailView.vue'),
         meta: { title: '错误详情', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/traces',
+        name: 'project-traces',
+        component: () => import('@/features/monitoring/views/ProjectTracesView.vue'),
+        meta: { title: 'Traces', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/traces/:traceId',
+        name: 'project-trace-detail',
+        component: () => import('@/features/monitoring/views/ProjectTraceDetailView.vue'),
+        meta: { title: 'Trace 详情', requiresAuth: true },
       },
       {
         path: 'groups/:groupSlug/projects/:projectSlug/config',

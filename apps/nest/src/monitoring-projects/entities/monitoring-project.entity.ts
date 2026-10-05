@@ -45,6 +45,27 @@ export class MonitoringProject {
   @Column({ name: 'tracing_enabled', default: false })
   tracingEnabled!: boolean;
 
+  @Column({
+    name: 'propagation_targets',
+    type: 'jsonb',
+    default: () => "'[]'::jsonb",
+  })
+  propagationTargets!: string[];
+
+  @Column({
+    name: 'allowed_origins',
+    type: 'jsonb',
+    default: () => `'["*"]'::jsonb`,
+  })
+  allowedOrigins!: string[];
+
+  @Column({
+    name: 'reported_propagation_targets',
+    type: 'jsonb',
+    default: () => "'[]'::jsonb",
+  })
+  reportedPropagationTargets!: string[];
+
   @Column({ name: 'metrics_enabled', default: false })
   metricsEnabled!: boolean;
 

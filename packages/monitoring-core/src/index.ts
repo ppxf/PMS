@@ -1,4 +1,8 @@
-export { captureException, getClientState, init } from './client.js'
+export { captureException, createMonitoringClient, getClientState, init, startSpan, startInactiveSpan, flush, getTraceStats } from './client.js'
+export type { MonitoringSpan, SpanHandle, SpanOptions, SpanStatus, TraceContext, TransactionEnvelope } from './tracing-types.js'
+export { createBrowserTracing } from './browser-tracing.js'
+export type { BrowserTracingOptions } from './browser-tracing.js'
+export type { MonitoringIntegration, MonitoringIntegrationClient, MonitoringRouter } from './integration-types.js'
 export { HttpTransport, TransportError } from './http-transport.js'
 export type {
   CaptureExceptionContext,

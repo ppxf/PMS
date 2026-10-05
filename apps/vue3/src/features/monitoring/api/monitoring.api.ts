@@ -27,6 +27,16 @@ export const listProjects = (groupSlug: string) =>
 export const getProject = (groupSlug: string, projectSlug: string) =>
   http.get<MonitoringProject>(`/groups/${groupSlug}/projects/${projectSlug}`)
 
+export const updateProjectTracing = (
+  groupSlug: string,
+  projectSlug: string,
+  tracingEnabled: boolean,
+) =>
+  http.patch<MonitoringProject, { tracingEnabled: boolean }>(
+    `/groups/${groupSlug}/projects/${projectSlug}/tracing`,
+    { tracingEnabled },
+  )
+
 export const getProjectConnection = (groupSlug: string, projectSlug: string) =>
   http.get<ProjectConnection>(`/groups/${groupSlug}/projects/${projectSlug}/connection`)
 
@@ -41,9 +51,7 @@ export const listProjectIssues = (
   )
 
 export const getProjectIssue = (groupSlug: string, projectSlug: string, issueId: string) =>
-  http.get<MonitoringIssueDetail>(
-    `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`,
-  )
+  http.get<MonitoringIssueDetail>(`/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`)
 
 export const updateProjectIssueStatus = (
   groupSlug: string,
@@ -67,26 +75,27 @@ export const archiveProjectIssue = (
     input,
   )
 
-export const restoreProjectIssue = (
-  groupSlug: string,
-  projectSlug: string,
-  issueId: string,
-) =>
+export const restoreProjectIssue = (groupSlug: string, projectSlug: string, issueId: string) =>
   http.patch<MonitoringIssueDetail, undefined>(
     `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/restore`,
     undefined,
   )
 
-export const deleteProjectIssue = (
-  groupSlug: string,
-  projectSlug: string,
-  issueId: string,
-) => http.delete<void>(`/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`)
+export const deleteProjectIssue = (groupSlug: string, projectSlug: string, issueId: string) =>
+  http.delete<void>(`/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`)
 
 export const permanentlyDeleteProjectIssue = (
   groupSlug: string,
   projectSlug: string,
   issueId: string,
-) => http.delete<void>(
-  `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/permanent`,
-)
+) => http.delete<void>(`/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}/permanent`)
+
+export const updateProjectOrigins = (
+  groupSlug: string,
+  projectSlug: string,
+  allowedOrigins: string[],
+) =>
+  http.patch<MonitoringProject, { allowedOrigins: string[] }>(
+    `/groups/${groupSlug}/projects/${projectSlug}/origins`,
+    { allowedOrigins },
+  )

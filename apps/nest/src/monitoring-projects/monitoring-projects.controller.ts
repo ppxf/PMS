@@ -1,9 +1,13 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateMonitoringProjectDto } from './dto/create-monitoring-project.dto';
 import { MonitoringProjectsService } from './monitoring-projects.service';
+import { UpdateTracingPipe } from './dto/update-tracing.dto';
+import { PropagationSettingsPipe } from './dto/propagation-settings.pipe';
+import type { PropagationSettings } from './dto/propagation-settings.pipe';
+import { UpdateOriginsPipe } from './dto/update-origins.pipe';
 
 interface AuthenticatedRequest extends Request {
   user: AuthUser;
@@ -14,6 +18,51 @@ interface AuthenticatedRequest extends Request {
 @Controller('groups/:groupSlug/projects')
 export class MonitoringProjectsController {
   constructor(private readonly projects: MonitoringProjectsService) {}
+
+  @Patch(':projectSlug/origins')
+  origins(
+    @Req() request: AuthenticatedRequest,
+    @Param('groupSlug') groupSlug: string,
+    @Param('projectSlug') projectSlug: string,
+    @Body(new UpdateOriginsPipe()) input: { allowedOrigins: string[] },
+  ) {
+    return this.projects.updateOrigins(
+      request.user.id,
+      groupSlug,
+      projectSlug,
+      input.allowedOrigins,
+    );
+  }
+
+  @Patch(':projectSlug/propagation')
+  propagation(
+    @Req() request: AuthenticatedRequest,
+    @Param('groupSlug') groupSlug: string,
+    @Param('projectSlug') projectSlug: string,
+    @Body(new PropagationSettingsPipe()) settings: PropagationSettings,
+  ) {
+    return this.projects.updatePropagation(
+      request.user.id,
+      groupSlug,
+      projectSlug,
+      settings,
+    );
+  }
+
+  @Patch(':projectSlug/tracing')
+  tracing(
+    @Req() request: AuthenticatedRequest,
+    @Param('groupSlug') groupSlug: string,
+    @Param('projectSlug') projectSlug: string,
+    @Body(new UpdateTracingPipe()) input: unknown,
+  ) {
+    return this.projects.updateTracing(
+      request.user.id,
+      groupSlug,
+      projectSlug,
+      (input as { tracingEnabled: boolean }).tracingEnabled,
+    );
+  }
 
   @Post()
   create(

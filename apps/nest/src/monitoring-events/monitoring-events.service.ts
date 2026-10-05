@@ -35,6 +35,7 @@ export class MonitoringEventsService {
     if (envelope.type === 'client_report') {
       await this.dataSource.manager.update(MonitoringProject, project.id, {
         lastSeenAt: new Date(),
+        ...(envelope.propagationTargets === undefined ? {} : { reportedPropagationTargets: envelope.propagationTargets }),
       });
       return;
     }

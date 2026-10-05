@@ -53,7 +53,9 @@ export default () => ({
     from: process.env.SMTP_FROM ?? 'PMS <no-reply@localhost>',
   },
   monitoring: {
-    publicUrl: process.env.PUBLIC_URL ?? 'http://localhost:3001',
+    publicUrl: process.env.PUBLIC_URL ?? 'http://localhost:3000',
+    sdkRateLimitPerMinute: Number(process.env.SDK_RATE_LIMIT_PER_MINUTE ?? 120),
+    sdkRateLimitMaxIps: Number(process.env.SDK_RATE_LIMIT_MAX_IPS ?? 10000),
   },
   swagger: {
     enabled: parseBoolean(process.env.SWAGGER_ENABLED, true),

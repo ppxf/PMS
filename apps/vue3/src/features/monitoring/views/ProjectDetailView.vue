@@ -3,7 +3,8 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { getProject } from '../api/monitoring.api'
+import { getProject, updateProjectTracing } from '../api/monitoring.api'
+import { Button } from '@/components/ui/button'
 import type { MonitoringProject } from '../model/types'
 
 const route = useRoute()
@@ -11,6 +12,22 @@ const groupSlug = String(route.params.groupSlug)
 const projectSlug = String(route.params.projectSlug)
 const project = ref<MonitoringProject | null>(null)
 const error = ref('')
+const saving = ref(false)
+async function toggleTracing() {
+  if (!project.value) return
+  saving.value = true
+  try {
+    project.value = await updateProjectTracing(
+      groupSlug,
+      projectSlug,
+      !project.value.tracingEnabled,
+    )
+  } catch {
+    error.value = '无法更新 Tracing 配置'
+  } finally {
+    saving.value = false
+  }
+}
 
 const featureLabels = [
   ['errorMonitoringEnabled', 'Error Monitoring'],
@@ -60,6 +77,9 @@ onMounted(async () => {
           </div>
         </CardContent>
       </Card>
+      <Button :disabled="saving" variant="outline" @click="toggleTracing">{{
+        project.tracingEnabled ? '关闭 Tracing' : '开启 Tracing'
+      }}</Button>
     </template>
   </section>
 </template>
