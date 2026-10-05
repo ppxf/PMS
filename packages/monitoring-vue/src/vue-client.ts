@@ -22,6 +22,7 @@ const client = createMonitoringClient()
 const { captureException: captureCoreException, getClientState: getCoreClientState, init: initCore, startSpan, startInactiveSpan, flush, getTraceStats } = client
 let configuredIntegrations: readonly MonitoringIntegration[] | undefined
 let configuredRouter: MonitoringRouter | undefined
+export const { metrics, getMetricStats } = client
 export { startSpan, startInactiveSpan, flush, getTraceStats }
 
 function capture(error: unknown, source: MonitoringEventSource): void {

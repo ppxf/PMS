@@ -108,6 +108,17 @@ export class MonitoringProjectsService {
     return Object.assign(project, { tracingEnabled });
   }
 
+  async updateMetrics(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    metricsEnabled: boolean,
+  ): Promise<MonitoringProjectResponse> {
+    const project = await this.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.repository.update(project.id, { metricsEnabled });
+    return Object.assign(project, { metricsEnabled });
+  }
+
   async updatePropagation(
     userId: string,
     groupSlug: string,

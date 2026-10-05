@@ -115,6 +115,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'Traces', requiresAuth: true },
       },
       {
+        path: 'groups/:groupSlug/projects/:projectSlug/metrics',
+        name: 'project-metrics',
+        component: () => import('@/features/monitoring/views/ProjectMetricsView.vue'),
+        meta: { title: 'Metrics', requiresAuth: true },
+      },
+      {
         path: 'groups/:groupSlug/projects/:projectSlug/traces/:traceId',
         name: 'project-trace-detail',
         component: () => import('@/features/monitoring/views/ProjectTraceDetailView.vue'),

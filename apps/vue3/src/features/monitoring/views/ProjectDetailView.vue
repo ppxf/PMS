@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { getProject, updateProjectTracing } from '../api/monitoring.api'
+import { getProject, updateProjectTracing, updateProjectMetrics } from '../api/monitoring.api'
 import { Button } from '@/components/ui/button'
 import type { MonitoringProject } from '../model/types'
 
@@ -13,6 +13,21 @@ const projectSlug = String(route.params.projectSlug)
 const project = ref<MonitoringProject | null>(null)
 const error = ref('')
 const saving = ref(false)
+async function toggleMetrics() {
+  if (!project.value) return
+  saving.value = true
+  try {
+    project.value = await updateProjectMetrics(
+      groupSlug,
+      projectSlug,
+      !project.value.metricsEnabled,
+    )
+  } catch {
+    error.value = '无法更新 Metrics 配置'
+  } finally {
+    saving.value = false
+  }
+}
 async function toggleTracing() {
   if (!project.value) return
   saving.value = true
@@ -80,6 +95,15 @@ onMounted(async () => {
       <Button :disabled="saving" variant="outline" @click="toggleTracing">{{
         project.tracingEnabled ? '关闭 Tracing' : '开启 Tracing'
       }}</Button>
+      <label class="ml-4 inline-flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          :checked="project.metricsEnabled"
+          :disabled="saving"
+          @change="toggleMetrics"
+        />
+        Application Metrics
+      </label>
     </template>
   </section>
 </template>

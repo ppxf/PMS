@@ -12,6 +12,7 @@ const {
   getProjectConnection,
   updateProjectOrigins,
   updateProjectTracing,
+  updateProjectMetrics,
   push,
   writeText,
 } = vi.hoisted(() => ({
@@ -20,6 +21,7 @@ const {
   getProject: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   getProjectConnection: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   updateProjectTracing: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  updateProjectMetrics: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   push: vi.fn<(...args: unknown[]) => unknown>(),
   writeText: vi.fn<(value: string) => Promise<void>>(() => Promise.resolve()),
 }))
@@ -30,6 +32,7 @@ vi.mock('../../api/monitoring.api', () => ({
   getProjectConnection,
   updateProjectOrigins,
   updateProjectTracing,
+  updateProjectMetrics,
 }))
 vi.mock('vue-router', async (importOriginal) => {
   const { reactive } = await import('vue')
@@ -69,6 +72,17 @@ const RouterLinkStub = defineComponent({
 })
 
 describe('project views', () => {
+  it('enables Metrics from project configuration', async () => {
+    getProject.mockResolvedValue({ ...project })
+    updateProjectMetrics.mockResolvedValue({ ...project, metricsEnabled: true })
+    const view = mount(ProjectDetailView)
+    await flushPromises()
+    await view.get('input[type="checkbox"]').setValue(true)
+    await flushPromises()
+    expect(updateProjectMetrics).toHaveBeenCalledWith('acme', 'frontend', true)
+    expect((view.get('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(true)
+    view.unmount()
+  })
   it('keeps basic setup focused on errors and separates the Traces instructions', async () => {
     getProject.mockResolvedValue({ ...project, tracingEnabled: true })
     const wrapper = mount(ProjectSetupView)

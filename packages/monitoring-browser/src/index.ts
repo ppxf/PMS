@@ -9,3 +9,5 @@ export type {
   MonitoringEventSource,
   Transport,
 } from '@pms/monitoring-core'
+export { metrics, getMetricStats } from './browser-client.js'
+export type { MetricType, MetricOptions, MetricSample, MetricsEnvelope } from '@pms/monitoring-core'

@@ -46,6 +46,11 @@ function createTestRouter() {
         component: EmptyView,
       },
       { path: '/login', name: 'login', component: EmptyView },
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/metrics',
+        name: 'project-metrics',
+        component: EmptyView,
+      },
     ],
   })
 }
@@ -66,6 +71,12 @@ async function mountAt(path: string) {
 }
 
 describe('AppLayout navigation', () => {
+  it('highlights Metrics for the current project', async () => {
+    const wrapper = await mountAt('/groups/acme/projects/frontend/metrics')
+    const link = wrapper.get('a[href="/groups/acme/projects/frontend/metrics"]')
+    expect(link.text()).toContain('查看 Metrics')
+    expect(link.classes()).toContain('bg-muted')
+  })
   it('shows SDK child menus and highlights Traces setup within the current project', async () => {
     const wrapper = await mountAt('/groups/acme/projects/frontend/setup/traces')
     expect(wrapper.get('a[href="/groups/acme/projects/frontend/setup"]').text()).toContain(

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import {
   Bug,
+  ChartNoAxesCombined,
   FolderKanban,
   FolderOpen,
   LayoutDashboard,
@@ -65,6 +66,12 @@ const navigation: NavigationItem[] = [
 ]
 
 const projectNavigation: ProjectNavigationItem[] = [
+  {
+    label: '查看 Metrics',
+    routeName: 'project-metrics',
+    activeRouteNames: ['project-metrics'],
+    icon: ChartNoAxesCombined,
+  },
   {
     label: '查看 SDK 接入',
     routeName: 'project-setup',

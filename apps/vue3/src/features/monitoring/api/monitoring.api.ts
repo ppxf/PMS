@@ -99,3 +99,12 @@ export const updateProjectOrigins = (
     `/groups/${groupSlug}/projects/${projectSlug}/origins`,
     { allowedOrigins },
   )
+export const updateProjectMetrics = (
+  groupSlug: string,
+  projectSlug: string,
+  metricsEnabled: boolean,
+) =>
+  http.patch<MonitoringProject, { metricsEnabled: boolean }>(
+    `/groups/${encodeURIComponent(groupSlug)}/projects/${encodeURIComponent(projectSlug)}/metrics`,
+    { metricsEnabled },
+  )

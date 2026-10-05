@@ -15,3 +15,5 @@ export type {
   MonitoringLevel,
   Transport,
 } from '@pms/monitoring-core'
+export { metrics, getMetricStats } from './vue-client.js'
+export type { MetricType, MetricOptions, MetricSample, MetricsEnvelope } from '@pms/monitoring-core'

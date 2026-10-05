@@ -1,4 +1,5 @@
 import type { TransactionEnvelope } from './tracing-types.js'
+import type { MetricsEnvelope } from './metrics-types.js'
 export type MonitoringEventType = 'error'
 export type MonitoringLevel = 'error'
 export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual'
@@ -88,7 +89,7 @@ export interface EventEnvelope {
   event: MonitoringEvent
 }
 
-export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope
+export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope
 
 export interface Transport {
   send(envelope: MonitoringEnvelope): Promise<void>
@@ -107,6 +108,7 @@ export interface CaptureExceptionContext {
 }
 
 export interface MonitoringInitOptions {
+  enableMetrics?: boolean
   dsn: string
   debug?: boolean
   environment?: string

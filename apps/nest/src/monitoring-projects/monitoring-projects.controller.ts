@@ -8,6 +8,7 @@ import { UpdateTracingPipe } from './dto/update-tracing.dto';
 import { PropagationSettingsPipe } from './dto/propagation-settings.pipe';
 import type { PropagationSettings } from './dto/propagation-settings.pipe';
 import { UpdateOriginsPipe } from './dto/update-origins.pipe';
+import { UpdateMetricsPipe } from './dto/update-metrics.pipe';
 
 interface AuthenticatedRequest extends Request {
   user: AuthUser;
@@ -18,6 +19,21 @@ interface AuthenticatedRequest extends Request {
 @Controller('groups/:groupSlug/projects')
 export class MonitoringProjectsController {
   constructor(private readonly projects: MonitoringProjectsService) {}
+
+  @Patch(':projectSlug/metrics')
+  metrics(
+    @Req() request: AuthenticatedRequest,
+    @Param('groupSlug') groupSlug: string,
+    @Param('projectSlug') projectSlug: string,
+    @Body(new UpdateMetricsPipe()) input: { metricsEnabled: boolean },
+  ) {
+    return this.projects.updateMetrics(
+      request.user.id,
+      groupSlug,
+      projectSlug,
+      input.metricsEnabled,
+    );
+  }
 
   @Patch(':projectSlug/origins')
   origins(

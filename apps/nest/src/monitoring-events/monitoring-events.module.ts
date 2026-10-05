@@ -9,6 +9,7 @@ import { IssueAutoResolutionService } from './issue-auto-resolution.service';
 import { MonitoringIssuesController } from './monitoring-issues.controller';
 import { SdkEnvelopeController } from './sdk-envelope.controller';
 import { TracesModule } from '../traces/traces.module';
+import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TracesModule } from '../traces/traces.module';
     ]),
     MonitoringProjectsModule,
     TracesModule,
+    MetricsModule,
   ],
   controllers: [SdkEnvelopeController, MonitoringIssuesController],
   providers: [MonitoringEventsService, IssueAutoResolutionService],
