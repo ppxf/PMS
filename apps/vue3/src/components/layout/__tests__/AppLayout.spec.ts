@@ -12,6 +12,11 @@ function createTestRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/logs',
+        name: 'project-logs',
+        component: EmptyView,
+      },
       { path: '/', name: 'dashboard', component: EmptyView },
       { path: '/groups', name: 'groups', component: EmptyView },
       {

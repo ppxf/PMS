@@ -119,6 +119,17 @@ export class MonitoringProjectsService {
     return Object.assign(project, { metricsEnabled });
   }
 
+  async updateLogging(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    loggingEnabled: boolean,
+  ): Promise<MonitoringProjectResponse> {
+    const project = await this.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.repository.update(project.id, { loggingEnabled });
+    return Object.assign(project, { loggingEnabled });
+  }
+
   async updatePropagation(
     userId: string,
     groupSlug: string,

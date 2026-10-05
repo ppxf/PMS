@@ -28,3 +28,6 @@ export type {
   Transport,
 } from './types.js'
 export { NoopTransport } from './types.js'
+export { logger, getLogStats, captureConsoleLogs } from './client.js'
+export { LOG_LEVELS } from './logs-types.js'
+export type { LogLevel, LogEntry, LogAttributes, LogContext, LogsEnvelope, FormattedLog, ConsoleLogMethod } from './logs-types.js'

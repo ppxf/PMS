@@ -3,7 +3,12 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { getProject, updateProjectTracing, updateProjectMetrics } from '../api/monitoring.api'
+import {
+  getProject,
+  updateProjectTracing,
+  updateProjectMetrics,
+  updateProjectLogging,
+} from '../api/monitoring.api'
 import { Button } from '@/components/ui/button'
 import type { MonitoringProject } from '../model/types'
 
@@ -13,6 +18,21 @@ const projectSlug = String(route.params.projectSlug)
 const project = ref<MonitoringProject | null>(null)
 const error = ref('')
 const saving = ref(false)
+async function toggleLogging() {
+  if (!project.value) return
+  saving.value = true
+  try {
+    project.value = await updateProjectLogging(
+      groupSlug,
+      projectSlug,
+      !project.value.loggingEnabled,
+    )
+  } catch {
+    error.value = '无法更新 Logs 配置'
+  } finally {
+    saving.value = false
+  }
+}
 async function toggleMetrics() {
   if (!project.value) return
   saving.value = true
@@ -104,6 +124,15 @@ onMounted(async () => {
         />
         Application Metrics
       </label>
+      <label class="ml-4 inline-flex items-center gap-2 text-sm"
+        ><input
+          type="checkbox"
+          aria-label="Application Logs"
+          :checked="project.loggingEnabled"
+          :disabled="saving"
+          @change="toggleLogging"
+        />Application Logs</label
+      >
     </template>
   </section>
 </template>

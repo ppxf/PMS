@@ -11,3 +11,5 @@ export type {
 } from '@pms/monitoring-core'
 export { metrics, getMetricStats } from './browser-client.js'
 export type { MetricType, MetricOptions, MetricSample, MetricsEnvelope } from '@pms/monitoring-core'
+export { logger, getLogStats, captureConsoleLogs } from './browser-client.js'
+export type { LogLevel, LogEntry, LogAttributes, LogContext, LogsEnvelope, FormattedLog, ConsoleLogMethod } from '@pms/monitoring-core'

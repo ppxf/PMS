@@ -13,6 +13,7 @@ const {
   updateProjectOrigins,
   updateProjectTracing,
   updateProjectMetrics,
+  updateProjectLogging,
   push,
   writeText,
 } = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const {
   getProjectConnection: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   updateProjectTracing: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   updateProjectMetrics: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  updateProjectLogging: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   push: vi.fn<(...args: unknown[]) => unknown>(),
   writeText: vi.fn<(value: string) => Promise<void>>(() => Promise.resolve()),
 }))
@@ -33,6 +35,7 @@ vi.mock('../../api/monitoring.api', () => ({
   updateProjectOrigins,
   updateProjectTracing,
   updateProjectMetrics,
+  updateProjectLogging,
 }))
 vi.mock('vue-router', async (importOriginal) => {
   const { reactive } = await import('vue')
@@ -72,6 +75,19 @@ const RouterLinkStub = defineComponent({
 })
 
 describe('project views', () => {
+  it('enables Logs from project configuration', async () => {
+    getProject.mockResolvedValue({ ...project })
+    updateProjectLogging.mockResolvedValue({ ...project, loggingEnabled: true })
+    const view = mount(ProjectDetailView)
+    await flushPromises()
+    await view.get('[aria-label="Application Logs"]').setValue(true)
+    await flushPromises()
+    expect(updateProjectLogging).toHaveBeenCalledWith('acme', 'frontend', true)
+    expect((view.get('[aria-label="Application Logs"]').element as HTMLInputElement).checked).toBe(
+      true,
+    )
+    view.unmount()
+  })
   it('enables Metrics from project configuration', async () => {
     getProject.mockResolvedValue({ ...project })
     updateProjectMetrics.mockResolvedValue({ ...project, metricsEnabled: true })

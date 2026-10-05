@@ -3,12 +3,16 @@ import { createEvent, truncate } from './event.js'
 import { HttpTransport, TransportError } from './http-transport.js'
 import { createTracing } from './tracing.js'
 import { createMetrics } from './metrics.js'
+import { createLogs } from './logs.js'
 import { normalizePropagationTargets } from './propagation.js'
 import type { CaptureExceptionContext, ClientState, MonitoringEnvelope, MonitoringInitOptions, Transport } from './types.js'
 
 export function createMonitoringClient() {
   const tracing = createTracing()
   const metricRecorder = createMetrics()
+  const logs = createLogs()
+  let activeLogs = false
+  let activeBeforeSendLog: MonitoringInitOptions['beforeSendLog']
   let activeMetrics = false
   let activeSampleRate = 0
   let activeRelease: string | undefined
@@ -80,6 +84,7 @@ export function createMonitoringClient() {
         activeDebug === (options.debug ?? false) &&
         activeOnTransportError === options.onTransportError &&
         activeSdk?.name === sdk.name && activeSdk.version === sdk.version &&
+        activeLogs === (options.enableLogs ?? false) && activeBeforeSendLog === options.beforeSendLog &&
         activeMetrics === (options.enableMetrics ?? false) && activeSampleRate === (options.tracesSampleRate ?? 0) && activeRelease === options.release &&
         JSON.stringify(activePropagationTargets) === JSON.stringify(propagationTargets)) return state
       throw new Error('PMS monitoring client is already initialized with different options')
@@ -105,6 +110,9 @@ export function createMonitoringClient() {
     tracing.configure(options, activeTransport)
     activeMetrics = options.enableMetrics ?? false
     metricRecorder.configure({ ...options }, activeTransport)
+    activeLogs = options.enableLogs ?? false
+    activeBeforeSendLog = options.beforeSendLog
+    logs.configure({ ...options }, activeTransport)
     void sendEnvelope(report)
     return state
   }
@@ -131,6 +139,9 @@ export function createMonitoringClient() {
   function resetClientForTests(): void {
     tracing.reset()
     metricRecorder.reset()
+    logs.reset()
+    activeLogs = false
+    activeBeforeSendLog = undefined
     activeMetrics = false
     state = undefined
     activeTransport = undefined
@@ -145,9 +156,10 @@ export function createMonitoringClient() {
 
   return { init, captureException, getClientState, getTransport, getPropagationTargets, resetClientForTests,
     metrics: metricRecorder.metrics, getMetricStats: metricRecorder.getMetricStats,
+    logger: logs.logger, getLogStats: logs.getLogStats, captureConsoleLogs: logs.captureConsoleLogs,
     startSpan: tracing.startSpan, startInactiveSpan: tracing.startInactiveSpan,
-    flush: async () => { await Promise.all([tracing.flush(), metricRecorder.flush()]) }, getTraceStats: tracing.getTraceStats }
+    flush: async () => { await Promise.all([tracing.flush(), metricRecorder.flush(), logs.flush()]) }, getTraceStats: tracing.getTraceStats }
 }
 
 const defaultClient = createMonitoringClient()
-export const { init, captureException, getClientState, getTransport, resetClientForTests, startSpan, startInactiveSpan, flush, getTraceStats, metrics, getMetricStats } = defaultClient
+export const { init, captureException, getClientState, getTransport, resetClientForTests, startSpan, startInactiveSpan, flush, getTraceStats, metrics, getMetricStats, logger, getLogStats, captureConsoleLogs } = defaultClient

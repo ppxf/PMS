@@ -1,8 +1,15 @@
 import { ConfigService } from '@nestjs/config';
 import { ConflictException } from '@nestjs/common';
 import { MonitoringProjectsService } from './monitoring-projects.service';
+import { UpdateLoggingPipe } from './dto/update-logging.pipe';
 
 describe('MonitoringProjectsService', () => {
+  it('requires a strict boolean for the Logs project switch', () => {
+    expect(new UpdateLoggingPipe().transform({ loggingEnabled: true })).toEqual({ loggingEnabled: true });
+    for (const input of [{ loggingEnabled: 'true' }, {}, { loggingEnabled: true, extra: 1 }]) {
+      expect(() => new UpdateLoggingPipe().transform(input)).toThrow();
+    }
+  });
   const group = { id: 'group-1', slug: 'acme-team' };
   const makeRepository = () => ({
     create: jest.fn((input) => input),

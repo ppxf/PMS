@@ -23,6 +23,8 @@ import { MonitoringProjectsService } from '../monitoring-projects/monitoring-pro
 import { normalizeSdkOrigin } from '../common/http/sdk-origin';
 import { MetricsService } from '../metrics/metrics.service';
 import { MetricsEnvelope } from '../metrics/metrics-contract';
+import { LogsService } from '../logs/logs.service';
+import type { LogsEnvelope } from '../logs/logs-contract';
 
 @ApiTags('sdk')
 @Controller('sdk')
@@ -32,6 +34,7 @@ export class SdkEnvelopeController {
     @Optional() private readonly traces?: TracesService,
     @Optional() private readonly projects?: MonitoringProjectsService,
     @Optional() private readonly metrics?: MetricsService,
+    @Optional() private readonly logs?: LogsService,
   ) {}
 
   @Post(':projectId/envelope')
@@ -54,6 +57,11 @@ export class SdkEnvelopeController {
         )))
     )
       throw new ForbiddenException('SDK Origin is not allowed');
+    if ((envelope as { type?: string }).type === 'logs') {
+      if (!this.logs)
+        throw new ServiceUnavailableException('Logs service unavailable');
+      return this.logs.ingest(projectId, publicKey, envelope as LogsEnvelope);
+    }
     if ((envelope as { type?: string }).type === 'metrics') {
       if (!this.metrics)
         throw new ServiceUnavailableException('Metrics service unavailable');

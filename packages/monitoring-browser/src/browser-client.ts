@@ -19,6 +19,7 @@ const instrumentation = createBrowserTracing(client)
 let initializedFeatures: { errors: boolean; tracing: boolean } | undefined
 const { captureException: captureCoreException, init: initCore, getClientState, startSpan, startInactiveSpan, flush, getTraceStats } = client
 export const { metrics, getMetricStats } = client
+export const { logger, getLogStats, captureConsoleLogs } = client
 export { getClientState, startSpan, startInactiveSpan, flush, getTraceStats }
 
 /** Installs handlers for this browser SDK instance only. */

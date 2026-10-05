@@ -108,3 +108,12 @@ export const updateProjectMetrics = (
     `/groups/${encodeURIComponent(groupSlug)}/projects/${encodeURIComponent(projectSlug)}/metrics`,
     { metricsEnabled },
   )
+export const updateProjectLogging = (
+  groupSlug: string,
+  projectSlug: string,
+  loggingEnabled: boolean,
+) =>
+  http.patch<MonitoringProject, { loggingEnabled: boolean }>(
+    `/groups/${encodeURIComponent(groupSlug)}/projects/${encodeURIComponent(projectSlug)}/logging`,
+    { loggingEnabled },
+  )

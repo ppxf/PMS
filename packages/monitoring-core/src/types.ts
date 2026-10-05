@@ -1,3 +1,4 @@
+import type { LogsEnvelope, LogEntry } from './logs-types.js'
 import type { TransactionEnvelope } from './tracing-types.js'
 import type { MetricsEnvelope } from './metrics-types.js'
 export type MonitoringEventType = 'error'
@@ -89,7 +90,7 @@ export interface EventEnvelope {
   event: MonitoringEvent
 }
 
-export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope
+export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope | LogsEnvelope
 
 export interface Transport {
   send(envelope: MonitoringEnvelope): Promise<void>
@@ -108,6 +109,8 @@ export interface CaptureExceptionContext {
 }
 
 export interface MonitoringInitOptions {
+  enableLogs?: boolean
+  beforeSendLog?: (log: LogEntry) => LogEntry | null
   enableMetrics?: boolean
   dsn: string
   debug?: boolean

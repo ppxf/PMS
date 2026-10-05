@@ -17,3 +17,5 @@ export type {
 } from '@pms/monitoring-core'
 export { metrics, getMetricStats } from './vue-client.js'
 export type { MetricType, MetricOptions, MetricSample, MetricsEnvelope } from '@pms/monitoring-core'
+export { logger, getLogStats, captureConsoleLogs } from './vue-client.js'
+export type { LogLevel, LogEntry, LogAttributes, LogContext, LogsEnvelope, FormattedLog, ConsoleLogMethod } from '@pms/monitoring-core'

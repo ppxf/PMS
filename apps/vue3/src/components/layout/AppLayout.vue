@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import {
   Bug,
+  Logs,
   ChartNoAxesCombined,
   FolderKanban,
   FolderOpen,
@@ -66,6 +67,7 @@ const navigation: NavigationItem[] = [
 ]
 
 const projectNavigation: ProjectNavigationItem[] = [
+  { label: '查看 Logs', routeName: 'project-logs', activeRouteNames: ['project-logs'], icon: Logs },
   {
     label: '查看 Metrics',
     routeName: 'project-metrics',

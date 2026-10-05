@@ -23,6 +23,7 @@ const { captureException: captureCoreException, getClientState: getCoreClientSta
 let configuredIntegrations: readonly MonitoringIntegration[] | undefined
 let configuredRouter: MonitoringRouter | undefined
 export const { metrics, getMetricStats } = client
+export const { logger, getLogStats, captureConsoleLogs } = client
 export { startSpan, startInactiveSpan, flush, getTraceStats }
 
 function capture(error: unknown, source: MonitoringEventSource): void {

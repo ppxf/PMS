@@ -10,6 +10,7 @@ import { MonitoringIssuesController } from './monitoring-issues.controller';
 import { SdkEnvelopeController } from './sdk-envelope.controller';
 import { TracesModule } from '../traces/traces.module';
 import { MetricsModule } from '../metrics/metrics.module';
+import { LogsModule } from '../logs/logs.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MetricsModule } from '../metrics/metrics.module';
     MonitoringProjectsModule,
     TracesModule,
     MetricsModule,
+    LogsModule,
   ],
   controllers: [SdkEnvelopeController, MonitoringIssuesController],
   providers: [MonitoringEventsService, IssueAutoResolutionService],
