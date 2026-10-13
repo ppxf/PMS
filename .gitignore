@@ -14,3 +14,5 @@ coverage/
 .npmrc
 .superpowers/
 docs/
+.codex/
+hooks/
