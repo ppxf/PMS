@@ -18,6 +18,7 @@ export interface MonitoringProject {
   tracingEnabled: boolean
   metricsEnabled: boolean
   dsn: string
+  allowedOrigins?: string[]
   connected: boolean
   lastSeenAt: string | null
   createdAt: string
@@ -62,14 +63,10 @@ export interface MonitoringIssueSummary {
   reopenCount: number
 }
 
-export type MonitoringIssueVisibility =
-  | 'active'
-  | 'archived_permanent'
-  | 'archived_until_count'
+export type MonitoringIssueVisibility = 'active' | 'archived_permanent' | 'archived_until_count'
 
 export type ArchiveIssueInput =
-  | { mode: 'permanent' }
-  | { mode: 'until_count'; threshold: 10 | 100 | 1000 }
+  { mode: 'permanent' } | { mode: 'until_count'; threshold: 10 | 100 | 1000 }
 
 export interface BrowserEventContexts {
   request?: { headers: Record<string, string>; cookies: Record<string, string> }

@@ -1,0 +1,25 @@
+{
+  "name": "@pms/monitoring-browser",
+  "version": "0.1.0",
+  "type": "module",
+  "files": ["dist", "README.md"],
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings=0"
+  },
+  "dependencies": { "@pms/monitoring-core": "workspace:*" },
+  "devDependencies": {
+    "@pms/config": "workspace:*",
+    "eslint": "^9.18.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "engines": { "node": "^22.18.0 || >=24.12.0" }
+}

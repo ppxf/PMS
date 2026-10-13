@@ -306,6 +306,14 @@ export class MonitoringErrorEventDto {
 }
 
 export class IngestEnvelopeDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @Validate(EnvelopeFieldConstraint, ['client_report'])
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(512, { each: true })
+  propagationTargets?: string[];
+
   @Equals(1)
   version!: 1;
 

@@ -16,3 +16,5 @@ coverage/
 docs/
 .codex/
 hooks/
+AGENTS.md
+.tmp/

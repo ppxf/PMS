@@ -1,3 +1,6 @@
+import type { LogsEnvelope, LogEntry } from './logs-types.js'
+import type { TransactionEnvelope } from './tracing-types.js'
+import type { MetricsEnvelope } from './metrics-types.js'
 export type MonitoringEventType = 'error'
 export type MonitoringLevel = 'error'
 export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual'
@@ -77,6 +80,7 @@ export interface ClientReportEnvelope {
   sentAt: string
   sdk: MonitoringSdkMetadata
   environment?: string
+  propagationTargets?: readonly string[]
 }
 
 export interface EventEnvelope {
@@ -86,7 +90,7 @@ export interface EventEnvelope {
   event: MonitoringEvent
 }
 
-export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope
+export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope | LogsEnvelope
 
 export interface Transport {
   send(envelope: MonitoringEnvelope): Promise<void>
@@ -105,6 +109,9 @@ export interface CaptureExceptionContext {
 }
 
 export interface MonitoringInitOptions {
+  enableLogs?: boolean
+  beforeSendLog?: (log: LogEntry) => LogEntry | null
+  enableMetrics?: boolean
   dsn: string
   debug?: boolean
   environment?: string
@@ -112,6 +119,9 @@ export interface MonitoringInitOptions {
   transport?: Transport
   fetch?: typeof globalThis.fetch
   sdk?: MonitoringSdkMetadata
+  tracesSampleRate?: number
+  release?: string
+  propagationTargets?: readonly string[]
 }
 
 export interface ClientState {

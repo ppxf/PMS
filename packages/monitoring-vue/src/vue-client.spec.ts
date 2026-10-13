@@ -48,6 +48,42 @@ afterEach(() => {
 })
 
 describe('Vue monitoring error capture', () => {
+  it('keeps error monitoring and disables traces when no integration is provided', async () => {
+    const target = browserTarget()
+    const originalFetch = vi.fn(() => Promise.resolve(new Response()))
+    Object.assign(target, { fetch: originalFetch })
+    const sdk = await import('./index.js')
+    const transport = new RecordingTransport()
+    sdk.init({ app: vueApp(), dsn, transport, tracesSampleRate: 1 })
+    target.dispatchEvent(Object.assign(new Event('error'), { message: 'still captured' }))
+    const span = sdk.startInactiveSpan({ name: 'not recorded' })
+    span.end()
+    await sdk.flush()
+    expect(transport.eventEnvelopes).toHaveLength(1)
+    expect(transport.envelopes.some(e => e.type === 'transaction')).toBe(false)
+    expect(originalFetch).not.toHaveBeenCalled()
+  })
+
+  it('passes its own client and router to optional plugins without changing errors', async () => {
+    const target = browserTarget()
+    const sdk = await import('./index.js')
+    const transport = new RecordingTransport()
+    const router = { beforeEach: vi.fn(), afterEach: vi.fn() }
+    const setup = vi.fn((context: Parameters<import('@pms/monitoring-core').MonitoringIntegration['setup']>[0]) => {
+      const span = context.client.startInactiveSpan({ name: 'plugin-span' })
+      span.end()
+    })
+    const integration = { name: 'BrowserTracing', setup }
+    const options = { app: vueApp(), dsn, transport, tracesSampleRate: 1, integrations: [integration], router }
+    const state = sdk.init(options)
+    expect(sdk.init(options)).toBe(state)
+    expect(setup).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ window: target, router }))
+    target.dispatchEvent(Object.assign(new Event('error'), { message: 'still captured' }))
+    await sdk.flush()
+    expect(transport.eventEnvelopes).toHaveLength(1)
+    expect(transport.envelopes.some(e => e.type === 'transaction')).toBe(true)
+    expect(() => sdk.init({ ...options, integrations: [] })).toThrow('different integration options')
+  })
   it('re-exports the supported core runtime utilities from the Vue package', async () => {
     const sdk = await import('./index.js')
 

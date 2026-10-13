@@ -12,6 +12,11 @@ function createTestRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/logs',
+        name: 'project-logs',
+        component: EmptyView,
+      },
       { path: '/', name: 'dashboard', component: EmptyView },
       { path: '/groups', name: 'groups', component: EmptyView },
       {
@@ -34,8 +39,23 @@ function createTestRouter() {
         name: 'project-issue-detail',
         component: EmptyView,
       },
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/setup/traces',
+        name: 'project-traces-setup',
+        component: EmptyView,
+      },
       { path: '/users', name: 'users', component: EmptyView },
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/traces',
+        name: 'project-traces',
+        component: EmptyView,
+      },
       { path: '/login', name: 'login', component: EmptyView },
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/metrics',
+        name: 'project-metrics',
+        component: EmptyView,
+      },
     ],
   })
 }
@@ -56,6 +76,21 @@ async function mountAt(path: string) {
 }
 
 describe('AppLayout navigation', () => {
+  it('highlights Metrics for the current project', async () => {
+    const wrapper = await mountAt('/groups/acme/projects/frontend/metrics')
+    const link = wrapper.get('a[href="/groups/acme/projects/frontend/metrics"]')
+    expect(link.text()).toContain('查看 Metrics')
+    expect(link.classes()).toContain('bg-muted')
+  })
+  it('shows SDK child menus and highlights Traces setup within the current project', async () => {
+    const wrapper = await mountAt('/groups/acme/projects/frontend/setup/traces')
+    expect(wrapper.get('a[href="/groups/acme/projects/frontend/setup"]').text()).toContain(
+      '基础接入',
+    )
+    const traces = wrapper.get('a[href="/groups/acme/projects/frontend/setup/traces"]')
+    expect(traces.text()).toContain('Traces接入')
+    expect(traces.classes()).toContain('bg-muted')
+  })
   beforeEach(() => localStorage.clear())
 
   it('shows 首页 without highlighting it on a project page', async () => {
@@ -66,7 +101,7 @@ describe('AppLayout navigation', () => {
     expect(homeLink.classes()).not.toContain('bg-muted')
   })
 
-  it('shows current-project navigation with three project actions', async () => {
+  it('shows current-project navigation including Traces', async () => {
     const wrapper = await mountAt('/groups/acme/projects/frontend/config')
 
     const currentProjectItem = wrapper.get('[data-testid="current-project-navigation"]')
@@ -76,7 +111,7 @@ describe('AppLayout navigation', () => {
       expect.arrayContaining(['flex', 'items-center', 'gap-3', 'rounded-md', 'px-3', 'py-2']),
     )
     expect(wrapper.get('a[href="/groups/acme/projects/frontend/setup"]').text()).toContain(
-      '查看 SDK 接入',
+      '基础接入',
     )
     expect(wrapper.get('a[href="/groups/acme/projects/frontend/issues"]').text()).toContain(
       '查看错误',
@@ -84,6 +119,9 @@ describe('AppLayout navigation', () => {
     const configurationLink = wrapper.get('a[href="/groups/acme/projects/frontend/config"]')
     expect(configurationLink.text()).toContain('功能配置')
     expect(configurationLink.classes()).toContain('bg-muted')
+    expect(wrapper.get('a[href="/groups/acme/projects/frontend/traces"]').text()).toContain(
+      '查看 Traces',
+    )
   })
 
   it('keeps the single error-list action highlighted on an error detail page', async () => {

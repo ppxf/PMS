@@ -87,6 +87,18 @@ describe('SdkEnvelopeController', () => {
       index: 1,
     });
     expect(args[`${RouteParamtypes.BODY}:2`]).toMatchObject({ index: 2 });
-    expect(args[`${RouteParamtypes.HEADERS}:3`]).toBeUndefined();
+    expect(args[`${RouteParamtypes.HEADERS}:3`]).toMatchObject({
+      data: 'origin',
+      index: 3,
+    });
+  });
+
+  it('fails closed for browser traffic when project authorization is unavailable', async () => {
+    const ingest = jest.fn();
+    const controller = new SdkEnvelopeController({ ingest } as never);
+    await expect(
+      controller.ingest('project', 'key', {}, 'https://app.test'),
+    ).rejects.toThrow('SDK Origin is not allowed');
+    expect(ingest).not.toHaveBeenCalled();
   });
 });

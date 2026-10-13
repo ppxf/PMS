@@ -5,6 +5,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { configureBodyParsers } from './common/http/configure-body-parsers';
+import { sdkCors } from './common/http/sdk-cors';
 import { AppLoggerService } from './logger/app-logger.service';
 import { setupSwagger } from './swagger/swagger';
 
@@ -18,13 +19,17 @@ async function bootstrap(): Promise<void> {
 
   app.useLogger(logger);
   app.use(helmet());
-  app.enableCors({
-    origin: config.get<string[]>('app.corsOrigins', [
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'http://localhost:3002',
-    ]),
-  });
+  const apiPrefix = config.get<string>('app.apiPrefix', 'api');
+  app.enableCors(
+    sdkCors(
+      config.get<string[]>('app.corsOrigins', [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:3002',
+      ]),
+      apiPrefix,
+    ),
+  );
   app.useGlobalPipes(
     new ValidationPipe({
       forbidNonWhitelisted: true,
@@ -34,7 +39,6 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  const apiPrefix = config.get<string>('app.apiPrefix', 'api');
   configureBodyParsers(app, apiPrefix);
   app.setGlobalPrefix(apiPrefix);
   app.enableShutdownHooks();

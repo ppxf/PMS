@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { captureException, getClientState, init, resetClientForTests } from './client.js'
+import { captureException, createMonitoringClient, getClientState, init, resetClientForTests } from './client.js'
 import { HttpTransport, TransportError } from './http-transport.js'
 import { NoopTransport } from './types.js'
 import type { EventEnvelope, MonitoringEnvelope, Transport } from './types.js'
@@ -20,6 +20,34 @@ class RecordingTransport implements Transport {
 }
 
 describe('monitoring core initialization and capture', () => {
+  it('initializes directly with a cookie-free client report and no binding request', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
+    const client = createMonitoringClient()
+    const state = client.init({ dsn, fetch: fetcher })
+    expect(state.initialized).toBe(true)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(fetcher).toHaveBeenCalledWith('https://monitor.example.com/api/sdk/project-id/envelope', expect.objectContaining({
+      method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json', 'X-PMS-Key': 'public-key' },
+    }))
+    await client.captureException(new Error('direct capture'))
+    expect(fetcher.mock.calls.every(([url]) => String(url).endsWith('/envelope'))).toBe(true)
+    client.resetClientForTests()
+  })
+  it('isolates SDK client identity, destination and captured events', async () => {
+    const browser = createMonitoringClient()
+    const vue = createMonitoringClient()
+    const browserTransport = new RecordingTransport()
+    const vueTransport = new RecordingTransport()
+    browser.init({ dsn, transport: browserTransport, sdk: { name: 'browser', version: '1' } })
+    vue.init({ dsn: 'https://vue-key@monitor.example.com/api/sdk/vue-project', transport: vueTransport, sdk: { name: 'vue', version: '1' } })
+    await browser.captureException(new Error('browser-only'))
+    await vue.captureException(new Error('vue-only'))
+    expect(browser.getClientState()?.projectId).toBe('project-id')
+    expect(vue.getClientState()?.projectId).toBe('vue-project')
+    expect(browserTransport.eventEnvelopes.map(({ event }) => event.message)).toEqual(['browser-only'])
+    expect(vueTransport.eventEnvelopes.map(({ event }) => event.message)).toEqual(['vue-only'])
+    expect(getClientState()).toBeUndefined()
+  })
   beforeEach(() => {
     resetClientForTests()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 202 })))

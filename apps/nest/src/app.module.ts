@@ -14,6 +14,8 @@ import { UsersModule } from './users/users.module';
 import { GroupsModule } from './groups/groups.module';
 import { MonitoringProjectsModule } from './monitoring-projects/monitoring-projects.module';
 import { MonitoringEventsModule } from './monitoring-events/monitoring-events.module';
+import { SdkRateLimitService } from './common/http/sdk-rate-limit.service';
+import { SdkRateLimitGuard } from './common/http/sdk-rate-limit.guard';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { MonitoringEventsModule } from './monitoring-events/monitoring-events.mo
   controllers: [AppController],
   providers: [
     AppService,
+    SdkRateLimitService,
+    { provide: APP_GUARD, useClass: SdkRateLimitGuard },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

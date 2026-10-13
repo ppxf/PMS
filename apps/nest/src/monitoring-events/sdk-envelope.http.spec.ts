@@ -8,6 +8,7 @@ import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 import { IngestEnvelopeDto } from './dto/ingest-envelope.dto';
 import { MonitoringEventsService } from './monitoring-events.service';
 import { SdkEnvelopeController } from './sdk-envelope.controller';
+import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 
 @Controller('ordinary')
 class OrdinaryController {
@@ -43,6 +44,13 @@ describe.each(['api', 'custom/v2'])(
       const module = await Test.createTestingModule({
         controllers: [SdkEnvelopeController, OrdinaryController],
         providers: [
+          {
+            provide: MonitoringProjectsService,
+            useValue: {
+              allowsSdkOrigin: (_id: string, origin: string) =>
+                Promise.resolve(origin === 'https://allowed.test'),
+            },
+          },
           {
             provide: MonitoringEventsService,
             useValue: {
@@ -84,6 +92,26 @@ describe.each(['api', 'custom/v2'])(
     });
     beforeEach(() => {
       accepted.length = 0;
+    });
+
+    it('rejects unregistered browser Origin before ingestion', async () => {
+      await request(app.getHttpServer())
+        .post(sdkPath)
+        .set('Origin', 'https://unknown.test')
+        .set('X-PMS-Key', 'key')
+        .send(eventEnvelope())
+        .expect(403);
+      expect(accepted).toEqual([]);
+    });
+
+    it('accepts an authorized browser Origin', async () => {
+      await request(app.getHttpServer())
+        .post(sdkPath)
+        .set('Origin', 'https://allowed.test')
+        .set('X-PMS-Key', 'key')
+        .send(eventEnvelope())
+        .expect(202);
+      expect(accepted).toHaveLength(1);
     });
 
     it('rejects raw object scalars with 400 before the global implicit conversion', async () => {

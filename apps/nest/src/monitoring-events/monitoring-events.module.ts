@@ -8,6 +8,9 @@ import { MonitoringEventsService } from './monitoring-events.service';
 import { IssueAutoResolutionService } from './issue-auto-resolution.service';
 import { MonitoringIssuesController } from './monitoring-issues.controller';
 import { SdkEnvelopeController } from './sdk-envelope.controller';
+import { TracesModule } from '../traces/traces.module';
+import { MetricsModule } from '../metrics/metrics.module';
+import { LogsModule } from '../logs/logs.module';
 
 @Module({
   imports: [
@@ -17,6 +20,9 @@ import { SdkEnvelopeController } from './sdk-envelope.controller';
       MonitoringErrorSuppression,
     ]),
     MonitoringProjectsModule,
+    TracesModule,
+    MetricsModule,
+    LogsModule,
   ],
   controllers: [SdkEnvelopeController, MonitoringIssuesController],
   providers: [MonitoringEventsService, IssueAutoResolutionService],
