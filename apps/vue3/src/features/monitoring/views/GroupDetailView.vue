@@ -22,7 +22,7 @@ async function load(): Promise<void> {
       listProjects(groupSlug),
     ])
   } catch {
-    error.value = '无法加载组详情'
+    error.value = 'Unable to load group details'
   } finally {
     loading.value = false
   }
@@ -33,26 +33,30 @@ onMounted(load)
 
 <template>
   <section class="space-y-6">
-    <p v-if="loading" class="text-muted-foreground">正在加载…</p>
+    <p v-if="loading" class="text-muted-foreground">Loading…</p>
     <div v-else-if="error" class="space-y-3" role="alert">
       <p class="text-destructive">{{ error }}</p>
-      <Button variant="outline" @click="load">重试</Button>
+      <Button variant="outline" @click="load">Retry</Button>
     </div>
     <template v-else-if="group">
       <div class="flex items-center justify-between gap-4">
         <div>
           <h2 class="text-2xl font-semibold tracking-tight">{{ group.name }}</h2>
-          <p class="mt-1 text-muted-foreground">管理该组下的 Vue 监控项目。</p>
+          <p class="mt-1 text-muted-foreground">Manage Vue monitoring projects in this group.</p>
         </div>
         <Button as-child>
-          <RouterLink :to="{ name: 'create-project', params: { groupSlug } }">创建项目</RouterLink>
+          <RouterLink :to="{ name: 'create-project', params: { groupSlug } }"
+            >Create project</RouterLink
+          >
         </Button>
       </div>
 
       <Card v-if="projects.length === 0">
         <CardHeader>
-          <CardTitle>还没有监控项目</CardTitle>
-          <CardDescription>创建 Vue 项目并获取 DSN 接入指引。</CardDescription>
+          <CardTitle>No monitoring projects yet</CardTitle>
+          <CardDescription
+            >Create a Vue project to get a DSN and setup instructions.</CardDescription
+          >
         </CardHeader>
       </Card>
       <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -65,7 +69,8 @@ onMounted(load)
             <CardHeader>
               <CardTitle>{{ project.name }}</CardTitle>
               <CardDescription
-                >{{ project.connected ? '已连接' : '等待连接' }} · Vue</CardDescription
+                >{{ project.connected ? 'Connected' : 'Awaiting connection' }} ·
+                Vue</CardDescription
               >
             </CardHeader>
           </Card>

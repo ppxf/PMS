@@ -9,7 +9,7 @@ import type { CaptureExceptionContext, ClientState, MonitoringEnvelope, Monitori
 
 export function createMonitoringClient() {
   const tracing = createTracing()
-  const metricRecorder = createMetrics()
+  const metricRecorder = createMetrics(tracing.getActiveTraceContext)
   const logs = createLogs()
   let activeLogs = false
   let activeBeforeSendLog: MonitoringInitOptions['beforeSendLog']
@@ -109,7 +109,7 @@ export function createMonitoringClient() {
     }
     tracing.configure(options, activeTransport)
     activeMetrics = options.enableMetrics ?? false
-    metricRecorder.configure({ ...options }, activeTransport)
+    metricRecorder.configure({ ...options, sdk: activeSdk }, activeTransport)
     activeLogs = options.enableLogs ?? false
     activeBeforeSendLog = options.beforeSendLog
     logs.configure({ ...options }, activeTransport)
@@ -155,6 +155,7 @@ export function createMonitoringClient() {
   }
 
   return { init, captureException, getClientState, getTransport, getPropagationTargets, resetClientForTests,
+    setPageSpan: tracing.setPageSpan,
     metrics: metricRecorder.metrics, getMetricStats: metricRecorder.getMetricStats,
     logger: logs.logger, getLogStats: logs.getLogStats, captureConsoleLogs: logs.captureConsoleLogs,
     startSpan: tracing.startSpan, startInactiveSpan: tracing.startInactiveSpan,

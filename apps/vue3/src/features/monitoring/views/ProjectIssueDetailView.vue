@@ -51,17 +51,25 @@ const defaultRequestEntryCount = 5
 function formatDate(value: string | null | undefined): string {
   if (!value) return '-'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('en-US')
 }
 
 const tags = computed(() => Object.entries(issue.value?.latestEvent?.tags ?? {}))
-const requestHeaders = computed(() => sortedEntries(issue.value?.latestEvent?.contexts?.request?.headers))
-const requestCookies = computed(() => sortedEntries(issue.value?.latestEvent?.contexts?.request?.cookies))
+const requestHeaders = computed(() =>
+  sortedEntries(issue.value?.latestEvent?.contexts?.request?.headers),
+)
+const requestCookies = computed(() =>
+  sortedEntries(issue.value?.latestEvent?.contexts?.request?.cookies),
+)
 const visibleRequestHeaders = computed(() =>
-  headersExpanded.value ? requestHeaders.value : requestHeaders.value.slice(0, defaultRequestEntryCount),
+  headersExpanded.value
+    ? requestHeaders.value
+    : requestHeaders.value.slice(0, defaultRequestEntryCount),
 )
 const visibleRequestCookies = computed(() =>
-  cookiesExpanded.value ? requestCookies.value : requestCookies.value.slice(0, defaultRequestEntryCount),
+  cookiesExpanded.value
+    ? requestCookies.value
+    : requestCookies.value.slice(0, defaultRequestEntryCount),
 )
 const availableArchiveThresholds = computed(() =>
   ([10, 100, 1000] as const).filter((threshold) => threshold > (issue.value?.eventCount ?? 0)),
@@ -88,7 +96,7 @@ async function loadIssue(): Promise<void> {
   try {
     issue.value = await getProjectIssue(groupSlug, projectSlug, issueId)
   } catch {
-    error.value = '无法加载错误详情'
+    error.value = 'Unable to load issue details'
   }
 }
 
@@ -100,7 +108,7 @@ async function toggleIssueStatus(): Promise<void> {
     const status = issue.value.status === 'unresolved' ? 'resolved' : 'unresolved'
     issue.value = await updateProjectIssueStatus(groupSlug, projectSlug, issueId, status)
   } catch {
-    error.value = '无法更新错误状态'
+    error.value = 'Unable to update issue status'
   } finally {
     statusUpdating.value = false
   }
@@ -121,7 +129,7 @@ async function archiveIssue(): Promise<void> {
     )
     archiveDialogOpen.value = false
   } catch {
-    error.value = '无法归档错误'
+    error.value = 'Unable to archive issue'
   } finally {
     actionPending.value = false
   }
@@ -140,7 +148,7 @@ async function restoreIssue(): Promise<void> {
   try {
     issue.value = await restoreProjectIssue(groupSlug, projectSlug, issueId)
   } catch {
-    error.value = '无法恢复错误'
+    error.value = 'Unable to restore issue'
   } finally {
     actionPending.value = false
   }
@@ -154,7 +162,7 @@ async function deleteIssue(): Promise<void> {
     await deleteProjectIssue(groupSlug, projectSlug, issueId)
     await router.push({ name: 'project-issues' })
   } catch {
-    error.value = '无法删除错误'
+    error.value = 'Unable to delete issue'
   } finally {
     actionPending.value = false
   }
@@ -173,7 +181,7 @@ async function permanentlyDeleteIssue(): Promise<void> {
     await permanentlyDeleteProjectIssue(groupSlug, projectSlug, issueId)
     await router.push({ name: 'project-issues' })
   } catch {
-    error.value = '无法永久删除错误'
+    error.value = 'Unable to permanently delete issue'
   } finally {
     actionPending.value = false
   }
@@ -186,7 +194,7 @@ onMounted(loadIssue)
   <section class="space-y-6">
     <div v-if="error" role="alert" class="space-y-3 text-destructive">
       <p>{{ error }}</p>
-      <Button type="button" variant="outline" size="sm" @click="loadIssue">重试</Button>
+      <Button type="button" variant="outline" size="sm" @click="loadIssue">Retry</Button>
     </div>
 
     <template v-else-if="issue">
@@ -197,12 +205,14 @@ onMounted(loadIssue)
             data-testid="issue-status"
             :variant="issue.status === 'resolved' ? 'success' : 'secondary'"
           >
-            {{ issue.status === 'unresolved' ? '未解决' : '已解决' }}
+            {{ issue.status === 'unresolved' ? 'Unresolved' : 'Resolved' }}
           </Badge>
           <Badge
             data-testid="issue-count"
             :variant="issue.status === 'resolved' ? 'success' : 'destructive'"
-          >{{ issue.eventCount }} 次</Badge>
+            >{{ issue.eventCount.toLocaleString('en-US') }}
+            {{ issue.eventCount === 1 ? 'event' : 'events' }}</Badge
+          >
           <Button
             data-testid="issue-status-action"
             type="button"
@@ -210,7 +220,8 @@ onMounted(loadIssue)
             variant="outline"
             :disabled="statusUpdating"
             @click="toggleIssueStatus"
-          >{{ issue.status === 'unresolved' ? '标记为已解决' : '重新打开' }}</Button>
+            >{{ issue.status === 'unresolved' ? 'Mark as resolved' : 'Reopen' }}</Button
+          >
           <template v-if="issue.visibility === 'active'">
             <Button
               data-testid="archive-issue"
@@ -218,14 +229,16 @@ onMounted(loadIssue)
               size="sm"
               variant="outline"
               @click="openArchiveDialog"
-            >归档</Button>
+              >Archive</Button
+            >
             <Button
               data-testid="delete-issue"
               type="button"
               size="sm"
               variant="destructive"
               @click="deleteDialogOpen = true"
-            >删除</Button>
+              >Delete</Button
+            >
           </template>
           <Button
             v-else
@@ -235,83 +248,108 @@ onMounted(loadIssue)
             variant="outline"
             :disabled="actionPending"
             @click="restoreIssue"
-          >恢复</Button>
+            >Restore</Button
+          >
         </div>
-        <p class="mt-1 text-muted-foreground">{{ issue.exceptionType }} · {{ issue.culprit ?? '-' }}</p>
+        <p class="mt-1 text-muted-foreground">
+          {{ issue.exceptionType }} · {{ issue.culprit ?? '-' }}
+        </p>
         <p
           v-if="issue.resolutionReason === 'auto_inactivity' && issue.resolvedAt"
           data-testid="resolution-summary"
           class="mt-2 text-sm text-muted-foreground"
         >
-          连续 7 天未再次出现，已自动解决 · {{ formatDate(issue.resolvedAt) }}
+          Automatically resolved after 7 days without recurrence ·
+          {{ formatDate(issue.resolvedAt) }}
         </p>
         <p
           v-else-if="issue.resolutionReason === 'manual' && issue.resolvedAt"
           data-testid="resolution-summary"
           class="mt-2 text-sm text-muted-foreground"
         >
-          手动标记为已解决 · {{ formatDate(issue.resolvedAt) }}
-        </p>
-        <p v-if="issue.reopenedAt && issue.reopenCount > 0" class="mt-2 text-sm text-muted-foreground">
-          最近重新打开：{{ formatDate(issue.reopenedAt) }} · 重新打开 {{ issue.reopenCount }} 次
+          Manually resolved · {{ formatDate(issue.resolvedAt) }}
         </p>
         <p
-          v-if="issue.visibility !== 'active'"
+          v-if="issue.reopenedAt && issue.reopenCount > 0"
           class="mt-2 text-sm text-muted-foreground"
         >
-          {{ issue.visibility === 'archived_permanent'
-            ? '永久归档'
-            : `达到 ${issue.archiveThreshold} 次后恢复` }}
+          Last reopened: {{ formatDate(issue.reopenedAt) }} · Reopened
+          {{ issue.reopenCount.toLocaleString('en-US') }}
+          {{ issue.reopenCount === 1 ? 'time' : 'times' }}
+        </p>
+        <p v-if="issue.visibility !== 'active'" class="mt-2 text-sm text-muted-foreground">
+          {{
+            issue.visibility === 'archived_permanent'
+              ? 'Archive permanently'
+              : `Restore after ${issue.archiveThreshold?.toLocaleString('en-US')} events`
+          }}
           <template v-if="issue.archivedAt"> · {{ formatDate(issue.archivedAt) }}</template>
         </p>
         <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div>
-            <dt class="inline text-muted-foreground">首次出现：</dt>
+            <dt class="inline text-muted-foreground">First seen:</dt>
             <dd data-testid="first-seen-at" class="inline">{{ formatDate(issue.firstSeenAt) }}</dd>
           </div>
           <div>
-            <dt class="inline text-muted-foreground">最近出现：</dt>
+            <dt class="inline text-muted-foreground">Last seen:</dt>
             <dd data-testid="last-seen-at" class="inline">{{ formatDate(issue.lastSeenAt) }}</dd>
           </div>
         </dl>
       </div>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">最新事件</CardTitle></CardHeader>
+        <CardHeader><CardTitle class="text-base">Latest event</CardTitle></CardHeader>
         <CardContent v-if="issue.latestEvent" class="space-y-4">
           <dl class="grid gap-3 text-sm sm:grid-cols-2">
-            <div><dt class="text-muted-foreground">时间</dt><dd>{{ formatDate(issue.latestEvent.timestamp) }}</dd></div>
-            <div><dt class="text-muted-foreground">来源</dt><dd>{{ issue.latestEvent.source }}</dd></div>
-            <div><dt class="text-muted-foreground">URL</dt><dd class="break-all">{{ issue.latestEvent.url ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">环境</dt><dd>{{ issue.latestEvent.environment ?? '-' }}</dd></div>
+            <div>
+              <dt class="text-muted-foreground">Time</dt>
+              <dd>{{ formatDate(issue.latestEvent.timestamp) }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Source</dt>
+              <dd>{{ issue.latestEvent.source }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">URL</dt>
+              <dd class="break-all">{{ issue.latestEvent.url ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Environment</dt>
+              <dd>{{ issue.latestEvent.environment ?? '-' }}</dd>
+            </div>
           </dl>
           <div>
-            <h3 class="mb-2 text-sm font-medium">标签</h3>
+            <h3 class="mb-2 text-sm font-medium">Tags</h3>
             <dl v-if="tags.length" class="grid gap-2 text-sm sm:grid-cols-2">
               <div v-for="[key, value] in tags" :key="key" class="flex gap-2 rounded border p-2">
-                <dt class="text-muted-foreground">{{ key }}</dt><dd>{{ value }}</dd>
+                <dt class="text-muted-foreground">{{ key }}</dt>
+                <dd>{{ value }}</dd>
               </div>
             </dl>
             <p v-else>-</p>
           </div>
           <div>
-            <h3 class="mb-2 text-sm font-medium">堆栈</h3>
-            <pre class="whitespace-pre-wrap break-words rounded-lg bg-muted p-4 text-sm">{{ issue.latestEvent.stacktrace ?? '无堆栈' }}</pre>
+            <h3 class="mb-2 text-sm font-medium">Stack trace</h3>
+            <pre class="whitespace-pre-wrap break-words rounded-lg bg-muted p-4 text-sm">{{
+              issue.latestEvent.stacktrace ?? 'No stack trace'
+            }}</pre>
           </div>
         </CardContent>
-        <CardContent v-else class="text-muted-foreground">暂无最新事件</CardContent>
+        <CardContent v-else class="text-muted-foreground">No latest event</CardContent>
       </Card>
 
       <Dialog v-model:open="archiveDialogOpen">
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>归档错误</DialogTitle>
-            <DialogDescription>归档期间仍会记录事件并累计次数。</DialogDescription>
+            <DialogTitle>Archive issue</DialogTitle>
+            <DialogDescription
+              >Events will still be recorded and counted while archived.</DialogDescription
+            >
           </DialogHeader>
           <div class="space-y-3 text-sm">
             <label class="flex items-center gap-2">
-              <input v-model="archiveMode" type="radio" value="permanent">
-              永久归档
+              <input v-model="archiveMode" type="radio" value="permanent" />
+              Archive permanently
             </label>
             <label class="flex items-center gap-2">
               <input
@@ -320,8 +358,8 @@ onMounted(loadIssue)
                 type="radio"
                 value="until_count"
                 :disabled="availableArchiveThresholds.length === 0"
-              >
-              按累计次数归档
+              />
+              Archive until an event count is reached
             </label>
             <div class="flex flex-wrap gap-3 pl-6">
               <label v-for="threshold in [10, 100, 1000] as const" :key="threshold">
@@ -332,19 +370,22 @@ onMounted(loadIssue)
                   :value="threshold"
                   :disabled="archiveMode !== 'until_count' || threshold <= issue.eventCount"
                   :data-testid="`archive-threshold-${threshold}`"
-                >
-                {{ threshold }} 次
+                />
+                {{ threshold.toLocaleString('en-US') }} events
               </label>
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" @click="archiveDialogOpen = false">取消</Button>
+            <Button type="button" variant="outline" @click="archiveDialogOpen = false"
+              >Cancel</Button
+            >
             <Button
               data-testid="confirm-archive"
               type="button"
               :disabled="actionPending"
               @click="archiveIssue"
-            >确认归档</Button>
+              >Confirm archive</Button
+            >
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -352,8 +393,10 @@ onMounted(loadIssue)
       <Dialog v-model:open="deleteDialogOpen">
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>删除错误</DialogTitle>
-            <DialogDescription>删除会同时清除这条错误的全部历史事件。</DialogDescription>
+            <DialogTitle>Delete issue</DialogTitle>
+            <DialogDescription
+              >Deleting this issue also removes all its historical events.</DialogDescription
+            >
           </DialogHeader>
           <DialogFooter>
             <Button
@@ -362,13 +405,15 @@ onMounted(loadIssue)
               variant="outline"
               :disabled="actionPending"
               @click="deleteIssue"
-            >删除这条错误</Button>
+              >Delete this issue</Button
+            >
             <Button
               data-testid="choose-permanent-delete"
               type="button"
               variant="destructive"
               @click="continuePermanentDelete"
-            >永久删除</Button>
+              >Delete permanently</Button
+            >
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -376,26 +421,30 @@ onMounted(loadIssue)
       <Dialog v-model:open="permanentConfirmOpen">
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>再次确认永久删除</DialogTitle>
+            <DialogTitle>Confirm permanent deletion</DialogTitle>
             <DialogDescription>
-              此操作不可恢复，当前历史数据会被清除，未来相同错误也不会被记录。
+              This action cannot be undone. Existing history will be removed, and future occurrences
+              of this issue will no longer be recorded.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" @click="permanentConfirmOpen = false">取消</Button>
+            <Button type="button" variant="outline" @click="permanentConfirmOpen = false"
+              >Cancel</Button
+            >
             <Button
               data-testid="confirm-permanent-delete"
               type="button"
               variant="destructive"
               :disabled="actionPending"
               @click="permanentlyDeleteIssue"
-            >确认永久删除</Button>
+              >Confirm permanent deletion</Button
+            >
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">请求信息</CardTitle></CardHeader>
+        <CardHeader><CardTitle class="text-base">Request information</CardTitle></CardHeader>
         <CardContent class="space-y-5">
           <div>
             <h3 class="mb-2 text-sm font-medium">URL</h3>
@@ -404,8 +453,14 @@ onMounted(loadIssue)
           <div>
             <h3 class="mb-2 text-sm font-medium">Headers</h3>
             <dl v-if="requestHeaders.length" class="space-y-2 text-sm">
-              <div v-for="[key, value] in visibleRequestHeaders" :key="key" data-testid="request-header-row" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
-                <dt class="text-muted-foreground">{{ key }}</dt><dd class="break-all">{{ value }}</dd>
+              <div
+                v-for="[key, value] in visibleRequestHeaders"
+                :key="key"
+                data-testid="request-header-row"
+                class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]"
+              >
+                <dt class="text-muted-foreground">{{ key }}</dt>
+                <dd class="break-all">{{ value }}</dd>
               </div>
             </dl>
             <p v-else class="text-sm text-muted-foreground">-</p>
@@ -417,13 +472,20 @@ onMounted(loadIssue)
               size="sm"
               class="mt-2"
               @click="headersExpanded = !headersExpanded"
-            >{{ headersExpanded ? '收起' : `展开全部（${requestHeaders.length}）` }}</Button>
+              >{{ headersExpanded ? 'Collapse' : `Show all (${requestHeaders.length})` }}</Button
+            >
           </div>
           <div>
             <h3 class="mb-2 text-sm font-medium">Cookies</h3>
             <dl v-if="requestCookies.length" class="space-y-2 text-sm">
-              <div v-for="[key, value] in visibleRequestCookies" :key="key" data-testid="request-cookie-row" class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]">
-                <dt class="text-muted-foreground">{{ key }}</dt><dd class="break-all">{{ value }}</dd>
+              <div
+                v-for="[key, value] in visibleRequestCookies"
+                :key="key"
+                data-testid="request-cookie-row"
+                class="grid gap-1 rounded border p-2 sm:grid-cols-[180px_1fr]"
+              >
+                <dt class="text-muted-foreground">{{ key }}</dt>
+                <dd class="break-all">{{ value }}</dd>
               </div>
             </dl>
             <p v-else class="text-sm text-muted-foreground">-</p>
@@ -435,42 +497,99 @@ onMounted(loadIssue)
               size="sm"
               class="mt-2"
               @click="cookiesExpanded = !cookiesExpanded"
-            >{{ cookiesExpanded ? '收起' : `展开全部（${requestCookies.length}）` }}</Button>
+              >{{ cookiesExpanded ? 'Collapse' : `Show all (${requestCookies.length})` }}</Button
+            >
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">浏览器上下文</CardTitle></CardHeader>
+        <CardHeader><CardTitle class="text-base">Browser context</CardTitle></CardHeader>
         <CardContent class="grid gap-6 lg:grid-cols-2">
           <dl class="grid gap-3 text-sm sm:grid-cols-2">
-            <div><dt class="text-muted-foreground">浏览器</dt><dd>{{ formatBrowser() }}</dd></div>
-            <div><dt class="text-muted-foreground">操作系统</dt><dd>{{ issue.latestEvent?.contexts?.os?.name ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">平台</dt><dd>{{ issue.latestEvent?.contexts?.device?.platform ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">屏幕</dt><dd>{{ issue.latestEvent?.contexts?.device?.screenWidth ?? '-' }} × {{ issue.latestEvent?.contexts?.device?.screenHeight ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">视口</dt><dd>{{ issue.latestEvent?.contexts?.device?.viewportWidth ?? '-' }} × {{ issue.latestEvent?.contexts?.device?.viewportHeight ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">像素比</dt><dd>{{ issue.latestEvent?.contexts?.device?.pixelRatio ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">语言</dt><dd>{{ issue.latestEvent?.contexts?.culture?.locale ?? '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">语言列表</dt><dd>{{ issue.latestEvent?.contexts?.culture?.languages?.join(', ') || '-' }}</dd></div>
-            <div><dt class="text-muted-foreground">时区</dt><dd>{{ issue.latestEvent?.contexts?.culture?.timezone ?? '-' }}</dd></div>
+            <div>
+              <dt class="text-muted-foreground">Browser</dt>
+              <dd>{{ formatBrowser() }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Operating system</dt>
+              <dd>{{ issue.latestEvent?.contexts?.os?.name ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Platform</dt>
+              <dd>{{ issue.latestEvent?.contexts?.device?.platform ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Screen</dt>
+              <dd>
+                {{ issue.latestEvent?.contexts?.device?.screenWidth ?? '-' }} ×
+                {{ issue.latestEvent?.contexts?.device?.screenHeight ?? '-' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Viewport</dt>
+              <dd>
+                {{ issue.latestEvent?.contexts?.device?.viewportWidth ?? '-' }} ×
+                {{ issue.latestEvent?.contexts?.device?.viewportHeight ?? '-' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Pixel ratio</dt>
+              <dd>{{ issue.latestEvent?.contexts?.device?.pixelRatio ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Language</dt>
+              <dd>{{ issue.latestEvent?.contexts?.culture?.locale ?? '-' }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Languages</dt>
+              <dd>{{ issue.latestEvent?.contexts?.culture?.languages?.join(', ') || '-' }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Time zone</dt>
+              <dd>{{ issue.latestEvent?.contexts?.culture?.timezone ?? '-' }}</dd>
+            </div>
           </dl>
           <div>
-            <h3 class="mb-3 text-sm font-medium">内存</h3>
+            <h3 class="mb-3 text-sm font-medium">Memory</h3>
             <dl class="grid gap-3 text-sm sm:grid-cols-2">
-              <div><dt class="text-muted-foreground">JS 堆已用</dt><dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.usedJSHeapSize) }}</dd></div>
-              <div><dt class="text-muted-foreground">JS 堆总量</dt><dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.totalJSHeapSize) }}</dd></div>
-              <div><dt class="text-muted-foreground">JS 堆上限</dt><dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.jsHeapSizeLimit) }}</dd></div>
-              <div><dt class="text-muted-foreground">设备内存</dt><dd>{{ issue.latestEvent?.contexts?.memory?.deviceMemoryGiB !== undefined ? `${issue.latestEvent.contexts.memory.deviceMemoryGiB} GiB` : '-' }}</dd></div>
+              <div>
+                <dt class="text-muted-foreground">Used JS heap</dt>
+                <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.usedJSHeapSize) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground">Total JS heap</dt>
+                <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.totalJSHeapSize) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground">JS heap limit</dt>
+                <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.jsHeapSizeLimit) }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground">Device memory</dt>
+                <dd>
+                  {{
+                    issue.latestEvent?.contexts?.memory?.deviceMemoryGiB !== undefined
+                      ? `${issue.latestEvent.contexts.memory.deviceMemoryGiB} GiB`
+                      : '-'
+                  }}
+                </dd>
+              </div>
             </dl>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">最近事件</CardTitle></CardHeader>
+        <CardHeader><CardTitle class="text-base">Recent events</CardTitle></CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>时间</TableHead><TableHead>来源</TableHead><TableHead>环境</TableHead><TableHead>信息</TableHead></TableRow></TableHeader>
+            <TableHeader
+              ><TableRow
+                ><TableHead>Time</TableHead><TableHead>Source</TableHead
+                ><TableHead>Environment</TableHead><TableHead>Message</TableHead></TableRow
+              ></TableHeader
+            >
             <TableBody>
               <TableRow v-for="event in issue.recentEvents" :key="event.id">
                 <TableCell>{{ formatDate(event.timestamp) }}</TableCell>
@@ -478,7 +597,9 @@ onMounted(loadIssue)
                 <TableCell>{{ event.environment ?? '-' }}</TableCell>
                 <TableCell>{{ event.exceptionValue }}</TableCell>
               </TableRow>
-              <TableRow v-if="issue.recentEvents.length === 0"><TableCell :colspan="4" class="text-center">暂无最近事件</TableCell></TableRow>
+              <TableRow v-if="issue.recentEvents.length === 0"
+                ><TableCell :colspan="4" class="text-center">No recent events</TableCell></TableRow
+              >
             </TableBody>
           </Table>
         </CardContent>

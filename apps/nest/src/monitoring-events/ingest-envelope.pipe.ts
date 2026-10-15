@@ -148,7 +148,7 @@ export class IngestEnvelopePipe implements PipeTransform<
         validationError: { target: false, value: false },
       }).length > 0
     ) {
-      throw new BadRequestException('采集 Envelope 格式不合法');
+      throw new BadRequestException('Invalid ingestion envelope format');
     }
     return envelope;
   }

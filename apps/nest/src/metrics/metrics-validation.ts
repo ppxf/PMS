@@ -5,7 +5,15 @@ import {
   reject,
   validId,
 } from '../traces/traces-validation';
-import { MetricQuery, MetricsEnvelope } from './metrics-contract';
+import {
+  MetricQuery,
+  MetricsEnvelope,
+  TraceMetricsQuery,
+  METRIC_AGGREGATIONS,
+  MetricType,
+  MetricAggregation,
+} from './metrics-contract';
+import { metricFilterField } from './metrics-fields';
 
 function text(value: unknown, max: number): asserts value is string {
   if (typeof value !== 'string' || !value.length || value.length > max)
@@ -103,7 +111,7 @@ export class MetricsEnvelopePipe implements PipeTransform<
       )
         reject('Invalid metric trace context');
       const attributes = jsonObject(row.attributes);
-      if (Object.keys(attributes).length > 20)
+      if (Object.keys(attributes).length > 30)
         reject('Too many metric attributes');
       Object.entries(attributes).forEach(([key, value]) => {
         attributeKey(key);
@@ -119,13 +127,14 @@ export class MetricsEnvelopePipe implements PipeTransform<
 export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
   transform(input: unknown): MetricQuery {
     const q = jsonObject(input, [
+      'traceId',
+      'spanId',
       'start',
       'end',
       'name',
       'type',
       'unit',
       'aggregation',
-      'environment',
       'filters',
       'groupBy',
       'intervalSeconds',
@@ -137,6 +146,13 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
     if (start >= end || end - start > 7 * 86400000)
       reject('Metric range must be between 0 and 7 days');
     metricIdentity(q);
+    if (q.traceId !== undefined && !validId(q.traceId, 32))
+      reject('Invalid traceId');
+    if (
+      q.spanId !== undefined &&
+      (!validId(q.spanId, 16) || q.traceId === undefined)
+    )
+      reject('spanId requires a valid traceId');
     if (
       ![
         'sum',
@@ -151,15 +167,56 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
       ].includes(String(q.aggregation))
     )
       reject('Invalid metric aggregation');
-    if (q.environment !== undefined) text(q.environment, 128);
-    if (q.groupBy !== undefined) attributeKey(q.groupBy);
+    if (
+      !METRIC_AGGREGATIONS[q.type as MetricType].includes(
+        q.aggregation as MetricAggregation,
+      )
+    )
+      reject('Aggregation is not supported for this metric type');
+    if (q.groupBy !== undefined) {
+      const fields = Array.isArray(q.groupBy) ? q.groupBy : [q.groupBy];
+      if (
+        !fields.length ||
+        fields.length > 5 ||
+        new Set(fields).size !== fields.length
+      )
+        reject('Expected 1 to 5 distinct group fields');
+      for (const field of fields) {
+        text(field, 75);
+        attributeKey(field.startsWith('attributes.') ? field.slice(11) : field);
+      }
+    }
     const filters = q.filters ?? [];
     if (!Array.isArray(filters) || filters.length > 10)
       reject('Too many metric filters');
     filters.forEach((inputFilter) => {
-      const filter = jsonObject(inputFilter, ['key', 'value']);
-      attributeKey(filter.key);
-      scalar(filter.value);
+      const filter = jsonObject(inputFilter, ['field', 'operator', 'value']);
+      const field = metricFilterField(filter.field);
+      if (!field || !field.operators.includes(filter.operator as never))
+        reject('Unsupported metric field/operator');
+      if (filter.operator === 'exists') {
+        if (filter.value !== undefined && typeof filter.value !== 'boolean')
+          reject('exists requires a boolean');
+        return;
+      }
+      const values =
+        filter.operator === 'in' || filter.operator === 'not_in'
+          ? filter.value
+          : [filter.value];
+      if (!Array.isArray(values) || !values.length || values.length > 50)
+        reject('Expected 1 to 50 filter values');
+      for (const value of values) {
+        scalar(value);
+        if (field.type !== 'mixed' && typeof value !== field.type)
+          reject('Wrong metric filter value type');
+        if (filter.operator === 'contains' && typeof value !== 'string')
+          reject('contains requires text');
+        if (
+          ['gt', 'gte', 'lt', 'lte'].includes(String(filter.operator)) &&
+          typeof value !== 'number'
+        )
+          reject('Comparison requires a number');
+      }
     });
     const interval =
       q.intervalSeconds ?? Math.max(60, Math.ceil((end - start) / 1000 / 120));
@@ -189,5 +246,42 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
       page,
       pageSize,
     } as MetricQuery;
+  }
+}
+
+@Injectable()
+export class TraceMetricsQueryPipe implements PipeTransform<
+  unknown,
+  TraceMetricsQuery
+> {
+  transform(input: unknown): TraceMetricsQuery {
+    const q = jsonObject(input, ['page', 'pageSize', 'search', 'spanId']);
+    function pageNumber(value: unknown, fallback: number, max: number): number {
+      const number =
+        value === undefined
+          ? fallback
+          : typeof value === 'string' && /^[1-9][0-9]*$/.test(value)
+            ? Number(value)
+            : value;
+      if (
+        typeof number !== 'number' ||
+        !Number.isInteger(number) ||
+        number < 1 ||
+        number > max
+      )
+        reject('Invalid metric pagination');
+      return number;
+    }
+    if (q.search !== undefined) text(q.search, 128);
+    if (q.spanId !== undefined) {
+      text(q.spanId, 16);
+      if (!validId(q.spanId, 16)) reject('Invalid spanId');
+    }
+    return {
+      page: pageNumber(q.page, 1, 5000),
+      pageSize: pageNumber(q.pageSize, 20, 100),
+      ...(q.search !== undefined ? { search: q.search } : {}),
+      ...(q.spanId !== undefined ? { spanId: q.spanId } : {}),
+    };
   }
 }

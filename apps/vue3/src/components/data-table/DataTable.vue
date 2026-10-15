@@ -6,6 +6,7 @@ import { FlexRender, useTable } from '@tanstack/vue-table'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import FormSelect from '@/components/ui/select/FormSelect.vue'
 import {
   Table,
   TableBody,
@@ -38,7 +39,7 @@ const props = withDefaults(
     total?: number
   }>(),
   {
-    emptyText: '暂无数据',
+    emptyText: 'No data available',
     error: null,
     loading: false,
     manualPagination: false,
@@ -131,9 +132,8 @@ function changePage(page: number): void {
   }
 }
 
-function changePageSize(event: Event): void {
-  const target = event.target as HTMLSelectElement
-  emit('update:pageSize', Number(target.value))
+function changePageSize(size: number): void {
+  emit('update:pageSize', size)
   emit('update:page', 1)
 }
 </script>
@@ -141,10 +141,10 @@ function changePageSize(event: Event): void {
 <template>
   <div class="space-y-4">
     <Alert v-if="error" variant="destructive">
-      <AlertTitle>数据加载失败</AlertTitle>
+      <AlertTitle>Failed to load data</AlertTitle>
       <AlertDescription class="flex items-center justify-between gap-4">
         <span>{{ error }}</span>
-        <Button type="button" variant="outline" size="sm" @click="emit('retry')"> 重试 </Button>
+        <Button type="button" variant="outline" size="sm" @click="emit('retry')"> Retry </Button>
       </AlertDescription>
     </Alert>
 
@@ -154,7 +154,7 @@ function changePageSize(event: Event): void {
           <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
             <TableHead v-if="selectable" class="w-12">
               <Checkbox
-                aria-label="选择全部行"
+                aria-label="Select all rows"
                 :model-value="
                   table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() && 'indeterminate')
                 "
@@ -190,7 +190,7 @@ function changePageSize(event: Event): void {
           <template v-if="loading">
             <TableRow v-for="rowIndex in 5" :key="rowIndex">
               <TableCell :colspan="columnCount" class="h-12 animate-pulse bg-muted/40">
-                <span class="sr-only">正在加载数据</span>
+                <span class="sr-only">Loading data</span>
               </TableCell>
             </TableRow>
           </template>
@@ -204,7 +204,7 @@ function changePageSize(event: Event): void {
             >
               <TableCell v-if="selectable">
                 <Checkbox
-                  :aria-label="`选择第 ${row.index + 1} 行`"
+                  :aria-label="`Select row ${row.index + 1}`"
                   :model-value="row.getIsSelected()"
                   @update:model-value="row.toggleSelected(Boolean($event))"
                 />
@@ -229,27 +229,27 @@ function changePageSize(event: Event): void {
 
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-muted-foreground">
-        共 {{ totalRows }} 条，第 {{ currentPage }} / {{ pageCount }} 页
+        {{ totalRows }} rows, page {{ currentPage }} of {{ pageCount }}
       </p>
 
       <div class="flex items-center gap-2">
-        <label class="text-sm text-muted-foreground" for="data-table-page-size"> 每页 </label>
-        <select
+        <label class="text-sm text-muted-foreground" for="data-table-page-size">
+          Rows per page
+        </label>
+        <FormSelect
           id="data-table-page-size"
-          :value="pageSize"
-          class="h-8 rounded-md border bg-background px-2 text-sm"
+          :model-value="pageSize"
+          :options="[10, 20, 50, 100].map((size) => ({ value: size, label: String(size) }))"
+          aria-label="Rows per page"
+          class="w-20"
           @change="changePageSize"
-        >
-          <option v-for="size in [10, 20, 50, 100]" :key="size" :value="size">
-            {{ size }}
-          </option>
-        </select>
+        />
         <Button
           type="button"
           variant="outline"
           size="icon-sm"
           :disabled="currentPage <= 1"
-          aria-label="上一页"
+          aria-label="Previous page"
           @click="changePage(currentPage - 1)"
         >
           <ChevronLeft />
@@ -259,7 +259,7 @@ function changePageSize(event: Event): void {
           variant="outline"
           size="icon-sm"
           :disabled="currentPage >= pageCount"
-          aria-label="下一页"
+          aria-label="Next page"
           @click="changePage(currentPage + 1)"
         >
           <ChevronRight />

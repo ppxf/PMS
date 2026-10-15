@@ -23,7 +23,7 @@ describe('auth store', () => {
       accessToken: 'token',
       user: {
         id: '1',
-        name: '管理员',
+        name: 'Administrator',
         email: 'admin@example.com',
       },
       permissions: ['user:read'],
@@ -52,13 +52,13 @@ describe('auth store', () => {
       'pms.auth.session',
       JSON.stringify({
         accessToken: 'token',
-        user: { id: 'old', name: '旧资料', email: 'admin@example.com' },
+        user: { id: 'old', name: 'Old Profile', email: 'admin@example.com' },
         permissions: [],
       }),
     )
     setActivePinia(createPinia())
     getCurrentUser.mockResolvedValue({
-      user: { id: '1', name: '系统管理员', email: 'admin@example.com' },
+      user: { id: '1', name: 'System Administrator', email: 'admin@example.com' },
       permissions: ['user:read'],
     })
     const auth = useAuthStore()
@@ -66,7 +66,7 @@ describe('auth store', () => {
     await Promise.all([auth.initialize(), auth.initialize()])
 
     expect(getCurrentUser).toHaveBeenCalledTimes(1)
-    expect(auth.user?.name).toBe('系统管理员')
+    expect(auth.user?.name).toBe('System Administrator')
     expect(auth.permissions).toEqual(['user:read'])
     expect(auth.accessToken).toBe('token')
   })
@@ -76,7 +76,7 @@ describe('auth store', () => {
       'pms.auth.session',
       JSON.stringify({
         accessToken: 'invalid',
-        user: { id: '1', name: '管理员', email: 'admin@example.com' },
+        user: { id: '1', name: 'Administrator', email: 'admin@example.com' },
         permissions: [],
       }),
     )

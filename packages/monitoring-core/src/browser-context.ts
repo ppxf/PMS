@@ -1,4 +1,4 @@
-import type { BrowserEventContexts } from './types.js'
+import type { BrowserContext, BrowserEventContexts } from './types.js'
 
 const URL_LIMIT = 2_048
 const USER_AGENT_LIMIT = 1_024
@@ -114,6 +114,13 @@ function identifyOperatingSystem(userAgent: string | undefined): string | undefi
   if (/Mac OS X|Macintosh/i.test(userAgent)) return 'macOS'
   if (/Linux/i.test(userAgent)) return 'Linux'
   return undefined
+}
+
+/** Browser identity only; metric capture does not need request headers or cookies. */
+export function captureBrowserIdentity(): BrowserContext {
+  const userAgent = text(read(() => globalThis.navigator.userAgent), USER_AGENT_LIMIT)
+  const clientHintIdentity = identifyClientHintBrowser()
+  return { ...(clientHintIdentity.name ? clientHintIdentity : identifyBrowser(userAgent)), ...(userAgent ? { userAgent } : {}) }
 }
 
 export function captureBrowserContext(): BrowserContextSnapshot {

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ArrowLeft, GitBranch, Clock3, Layers } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { traceDetail } from '../api/traces.api'
 import { waterfallRows, matchesSpanFilters } from '../model/traces'
 import type { Span, TraceFilter } from '../model/traces'
+import TraceMetricsPanel from '../components/TraceMetricsPanel.vue'
 const route = useRoute(),
   spans = ref<Span[]>([]),
   selected = ref<Span | null>(null),
@@ -14,6 +15,26 @@ const route = useRoute(),
   loading = ref(false),
   error = ref('')
 const rows = computed(() => waterfallRows(spans.value))
+const tab = ref<'waterfall' | 'metrics'>('waterfall')
+const targetSpanId = ref(typeof route.query?.spanId === 'string' ? route.query.spanId : '')
+const targetMissing = computed(
+  () => targetSpanId.value && !spans.value.some((s) => s.spanId === targetSpanId.value),
+)
+const waterfall = ref<HTMLElement>()
+async function selectTarget() {
+  const target = spans.value.find((s) => s.spanId === targetSpanId.value)
+  if (target) {
+    selected.value = target
+    await nextTick()
+    waterfall.value?.querySelector('.is-selected')?.scrollIntoView?.({ block: 'nearest' })
+  }
+}
+function selectMetricSpan(spanId: string) {
+  targetSpanId.value = spanId
+  tab.value = 'waterfall'
+  void selectTarget()
+  if (targetMissing.value && hasMore.value && !loading.value) void load(true)
+}
 const highlights = computed<TraceFilter[]>(() => {
   try {
     const value: unknown = JSON.parse(String(route.query?.highlight ?? '[]'))
@@ -50,8 +71,8 @@ function bar(span: Span) {
 }
 function formatDuration(value: number) {
   return value >= 1000
-    ? `${(value / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} s`
-    : `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ms`
+    ? `${(value / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} s`
+    : `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} ms`
 }
 function spanColor(span: Span) {
   if (span.status === 'error' || span.status === 'deadline_exceeded') return '#e05260'
@@ -88,12 +109,22 @@ async function load(append = false) {
     hasMore.value = result.hasMore
     cursor.value = result.nextCursor
     if (!selected.value) selected.value = spans.value[0] ?? null
+    await selectTarget()
   } catch {
-    if (current === generation) error.value = '无法加载 Trace'
+    if (current === generation) error.value = 'Unable to load trace'
   } finally {
     if (current === generation) loading.value = false
   }
+  if (current === generation && !error.value && targetMissing.value && hasMore.value)
+    await load(true)
 }
+watch(
+  () => route.query?.spanId,
+  (value) => {
+    targetSpanId.value = typeof value === 'string' ? value : ''
+    if (targetSpanId.value) selectMetricSpan(targetSpanId.value)
+  },
+)
 watch(
   [() => route.params.groupSlug, () => route.params.projectSlug, () => route.params.traceId],
   () => {
@@ -101,10 +132,15 @@ watch(
     selected.value = null
     hasMore.value = false
     cursor.value = undefined
+    tab.value = 'waterfall'
+    targetSpanId.value = typeof route.query?.spanId === 'string' ? route.query.spanId : ''
     void load()
   },
 )
 onMounted(() => load())
+onBeforeUnmount(() => {
+  generation++
+})
 </script>
 <template>
   <section class="trace-detail space-y-5">
@@ -115,11 +151,11 @@ onMounted(() => load())
         params: { groupSlug: route.params.groupSlug, projectSlug: route.params.projectSlug },
       }"
     >
-      <ArrowLeft class="size-4" /> 返回 Traces
+      <ArrowLeft class="size-4" /> Back to Traces
     </RouterLink>
     <div class="trace-heading">
       <div class="min-w-0">
-        <h2 class="text-xl font-semibold">Trace 详情</h2>
+        <h2 class="text-xl font-semibold">Trace details</h2>
         <p class="trace-id">{{ route.params.traceId }}</p>
       </div>
       <div class="trace-summary">
@@ -127,32 +163,72 @@ onMounted(() => load())
         <span><Clock3 class="size-4" /> {{ spans.length ? formatDuration(extent) : '—' }}</span>
       </div>
     </div>
-    <p v-if="loading" role="status" class="text-sm text-muted-foreground">加载中…</p>
+    <nav class="flex gap-4 border-b" aria-label="Trace detail views">
+      <button
+        v-for="item in [
+          { id: 'waterfall', label: 'Waterfall' },
+          { id: 'metrics', label: 'Application Metrics' },
+        ]"
+        :key="item.id"
+        class="border-b-2 px-1 py-2 text-sm"
+        :class="
+          tab === item.id
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground'
+        "
+        :aria-pressed="tab === item.id"
+        @click="tab = item.id as typeof tab"
+      >
+        {{ item.label }}
+      </button>
+    </nav>
+    <p v-if="loading" role="status" class="text-sm text-muted-foreground">Loading…</p>
     <div v-if="error" role="alert">
-      {{ error }} <Button variant="outline" @click="load(Boolean(spans.length))">重试</Button>
+      {{ error }} <Button variant="outline" @click="load(Boolean(spans.length))">Retry</Button>
     </div>
     <p v-if="hasMore" role="status" class="trace-notice">
-      链路尚未加载完整；分页中的父节点可能暂未出现。
+      This trace is not fully loaded. Parent spans may appear on later pages.
     </p>
     <p v-if="rows.some((r) => r.missingParent)" class="trace-notice">
-      存在缺失父节点（远程、未采集或尚未加载）；孤立节点独立展示。
+      Some parent spans are remote, uncollected, or not yet loaded. Orphan spans are shown
+      separately.
     </p>
     <p v-if="spans.some((s) => s.truncated || s.droppedSpanCount > 0)" class="trace-notice">
-      此链路含截断记录或丢弃的子 spans，无法保证完整性。
+      This trace contains truncated records or dropped child spans and may be incomplete.
     </p>
-    <div class="detail-grid">
+    <p v-if="!loading && !error && !spans.length" class="trace-notice">
+      No retained records for this trace. It may be unsampled, pending ingestion, or expired.
+      Related metrics are still available in Application Metrics.
+    </p>
+    <p v-if="targetMissing" role="status" class="trace-notice">
+      {{
+        hasMore
+          ? 'Looking for the target span…'
+          : 'The target span is not retained. It may not have been collected or may have expired.'
+      }}
+    </p>
+    <TraceMetricsPanel
+      v-if="tab === 'metrics'"
+      :group="String(route.params.groupSlug)"
+      :project="String(route.params.projectSlug)"
+      :trace-id="String(route.params.traceId)"
+      :selected-span-id="selected?.spanId"
+      @select-span="selectMetricSpan"
+    />
+    <div v-show="tab === 'waterfall'" ref="waterfall" class="detail-grid">
       <div class="waterfall-panel">
         <div class="waterfall-title">
-          <GitBranch class="size-4" /> 链路时间线 <span>点击操作查看属性</span>
+          <GitBranch class="size-4" /> Trace timeline
+          <span>Select a span to view its attributes</span>
         </div>
         <div class="waterfall-axis waterfall-row">
-          <span class="px-4">操作 / Span</span>
+          <span class="px-4">Operation / Span</span>
           <span class="axis-ticks"
             ><span v-for="tick in [0, 0.25, 0.5, 0.75, 1]" :key="tick">{{
               formatDuration(extent * tick)
             }}</span></span
           >
-          <span class="duration-cell">耗时</span>
+          <span class="duration-cell">Duration</span>
         </div>
         <div class="waterfall-body">
           <button
@@ -164,8 +240,8 @@ onMounted(() => load())
               'is-highlighted': highlights.length > 0 && matchesSpanFilters(row.span, highlights),
             }"
             :aria-pressed="selected?.spanId === row.span.spanId"
-            :aria-label="`查看 Span ${row.span.name}`"
-            @click="selected = row.span"
+            :aria-label="`View span ${row.span.name}`"
+            @click="selectMetricSpan(row.span.spanId)"
           >
             <span
               class="span-label"
@@ -176,8 +252,8 @@ onMounted(() => load())
               <span class="span-text">
                 <span class="span-name" :title="row.span.name">{{ row.span.name }}</span>
                 <span class="span-op"
-                  >{{ row.span.op }} {{ row.missingParent ? '缺失父节点' : '' }}
-                  {{ row.span.truncated ? '截断' : '' }}</span
+                  >{{ row.span.op }} {{ row.missingParent ? 'Missing parent' : '' }}
+                  {{ row.span.truncated ? 'Truncated' : '' }}</span
                 >
               </span>
             </span>
@@ -190,16 +266,17 @@ onMounted(() => load())
             <span class="duration-cell">{{ formatDuration(row.span.durationMs) }}</span>
           </button>
           <p v-if="!loading && !spans.length" class="p-10 text-center text-muted-foreground">
-            暂无 Trace spans
+            No trace spans
           </p>
         </div>
         <div class="waterfall-footer">
-          已加载 {{ spans.length }} 个 spans {{ hasMore ? '（分页未结束）' : '（全部已保留记录）' }}
+          Loaded {{ spans.length }} spans
+          {{ hasMore ? '(more pages available)' : '(all retained records)' }}
         </div>
       </div>
       <aside v-if="selected" class="span-panel">
         <div class="span-panel-heading">
-          <h3 class="font-semibold">Span 属性</h3>
+          <h3 class="font-semibold">Span attributes</h3>
           <span
             class="status-badge"
             :class="{
@@ -218,7 +295,9 @@ onMounted(() => load())
         </dl>
       </aside>
     </div>
-    <Button v-if="hasMore" :disabled="loading" @click="load(true)">加载更多 spans</Button>
+    <Button v-if="hasMore && tab === 'waterfall'" :disabled="loading" @click="load(true)"
+      >Load more spans</Button
+    >
   </section>
 </template>
 <style scoped>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { RouterLink } from 'vue-router'
 import { register } from '@/features/auth/api/auth.api'
 import { AppError } from '@/services/http'
@@ -15,11 +17,11 @@ async function submit() {
   error.value = ''
   message.value = ''
   if (password.value.length < 8) {
-    error.value = '密码至少需要 8 位'
+    error.value = 'Password must be at least 8 characters'
     return
   }
   if (password.value !== confirmation.value) {
-    error.value = '两次输入的密码不一致'
+    error.value = 'Passwords do not match'
     return
   }
   submitting.value = true
@@ -33,7 +35,7 @@ async function submit() {
       })
     ).message
   } catch (e) {
-    error.value = e instanceof AppError ? e.message : '注册失败，请稍后重试'
+    error.value = e instanceof AppError ? e.message : 'Registration failed. Please try again later.'
   } finally {
     submitting.value = false
   }
@@ -43,36 +45,33 @@ async function submit() {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="text-2xl font-semibold">创建账号</h1>
+      <h1 class="text-2xl font-semibold">Create account</h1>
       <p v-if="message" role="status">{{ message }}</p>
       <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
       <form v-if="!message" class="space-y-4" @submit.prevent="submit">
-        <input v-model="name" class="w-full rounded border p-2" required placeholder="姓名" /><input
+        <Input v-model="name" class="w-full" required placeholder="Name" /><Input
           v-model="email"
-          class="w-full rounded border p-2"
+          class="w-full"
           required
           type="email"
-          placeholder="邮箱"
-        /><input
+          placeholder="Email"
+        /><Input
           v-model="password"
-          class="w-full rounded border p-2"
+          class="w-full"
           required
           type="password"
-          placeholder="密码（至少 8 位）"
-        /><input
+          placeholder="Password (at least 8 characters)"
+        /><Input
           v-model="confirmation"
-          class="w-full rounded border p-2"
+          class="w-full"
           required
           type="password"
-          placeholder="确认密码"
-        /><button
-          class="w-full rounded bg-primary p-2 text-primary-foreground"
-          :disabled="submitting"
-        >
-          {{ submitting ? '提交中…' : '注册' }}
-        </button>
+          placeholder="Confirm password"
+        /><Button type="submit" class="w-full" :disabled="submitting">
+          {{ submitting ? 'Submitting…' : 'Register' }}
+        </Button>
       </form>
-      <RouterLink to="/login" class="text-sm text-primary">返回登录</RouterLink>
+      <RouterLink to="/login" class="text-sm text-primary">Back to sign in</RouterLink>
     </section>
   </main>
 </template>

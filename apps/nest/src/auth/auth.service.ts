@@ -22,7 +22,7 @@ import {
 } from './interfaces/auth-user.interface';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 
-const INVALID_CREDENTIALS = '邮箱或密码错误';
+const INVALID_CREDENTIALS = 'Invalid email or password';
 
 @Injectable()
 export class AuthService {
@@ -44,7 +44,7 @@ export class AuthService {
     this.assertPasswordsMatch(input.password, input.passwordConfirmation);
     const email = input.email.trim().toLowerCase();
     if (await this.users.findByEmail(email))
-      throw new ConflictException('该邮箱已注册');
+      throw new ConflictException('This email is already registered');
     try {
       await this.dataSource.transaction(async (manager) => {
         const user = await this.users.createPendingUser(
@@ -68,10 +68,10 @@ export class AuthService {
       });
     } catch (error) {
       if ((error as { code?: string }).code === '23505')
-        throw new ConflictException('该邮箱已注册');
-      throw new ServiceUnavailableException('暂时无法发送验证邮件，请稍后重试');
+        throw new ConflictException('This email is already registered');
+      throw new ServiceUnavailableException('Unable to send the verification email. Please try again later.');
     }
-    return { message: '注册成功，请查收验证邮件' };
+    return { message: 'Registration successful. Please check your email for a verification link.' };
   }
 
   async verifyEmail(tokenValue: string): Promise<{ message: string }> {
@@ -82,7 +82,7 @@ export class AuthService {
         manager,
       );
       if (!token || token.user.status !== UserStatus.PendingVerification) {
-        throw new BadRequestException('验证链接无效或已过期');
+        throw new BadRequestException('The verification link is invalid or has expired');
       }
       await this.users.activate(token.userId, manager);
       await this.tokens.consumeAll(
@@ -91,7 +91,7 @@ export class AuthService {
         manager,
       );
     });
-    return { message: '邮箱验证成功' };
+    return { message: 'Email verified successfully' };
   }
 
   async resendVerification(emailInput: string): Promise<{ message: string }> {
@@ -110,11 +110,11 @@ export class AuthService {
         await this.mail.sendEmailVerification(email, token);
       } catch {
         throw new ServiceUnavailableException(
-          '暂时无法发送验证邮件，请稍后重试',
+          'Unable to send the verification email. Please try again later.',
         );
       }
     }
-    return { message: '如果该邮箱需要验证，我们将发送验证邮件' };
+    return { message: 'If this email requires verification, we will send a verification email.' };
   }
 
   async forgotPassword(emailInput: string): Promise<{ message: string }> {
@@ -130,11 +130,11 @@ export class AuthService {
         await this.mail.sendPasswordReset(email, token);
       } catch {
         throw new ServiceUnavailableException(
-          '暂时无法发送重置邮件，请稍后重试',
+          'Unable to send the password reset email. Please try again later.',
         );
       }
     }
-    return { message: '如果该邮箱已注册，我们将发送重置邮件' };
+    return { message: 'If this email is registered, we will send a password reset email.' };
   }
 
   async resetPassword(input: {
@@ -150,7 +150,7 @@ export class AuthService {
         manager,
       );
       if (!token || token.user.status !== UserStatus.Active) {
-        throw new BadRequestException('重置链接无效或已过期');
+        throw new BadRequestException('The password reset link is invalid or has expired');
       }
       await this.users.updatePassword(
         token.userId,
@@ -163,12 +163,12 @@ export class AuthService {
         manager,
       );
     });
-    return { message: '密码重置成功' };
+    return { message: 'Password reset successfully' };
   }
 
   private assertPasswordsMatch(password: string, confirmation: string): void {
     if (password !== confirmation)
-      throw new BadRequestException('两次输入的密码不一致');
+      throw new BadRequestException('The passwords do not match');
   }
 
   async login(email: string, password: string): Promise<AuthSession> {

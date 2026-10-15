@@ -27,7 +27,7 @@ export class GroupsService {
       return await this.repository.save(group);
     } catch (error) {
       if ((error as { code?: string }).code === '23505') {
-        throw new ConflictException('该组名称已存在');
+        throw new ConflictException('A group with this name already exists');
       }
       throw error;
     }
@@ -54,7 +54,7 @@ export class GroupsService {
     const group = await this.repository.findOne({
       where: { ownerId, slug },
     });
-    if (!group) throw new NotFoundException('组不存在');
+    if (!group) throw new NotFoundException('Group not found');
     return group;
   }
 }

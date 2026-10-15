@@ -26,23 +26,23 @@ import type { User } from '../model/user'
 const users = ref<User[]>([
   {
     id: '1',
-    name: '周安发',
+    name: 'Alex Morgan',
     email: 'admin@example.com',
-    role: '管理员',
+    role: 'Administrator',
     status: 'active',
   },
   {
     id: '2',
-    name: '内容编辑',
+    name: 'Content Editor',
     email: 'editor@example.com',
-    role: '编辑',
+    role: 'Editor',
     status: 'active',
   },
   {
     id: '3',
-    name: '停用账号',
+    name: 'Inactive Account',
     email: 'disabled@example.com',
-    role: '访客',
+    role: 'Viewer',
     status: 'disabled',
   },
 ])
@@ -50,23 +50,23 @@ const users = ref<User[]>([
 const columnHelper = createColumnHelper<DataTableFeatures, User>()
 const columns = columnHelper.columns([
   columnHelper.accessor('name', {
-    header: '姓名',
+    header: 'Name',
   }),
   columnHelper.accessor('email', {
-    header: '邮箱',
+    header: 'Email',
   }),
   columnHelper.accessor('role', {
-    header: '角色',
+    header: 'Role',
   }),
   columnHelper.accessor('status', {
-    header: '状态',
+    header: 'Status',
     cell: ({ row }) =>
       h(
         Badge,
         {
           variant: row.original.status === 'active' ? 'default' : 'secondary',
         },
-        () => (row.original.status === 'active' ? '启用' : '停用'),
+        () => (row.original.status === 'active' ? 'Active' : 'Inactive'),
       ),
   }),
 ])
@@ -78,9 +78,9 @@ const dialogOpen = ref(false)
 
 const userSchema = toTypedSchema(
   z.object({
-    name: z.string().min(2, '姓名至少需要 2 个字符'),
-    email: z.string().email('请输入正确的邮箱'),
-    role: z.string().min(1, '请输入角色'),
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    email: z.string().email('Enter a valid email address'),
+    role: z.string().min(1, 'Enter a role'),
   }),
 )
 
@@ -89,14 +89,14 @@ const { handleSubmit, resetForm } = useForm({
   initialValues: {
     name: '',
     email: '',
-    role: '编辑',
+    role: 'Editor',
   },
 })
 
 const selectedSummary = computed(() =>
   selectedUsers.value.length
-    ? `已选择 ${selectedUsers.value.length} 个用户`
-    : '请选择需要操作的用户',
+    ? `${selectedUsers.value.length} ${selectedUsers.value.length === 1 ? 'user' : 'users'} selected`
+    : 'Select users to manage',
 )
 
 const createUser = handleSubmit((values) => {
@@ -119,10 +119,8 @@ const createUser = handleSubmit((values) => {
   <section class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight">用户管理</h2>
-        <p class="mt-1 text-muted-foreground">
-          示例展示 TanStack Table、VeeValidate、Zod 与权限指令的组合。
-        </p>
+        <h2 class="text-2xl font-semibold tracking-tight">Users</h2>
+        <p class="mt-1 text-muted-foreground">Manage users, roles, and account status.</p>
       </div>
 
       <Button
@@ -131,7 +129,7 @@ const createUser = handleSubmit((values) => {
         @click="dialogOpen = true"
       >
         <Plus />
-        新增用户
+        Add user
       </Button>
     </div>
 
@@ -145,7 +143,7 @@ const createUser = handleSubmit((values) => {
         :disabled="selectedUsers.length === 0"
       >
         <Trash2 />
-        批量删除
+        Delete selected
       </Button>
     </div>
 
@@ -162,34 +160,32 @@ const createUser = handleSubmit((values) => {
     <Dialog v-model:open="dialogOpen">
       <DialogContent class="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>新增用户</DialogTitle>
-          <DialogDescription>
-            表单字段、错误提示和可访问性属性由公共封装统一处理。
-          </DialogDescription>
+          <DialogTitle>Add user</DialogTitle>
+          <DialogDescription> Enter the details for the new user. </DialogDescription>
         </DialogHeader>
 
         <form class="space-y-4" novalidate @submit="createUser">
-          <AppFormField v-slot="{ componentField }" name="name" label="姓名" required>
-            <Input v-bind="componentField" placeholder="请输入姓名" />
+          <AppFormField v-slot="{ componentField }" name="name" label="Name" required>
+            <Input v-bind="componentField" placeholder="Enter a name" />
           </AppFormField>
 
-          <AppFormField v-slot="{ componentField }" name="email" label="邮箱" required>
+          <AppFormField v-slot="{ componentField }" name="email" label="Email" required>
             <Input v-bind="componentField" type="email" placeholder="name@example.com" />
           </AppFormField>
 
           <AppFormField
             v-slot="{ componentField }"
             name="role"
-            label="角色"
-            description="后续可替换为角色 Select 和远程选项。"
+            label="Role"
+            description="Choose the role for this user."
             required
           >
-            <Input v-bind="componentField" placeholder="例如：编辑" />
+            <Input v-bind="componentField" placeholder="For example: Editor" />
           </AppFormField>
 
           <DialogFooter>
-            <Button type="button" variant="outline" @click="dialogOpen = false"> 取消 </Button>
-            <Button type="submit">保存</Button>
+            <Button type="button" variant="outline" @click="dialogOpen = false"> Cancel </Button>
+            <Button type="submit">Save</Button>
           </DialogFooter>
         </form>
       </DialogContent>

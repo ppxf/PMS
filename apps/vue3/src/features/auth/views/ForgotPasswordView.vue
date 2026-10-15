@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { RouterLink } from 'vue-router'
 import { forgotPassword } from '@/features/auth/api/auth.api'
 import { AppError } from '@/services/http'
@@ -13,7 +15,7 @@ async function submit() {
   try {
     message.value = (await forgotPassword(email.value)).message
   } catch (e) {
-    error.value = e instanceof AppError ? e.message : '请求失败，请稍后重试'
+    error.value = e instanceof AppError ? e.message : 'Request failed. Please try again later.'
   } finally {
     submitting.value = false
   }
@@ -22,24 +24,19 @@ async function submit() {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="text-2xl font-semibold">忘记密码</h1>
+      <h1 class="text-2xl font-semibold">Forgot password</h1>
       <p v-if="message" role="status">{{ message }}</p>
       <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
       <form v-if="!message" class="space-y-4" @submit.prevent="submit">
-        <input
-          v-model="email"
-          class="w-full rounded border p-2"
-          required
-          type="email"
-          placeholder="邮箱"
-        /><button
-          class="w-full rounded bg-primary p-2 text-primary-foreground"
+        <Input v-model="email" class="w-full" required type="email" placeholder="Email" /><Button
+          type="submit"
+          class="w-full"
           :disabled="submitting"
         >
-          发送重置邮件
-        </button>
+          Send reset email
+        </Button>
       </form>
-      <RouterLink to="/login" class="text-sm text-primary">返回登录</RouterLink>
+      <RouterLink to="/login" class="text-sm text-primary">Back to sign in</RouterLink>
     </section>
   </main>
 </template>

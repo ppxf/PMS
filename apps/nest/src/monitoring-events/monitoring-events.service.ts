@@ -40,7 +40,7 @@ export class MonitoringEventsService {
       return;
     }
     if (!project.errorMonitoringEnabled) {
-      throw new ForbiddenException('项目未启用错误监控');
+      throw new ForbiddenException('Error monitoring is disabled for this project');
     }
 
     // The public controller's nested DTO guarantees an event for this variant.
@@ -202,7 +202,7 @@ export class MonitoringEventsService {
           issue.exceptionType,
           latestEvent.source,
           issue.status,
-          CASE issue.status WHEN 'unresolved' THEN '未解决' WHEN 'resolved' THEN '已解决' END,
+          CASE issue.status WHEN 'unresolved' THEN 'Unresolved' WHEN 'resolved' THEN 'Resolved' END,
           CAST(issue.eventCount AS TEXT),
           TO_CHAR(issue.firstSeenAt, 'YYYY-MM-DD HH24:MI:SS'),
           TO_CHAR(issue.lastSeenAt, 'YYYY-MM-DD HH24:MI:SS')
@@ -242,7 +242,7 @@ export class MonitoringEventsService {
         latestEvent: this.eventSelection(),
       },
     });
-    if (!issue) throw new NotFoundException('监控错误不存在');
+    if (!issue) throw new NotFoundException('Issue not found');
     const recentEvents = await this.dataSource.getRepository(MonitoringEvent).find({
       where: { issueId, projectId: project.id },
       select: this.eventSelection(),
@@ -266,7 +266,7 @@ export class MonitoringEventsService {
     const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
     const repository = this.dataSource.getRepository(MonitoringErrorIssue);
     const issue = await repository.findOneBy({ id: issueId, projectId: project.id });
-    if (!issue) throw new NotFoundException('监控错误不存在');
+    if (!issue) throw new NotFoundException('Issue not found');
 
     const now = new Date();
     if (status === MonitoringErrorIssueStatus.Resolved) {
@@ -297,12 +297,12 @@ export class MonitoringEventsService {
     const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
     const repository = this.dataSource.getRepository(MonitoringErrorIssue);
     const issue = await repository.findOneBy({ id: issueId, projectId: project.id });
-    if (!issue) throw new NotFoundException('监控错误不存在');
+    if (!issue) throw new NotFoundException('Issue not found');
     if (
       input.mode === 'until_count' &&
       (input.threshold === undefined || input.threshold <= issue.eventCount)
     ) {
-      throw new BadRequestException('归档阈值必须大于当前累计次数');
+      throw new BadRequestException('The archive threshold must exceed the current event count');
     }
 
     await repository.update(issueId, {
@@ -324,7 +324,7 @@ export class MonitoringEventsService {
     const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
     const repository = this.dataSource.getRepository(MonitoringErrorIssue);
     const issue = await repository.findOneBy({ id: issueId, projectId: project.id });
-    if (!issue) throw new NotFoundException('监控错误不存在');
+    if (!issue) throw new NotFoundException('Issue not found');
     await repository.update(issueId, {
       visibility: MonitoringErrorIssueVisibility.Active,
       archiveThreshold: null,
@@ -345,7 +345,7 @@ export class MonitoringEventsService {
         id: issueId,
         projectId: project.id,
       });
-      if (!issue) throw new NotFoundException('监控错误不存在');
+      if (!issue) throw new NotFoundException('Issue not found');
       await manager.delete(MonitoringErrorIssue, issue.id);
     });
   }
@@ -362,7 +362,7 @@ export class MonitoringEventsService {
         id: issueId,
         projectId: project.id,
       });
-      if (!issue) throw new NotFoundException('监控错误不存在');
+      if (!issue) throw new NotFoundException('Issue not found');
       await this.lockErrorIdentity(
         manager,
         project.id,

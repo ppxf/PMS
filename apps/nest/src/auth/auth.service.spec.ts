@@ -97,7 +97,7 @@ describe('AuthService', () => {
       users.findByEmail.mockResolvedValueOnce(null as never);
 
     await expect(service.login('admin@example.com', password)).rejects.toEqual(
-      new UnauthorizedException('邮箱或密码错误'),
+      new UnauthorizedException('Invalid email or password'),
     );
   });
 });

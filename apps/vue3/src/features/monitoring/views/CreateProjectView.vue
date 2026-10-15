@@ -20,10 +20,18 @@ const submitting = ref(false)
 const error = ref('')
 
 const features = [
-  { key: 'error', title: 'Error Monitoring', description: '捕获前端异常与堆栈信息' },
-  { key: 'logging', title: 'Logging', description: '关联应用日志与问题上下文' },
-  { key: 'tracing', title: 'Tracing', description: '跟踪应用请求和性能链路' },
-  { key: 'metrics', title: 'Application Metrics', description: '记录应用性能与业务指标' },
+  {
+    key: 'error',
+    title: 'Error Monitoring',
+    description: 'Capture frontend errors and stack traces',
+  },
+  { key: 'logging', title: 'Logging', description: 'Connect application logs with issue context' },
+  { key: 'tracing', title: 'Tracing', description: 'Trace application requests and performance' },
+  {
+    key: 'metrics',
+    title: 'Application Metrics',
+    description: 'Record application performance and business metrics',
+  },
 ] as const
 
 function featureModel(key: (typeof features)[number]['key']) {
@@ -52,7 +60,10 @@ async function submit(): Promise<void> {
       params: { groupSlug, projectSlug: project.slug },
     })
   } catch (cause) {
-    error.value = cause instanceof AppError ? cause.message : '创建项目失败，请稍后重试'
+    error.value =
+      cause instanceof AppError
+        ? cause.message
+        : 'Unable to create the project. Please try again later.'
   } finally {
     submitting.value = false
   }
@@ -62,15 +73,17 @@ async function submit(): Promise<void> {
 <template>
   <section class="mx-auto max-w-3xl space-y-6">
     <div>
-      <h2 class="text-2xl font-semibold tracking-tight">创建监控项目</h2>
-      <p class="mt-1 text-muted-foreground">选择需要启用的能力，当前阶段仅保存配置。</p>
+      <h2 class="text-2xl font-semibold tracking-tight">Create monitoring project</h2>
+      <p class="mt-1 text-muted-foreground">
+        Choose the features to enable. This step saves your configuration.
+      </p>
     </div>
 
     <form class="space-y-6" @submit.prevent="submit">
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">框架</CardTitle>
-          <CardDescription>当前仅支持 Vue。</CardDescription>
+          <CardTitle class="text-base">Framework</CardTitle>
+          <CardDescription>Vue is currently the only supported framework.</CardDescription>
         </CardHeader>
         <CardContent>
           <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium">Vue</div>
@@ -79,8 +92,8 @@ async function submit(): Promise<void> {
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">监控能力</CardTitle>
-          <CardDescription>这些开关将保存到项目配置中。</CardDescription>
+          <CardTitle class="text-base">Monitoring features</CardTitle>
+          <CardDescription>These settings are saved in the project configuration.</CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
           <div
@@ -102,16 +115,22 @@ async function submit(): Promise<void> {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">项目名称</CardTitle></CardHeader>
+        <CardHeader><CardTitle class="text-base">Project name</CardTitle></CardHeader>
         <CardContent>
-          <Input v-model="name" name="name" required minlength="2" placeholder="例如：官网前端" />
+          <Input
+            v-model="name"
+            name="name"
+            required
+            minlength="2"
+            placeholder="e.g. Website frontend"
+          />
         </CardContent>
       </Card>
 
       <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
       <div class="flex justify-end">
         <Button :disabled="submitting" type="submit">
-          {{ submitting ? '创建中…' : '创建项目' }}
+          {{ submitting ? 'Creating…' : 'Create project' }}
         </Button>
       </div>
     </form>

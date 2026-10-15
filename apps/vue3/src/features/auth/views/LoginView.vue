@@ -22,8 +22,8 @@ const submitError = ref('')
 
 const loginSchema = toTypedSchema(
   z.object({
-    email: z.string().email('请输入正确的邮箱'),
-    password: z.string().min(8, '密码至少需要 8 位'),
+    email: z.string().email('Enter a valid email address'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
   }),
 )
 
@@ -50,7 +50,8 @@ const submit = handleSubmit(async (values) => {
     auth.login(session)
     await router.replace(getSafeRedirect(route.query.redirect))
   } catch (error) {
-    submitError.value = error instanceof AppError ? error.message : '登录失败，请稍后重试'
+    submitError.value =
+      error instanceof AppError ? error.message : 'Sign in failed. Please try again later.'
   }
 })
 </script>
@@ -64,15 +65,15 @@ const submit = handleSubmit(async (values) => {
         >
           <LockKeyhole class="size-6" />
         </div>
-        <CardTitle class="text-2xl">登录 PMS</CardTitle>
-        <CardDescription>请输入邮箱与密码登录系统。</CardDescription>
+        <CardTitle class="text-2xl">Sign in to PMS</CardTitle>
+        <CardDescription>Enter your email and password to sign in.</CardDescription>
       </CardHeader>
       <CardContent>
         <form class="space-y-5" novalidate @submit="submit">
           <Alert v-if="submitError" variant="destructive" role="alert">
             <AlertDescription>{{ submitError }}</AlertDescription>
           </Alert>
-          <AppFormField v-slot="{ componentField }" name="email" label="邮箱" required>
+          <AppFormField v-slot="{ componentField }" name="email" label="Email" required>
             <Input
               v-bind="componentField"
               type="email"
@@ -81,16 +82,16 @@ const submit = handleSubmit(async (values) => {
             />
           </AppFormField>
 
-          <AppFormField v-slot="{ componentField }" name="password" label="密码" required>
+          <AppFormField v-slot="{ componentField }" name="password" label="Password" required>
             <Input v-bind="componentField" type="password" autocomplete="current-password" />
           </AppFormField>
 
           <Button class="w-full" type="submit" :disabled="isSubmitting">
-            {{ isSubmitting ? '登录中…' : '登录' }}
+            {{ isSubmitting ? 'Signing in…' : 'Sign in' }}
           </Button>
           <div class="flex justify-between text-sm">
-            <RouterLink class="text-primary" to="/register">注册账号</RouterLink>
-            <RouterLink class="text-primary" to="/forgot-password">忘记密码</RouterLink>
+            <RouterLink class="text-primary" to="/register">Create account</RouterLink>
+            <RouterLink class="text-primary" to="/forgot-password">Forgot password</RouterLink>
           </div>
         </form>
       </CardContent>

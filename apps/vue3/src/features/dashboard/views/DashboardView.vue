@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { FolderKanban, Layers3 } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { listGroups, listProjects } from '@/features/monitoring/api/monitoring.api'
@@ -44,27 +45,31 @@ onMounted(async () => {
   <section class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight">监控工作台</h2>
-        <p class="mt-1 text-muted-foreground">查看你的组、项目以及最近创建的监控项目。</p>
+        <h2 class="text-2xl font-semibold tracking-tight">Monitoring dashboard</h2>
+        <p class="mt-1 text-muted-foreground">
+          View your groups, projects, and recently created monitoring projects.
+        </p>
       </div>
-      <RouterLink
-        :to="{ name: 'groups' }"
-        class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+      <Button as-child
+        ><RouterLink :to="{ name: 'groups' }"> Manage groups and projects </RouterLink></Button
       >
-        管理组与项目
-      </RouterLink>
     </div>
 
-    <p v-if="loadFailed" class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-      工作台数据加载失败，请稍后重试。
+    <p
+      v-if="loadFailed"
+      class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+    >
+      Failed to load dashboard data. Please try again later.
     </p>
 
     <div class="grid gap-4 md:grid-cols-2">
       <Card>
         <CardHeader class="flex-row items-center justify-between gap-4">
           <div>
-            <CardDescription>组</CardDescription>
-            <CardTitle class="mt-2 text-2xl">{{ loading ? '—' : `${groups.length} 个组` }}</CardTitle>
+            <CardDescription>Groups</CardDescription>
+            <CardTitle class="mt-2 text-2xl">{{
+              loading ? '—' : `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}`
+            }}</CardTitle>
           </div>
           <Layers3 class="size-6 text-muted-foreground" />
         </CardHeader>
@@ -72,8 +77,10 @@ onMounted(async () => {
       <Card>
         <CardHeader class="flex-row items-center justify-between gap-4">
           <div>
-            <CardDescription>监控项目</CardDescription>
-            <CardTitle class="mt-2 text-2xl">{{ loading ? '—' : `${projects.length} 个项目` }}</CardTitle>
+            <CardDescription>Monitoring projects</CardDescription>
+            <CardTitle class="mt-2 text-2xl">{{
+              loading ? '—' : `${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`
+            }}</CardTitle>
           </div>
           <FolderKanban class="size-6 text-muted-foreground" />
         </CardHeader>
@@ -82,12 +89,14 @@ onMounted(async () => {
 
     <Card>
       <CardHeader>
-        <CardTitle>最近创建的项目</CardTitle>
-        <CardDescription>按创建时间展示最近的 5 个监控项目。</CardDescription>
+        <CardTitle>Recently created projects</CardTitle>
+        <CardDescription>The five most recently created monitoring projects.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p v-if="loading" class="text-sm text-muted-foreground">正在加载...</p>
-        <p v-else-if="recentProjects.length === 0" class="text-sm text-muted-foreground">暂时还没有项目。</p>
+        <p v-if="loading" class="text-sm text-muted-foreground">Loading...</p>
+        <p v-else-if="recentProjects.length === 0" class="text-sm text-muted-foreground">
+          No projects yet.
+        </p>
         <div v-else class="divide-y rounded-md border">
           <RouterLink
             v-for="project in recentProjects"

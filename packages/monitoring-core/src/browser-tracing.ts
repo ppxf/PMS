@@ -6,6 +6,7 @@ interface Client {
   getClientState(): { endpoint: string } | undefined
   flush(): Promise<void>
   getPropagationTargets?(): readonly string[]
+  setPageSpan?(span: SpanHandle): void
 }
 export interface BrowserTracingOptions {
   browserTracing?: boolean
@@ -39,6 +40,7 @@ export function createBrowserTracing(client: Client) {
   function startNavigation(name: string, op = 'navigation', startTime?: number) {
     endRoot('navigation')
     root = client.startInactiveSpan({ name, op, pageRoute: name, startTime })
+    client.setPageSpan?.(root)
     pending = 0
     if (op === 'navigation') pending++
     deadline = later(() => endRoot('deadline_exceeded'), 30_000)

@@ -10,6 +10,7 @@ import {
   Optional,
   ServiceUnavailableException,
   ForbiddenException,
+  Ip,
 } from '@nestjs/common';
 import { ApiBody, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
@@ -47,6 +48,7 @@ export class SdkEnvelopeController {
     @Headers('x-pms-key') publicKey: string | undefined,
     @Body(new SdkEnvelopePipe()) envelope: unknown,
     @Headers('origin') origin?: string,
+    @Ip() clientAddress?: string,
   ): Promise<void> {
     if (
       origin &&
@@ -69,6 +71,7 @@ export class SdkEnvelopeController {
         projectId,
         publicKey,
         envelope as MetricsEnvelope,
+        clientAddress,
       );
     }
     if ((envelope as { type?: string }).type === 'transaction') {

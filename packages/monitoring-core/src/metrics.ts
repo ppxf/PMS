@@ -1,7 +1,9 @@
 import type { MonitoringInitOptions, Transport } from './types.js'
 import type { MetricOptions, MetricSample, MetricsEnvelope, MetricType } from './metrics-types.js'
+import type { TraceContext } from './tracing-types.js'
+import { captureBrowserIdentity } from './browser-context.js'
 
-export function createMetrics() {
+export function createMetrics(getTraceContext: () => TraceContext | undefined = () => undefined) {
   let config: MonitoringInitOptions | undefined
   let transport: Transport | undefined
   let buffer: MetricSample[] = []
@@ -47,7 +49,7 @@ export function createMetrics() {
     if (!config?.enableMetrics) return
     const attributes = options.attributes ?? {}
     const unit = options.unit ?? 'none'
-    const context = options.traceContext
+    const context = options.traceContext ?? getTraceContext()
     const invalid = typeof name !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_./-]{0,127}$/.test(name) ||
       !Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER || (type === 'count' && value < 0) ||
       typeof unit !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_./-]{0,31}$/.test(unit) ||
@@ -57,8 +59,14 @@ export function createMetrics() {
         !(typeof v === 'string' && v.length <= 256 || typeof v === 'boolean' || typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= Number.MAX_SAFE_INTEGER)) ||
       (context && (!/^[a-f0-9]{32}$/.test(context.traceId) || /^0+$/.test(context.traceId) || !/^[a-f0-9]{16}$/.test(context.spanId) || /^0+$/.test(context.spanId)))
     if (invalid) { droppedSamples++; return }
+    const browser = captureBrowserIdentity()
+    const dimensions: Record<string, string> = {}
+    for (const [key, value] of Object.entries({
+      'sdk.name': config.sdk?.name, 'sdk.version': config.sdk?.version,
+      'user_agent.original': browser.userAgent, 'browser.name': browser.name, 'browser.version': browser.version,
+    })) if (value) dimensions[key] = value.slice(0, 256)
     const sample: MetricSample = {
-      name, type, value, unit, timestamp: new Date().toISOString(), attributes: { ...attributes },
+      name, type, value, unit, timestamp: new Date().toISOString(), attributes: { ...attributes, ...dimensions },
       ...(config.environment ? { environment: config.environment.slice(0, 128) } : {}),
       ...(config.release ? { release: config.release.slice(0, 128) } : {}),
       ...(context ? { traceId: context.traceId, spanId: context.spanId } : {}),

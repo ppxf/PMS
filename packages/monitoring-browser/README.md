@@ -74,6 +74,45 @@ DSN/key 用于向项目写入监控数据，不提供管理权限。项目来源
 
 404 检查 DSN 中的项目 ID 与 key，403 检查项目允许来源与功能开关，429 表示限流。CORS 错误检查网关是否保留响应头及放行预检，业务 CSP 阻止请求时检查 connect-src。跨域测量缺失检查业务 API 的 Timing-Allow-Origin，缺失值保持未知。
 
+## 5. Application Metrics 与 Trace 关联
+
+在项目中开启 Application Metrics，并在 SDK 初始化时设置 `enableMetrics: true`。指标本身独立于 Trace 采样上报，支持 `metrics.count`、`metrics.gauge` 和 `metrics.distribution`。
+
+指标上下文的优先级为：显式 `traceContext`、当前 `startSpan` 同步回调、尚未结束的页面加载或导航 Span。嵌套 `startSpan` 默认继承当前父 Span；回调返回或抛错后恢复原作用域。`startInactiveSpan` 不会自动成为当前作用域。
+
+```ts
+import { metrics, startSpan } from '@pms/monitoring-vue'
+
+startSpan({ name: 'checkout', op: 'task' }, () => {
+  metrics.count('button_click', 1) // 自动关联 checkout
+})
+
+await startSpan({ name: 'load-orders', op: 'task' }, async (span) => {
+  const started = performance.now()
+  await loadOrders()
+  metrics.distribution('response_time', performance.now() - started, {
+    unit: 'millisecond',
+    traceContext: span.context,
+  })
+})
+```
+
+浏览器没有可靠的原生异步局部上下文，因此 `await` 之后的指标需要显式传入 `span.context`，避免并发任务串链。没有有效采样上下文时，指标仍会上报，但自动关联不填入 Trace ID。显式传入的上下文继续按原协议保存。页面 Trace 在加载/请求完成且空闲一秒、导航切换、页面隐藏或超时后结束，结束后的指标不会继续自动关联该 Trace。
+
+指标 Samples 的 Trace ID 链接携带 Span ID，打开瀑布图后定位对应 Span。Trace 详情的 Application Metrics 标签页展示同项目、同 Trace 的指标，支持名称搜索、分页及仅当前 Span 筛选；点击指标的 Span 可返回瀑布图。
+
+后端提供 `GET /groups/:groupSlug/projects/:projectSlug/metrics/traces/:traceId`，支持 `page`、`pageSize`（最大 100）、`search` 和 `spanId`。原 `POST .../metrics/query` 也支持 `traceId` 和 `spanId` 筛选，`spanId` 必须与 `traceId` 一起传入。两种查询均校验项目所有者权限。
+
+指标菜单按项目最近 7 天实际保留的数据生成，名称、类型和单位不会预设。`count` 在菜单中标记为 `counter`，默认 `sum`（上报增量的累计事件数），也支持 `count`（样本条数）；`gauge` 默认 `last`，支持 `avg/min/max/count`；`distribution` 默认 `p95`，支持 `p50/p99/avg/min/max/sum/count`。例如两次 `metrics.count('orders', 3)` 与 `metrics.count('orders', 2)` 的 `sum` 是 5、样本 `count` 是 2。数值样本的 `count` 没有毫秒等数值单位。
+
+Group by 支持最多 5 个字段组合，包括 `client.address`、`project`、`sdk.name`、`sdk.version`、`user_agent.original`、`value`、`browser.name`、`browser.version`，以及实际上报的自定义属性。字段标注 string/number/boolean/mixed，组合结果保留数值和布尔类型；缺失维度显示“无属性”。`project` 在当前单项目查询中为项目 slug；`value` 按实际样本数值分组，自定义同名属性可使用 `attributes.value`。
+
+SDK 自动采集 SDK/浏览器维度，浏览器身份优先使用 Client Hints，再解析 User-Agent。原始 User-Agent 按属性协议截取最多 256 个字符，不采集 Cookie 或请求头；客户端地址由接收端的请求 IP 提供，覆盖客户端同名属性，代理部署下按服务器可信代理设置解释。旧数据缺失的维度不会补造。本次新增维度复用已有 attributes 字段，无需新增数据库列。
+
+Metrics 条件筛选采用与 Traces 相同的字段、运算符、值和可删除条件标签，字段来自 Metrics 本身：指标名称/类型/单位、value、environment、release、traceId/spanId、项目、SDK/浏览器维度及 `attributes.*`。环境已并入统一条件，原独立环境参数与 `{ key, value }` 属性等值条件已移除。查询条件格式为 `{ field, operator, value }`，支持 `eq/in/not_in/contains/exists/gt/gte/lt/lte`，运算符按字段类型提供，最多 10 条 AND 条件、每个多值条件最多 50 个值。`exists` 默认匹配存在的字段，传 `value: false` 匹配缺失字段；`not_in` 包含缺失字段，文本包含按字面量匹配，数值比较不会把文本属性强转成数值。条件同时约束样本、聚合与时间序列。
+
+部署时可重新执行幂等的 `apps/nest/src/database/metrics-schema.sql`，为已有指标表补充 `monitoring_metrics_trace` 索引；开启 TypeORM synchronize 的开发环境会通过实体声明创建索引。本次不执行线上数据库变更。Trace 和指标独立上报及保留；未采样、尚未送达、截断或已清理的 Trace/Span 可能无法定位，详情页会提示并保留关联指标查询入口。
+
 ## 当前边界
 
 本期仅浏览器侧 Traces，服务端 Span 与分布式追踪暂不实现。

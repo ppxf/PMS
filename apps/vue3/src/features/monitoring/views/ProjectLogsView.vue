@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from 'reka-ui'
 import { useRoute } from 'vue-router'
 import { use } from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
@@ -21,6 +22,9 @@ import {
   Code,
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import FormSelect from '@/components/ui/select/FormSelect.vue'
+import { controlStyles, menuStyles } from '@/components/ui/control-styles'
 import { logFields, logQuery } from '../api/logs.api'
 import { LOG_LEVELS, logsCsv } from '../model/logs'
 import type { LogFields, LogLevel, LogQuery, LogResult } from '../model/logs'
@@ -100,7 +104,7 @@ async function load(reset = true) {
       fields.value = next
     }
     if (traceId.value && !/^[a-f0-9]{32}$/.test(traceId.value))
-      throw new Error('Trace ID 必须为 32 位小写十六进制字符')
+      throw new Error('Trace ID must contain 32 lowercase hexadecimal characters')
     if (!window) {
       const now = Date.now()
       window = {
@@ -123,7 +127,7 @@ async function load(reset = true) {
     const next = await logQuery(group, project, query)
     if (current === generation) result.value = next
   } catch (e) {
-    if (current === generation) error.value = e instanceof Error ? e.message : '日志查询失败'
+    if (current === generation) error.value = e instanceof Error ? e.message : 'Log query failed'
   } finally {
     if (current === generation) loading.value = false
   }
@@ -141,7 +145,7 @@ function addFilter() {
         ? filterValue.value === 'true'
         : filterValue.value
   if (typeof value === 'number' && (!filterValue.value.trim() || !Number.isFinite(value))) {
-    error.value = '请输入有效数值'
+    error.value = 'Enter a valid number'
     return
   }
   filters.value.push({ key: filterKey.value, value })
@@ -210,25 +214,30 @@ onBeforeUnmount(() => {
         <span class="truncate text-sm text-muted-foreground">{{ route.params.projectSlug }}</span>
       </div>
       <div class="flex items-center gap-2">
-        <select v-model.number="range" aria-label="时间范围" @change="load()">
-          <option :value="1">最近 1 小时</option>
-          <option :value="6">最近 6 小时</option>
-          <option :value="24">最近 24 小时</option>
-          <option :value="72">最近 3 天</option>
-          <option :value="168">最近 7 天</option></select
-        ><Button
+        <FormSelect
+          v-model="range"
+          aria-label="Time range"
+          @change="load()"
+          :options="[
+            { value: 1, label: 'Last hour' },
+            { value: 6, label: 'Last 6 hours' },
+            { value: 24, label: 'Last 24 hours' },
+            { value: 72, label: 'Last 3 days' },
+            { value: 168, label: 'Last 7 days' },
+          ]"
+        /><Button
           variant="outline"
           size="icon"
-          title="刷新"
-          aria-label="刷新"
+          title="Refresh"
+          aria-label="Refresh"
           :disabled="loading"
           @click="refresh"
           ><RefreshCw class="size-4" /></Button
         ><Button
           variant="outline"
           size="icon"
-          title="导出当前页日志"
-          aria-label="导出当前页日志"
+          title="Export current log page"
+          aria-label="Export current log page"
           :disabled="!result?.items.length"
           @click="exportCsv"
           ><Download class="size-4"
@@ -236,21 +245,20 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <p v-if="fields && !fields.enabled" class="text-sm text-amber-700">
-      此项目的 Logs 上报已关闭。<RouterLink
-        :to="{ name: 'project-detail', params: route.params }"
-        class="underline"
-        >项目配置</RouterLink
+      Log ingestion is disabled for this project.
+      <RouterLink :to="{ name: 'project-detail', params: route.params }" class="underline"
+        >Project settings</RouterLink
       >
     </p>
     <form class="flex gap-2" @submit.prevent="load()">
-      <input
+      <Input
         v-model="search"
         type="search"
-        aria-label="搜索日志"
-        placeholder="搜索日志消息"
+        aria-label="Search logs"
+        placeholder="Search log messages"
         maxlength="256"
         class="min-w-0 flex-1"
-      /><Button type="submit" size="icon" variant="outline" title="搜索" aria-label="搜索"
+      /><Button type="submit" size="icon" variant="outline" title="Search" aria-label="Search"
         ><Search class="size-4"
       /></Button>
     </form>
@@ -263,7 +271,7 @@ onBeforeUnmount(() => {
           v-model="levels"
           type="checkbox"
           :value="level"
-          :aria-label="`级别 ${level}`"
+          :aria-label="`Level ${level}`"
           @change="load()"
         /><span class="h-2 w-2 rounded-full" :style="{ backgroundColor: colors[level] }" />{{
           level
@@ -272,41 +280,52 @@ onBeforeUnmount(() => {
     </div>
     <div class="grid gap-3 sm:grid-cols-2">
       <label
-        >环境<input
+        >Environment<Input
           v-model="environment"
-          aria-label="环境"
-          placeholder="全部环境"
+          aria-label="Environment"
+          placeholder="All environments"
           maxlength="128"
           @change="load()" /></label
       ><label
-        >Trace ID<input
+        >Trace ID<Input
           v-model="traceId"
           aria-label="Trace ID"
-          placeholder="全部 Trace"
+          placeholder="All traces"
           maxlength="32"
           @change="load()"
       /></label>
     </div>
     <form class="flex flex-wrap items-end gap-2" @submit.prevent="addFilter">
       <label
-        >属性<select v-model="filterKey" aria-label="过滤属性">
-          <option value="">选择属性</option>
-          <option v-for="key in fields?.attributes" :key="key">{{ key }}</option>
-        </select></label
+        >Attributes<FormSelect
+          v-model="filterKey"
+          aria-label="Filter attribute"
+          :options="[
+            { value: '', label: 'Select an attribute' },
+            ...(fields?.attributes ?? []).map((value) => ({ value, label: value })),
+          ]" /></label
       ><label
-        >值类型<select v-model="filterType" aria-label="过滤值类型" @change="changeFilterType">
-          <option value="string">文本</option>
-          <option value="number">数字</option>
-          <option value="boolean">布尔值</option>
-        </select></label
+        >Value type<FormSelect
+          v-model="filterType"
+          aria-label="Filter value type"
+          @change="changeFilterType"
+          :options="[
+            { value: 'string', label: 'Text' },
+            { value: 'number', label: 'Number' },
+            { value: 'boolean', label: 'Boolean' },
+          ]" /></label
       ><label
-        >等于<select v-if="filterType === 'boolean'" v-model="filterValue" aria-label="过滤值">
-          <option value="true">true</option>
-          <option value="false">false</option></select
-        ><input
+        >Equals<FormSelect
+          v-if="filterType === 'boolean'"
+          v-model="filterValue"
+          aria-label="Filter value"
+          :options="[
+            { value: 'true', label: 'true' },
+            { value: 'false', label: 'false' },
+          ]" /><Input
           v-else
           v-model="filterValue"
-          aria-label="过滤值"
+          aria-label="Filter value"
           :type="filterType === 'number' ? 'number' : 'text'"
           step="any"
           maxlength="256" /></label
@@ -314,8 +333,8 @@ onBeforeUnmount(() => {
         type="submit"
         size="icon"
         variant="outline"
-        title="添加过滤"
-        aria-label="添加过滤"
+        title="Add filter"
+        aria-label="Add filter"
         :disabled="!filterKey || filters.length >= 10"
         ><Plus class="size-4" /></Button
       ><span
@@ -325,8 +344,8 @@ onBeforeUnmount(() => {
         ><span class="break-all">{{ filter.key }} = {{ JSON.stringify(filter.value) }}</span
         ><button
           type="button"
-          :aria-label="`移除过滤 ${filter.key}`"
-          title="移除过滤"
+          :aria-label="`Remove filter ${filter.key}`"
+          title="Remove filter"
           @click="removeFilter(index)"
         >
           <X class="size-4" /></button
@@ -334,18 +353,27 @@ onBeforeUnmount(() => {
     </form>
     <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
     <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
-      <span>{{ result?.total ?? 0 }} 条日志</span>
+      <span>{{ result?.total ?? 0 }} logs</span>
       <div class="flex gap-2">
-        <select v-model="chartType" aria-label="图表类型">
-          <option value="bar">柱状图</option>
-          <option value="line">折线图</option></select
-        ><select v-model.number="interval" aria-label="时间粒度" @change="load()">
-          <option :value="0">自动粒度</option>
-          <option :value="60" :disabled="range > 6">1 分钟</option>
-          <option :value="300" :disabled="range > 24">5 分钟</option>
-          <option :value="3600">1 小时</option>
-          <option :value="86400">1 天</option>
-        </select>
+        <FormSelect
+          v-model="chartType"
+          aria-label="Chart type"
+          :options="[
+            { value: 'bar', label: 'Bar' },
+            { value: 'line', label: 'Line' },
+          ]"
+        /><FormSelect
+          v-model="interval"
+          aria-label="Interval"
+          @change="load()"
+          :options="[
+            { value: 0, label: 'Auto interval' },
+            { value: 60, label: '1 minute', disabled: range > 6 },
+            { value: 300, label: '5 minutes', disabled: range > 24 },
+            { value: 3600, label: '1 hour' },
+            { value: 86400, label: '1 day' },
+          ]"
+        />
       </div>
     </div>
     <div class="h-56 min-w-0 overflow-hidden border-b" :aria-busy="loading">
@@ -354,40 +382,63 @@ onBeforeUnmount(() => {
         role="status"
         class="grid h-full place-items-center text-sm text-muted-foreground"
       >
-        加载中…
+        Loading…
       </p>
       <VChart v-else-if="result?.total" :option="chart" autoresize class="h-full w-full" />
       <p v-else class="grid h-full place-items-center text-sm text-muted-foreground">
-        {{ error ? '查询未完成' : '此时间范围内没有日志' }}
+        {{ error ? 'Query not completed' : 'No logs in this time range' }}
       </p>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <label class="inline-flex items-center gap-2 text-sm"
-        ><input v-model="autoRefresh" type="checkbox" aria-label="自动刷新" />自动刷新</label
+        ><input v-model="autoRefresh" type="checkbox" aria-label="Auto refresh" />Auto
+        refresh</label
       >
-      <details class="relative">
-        <summary class="flex cursor-pointer items-center gap-1 text-sm">
-          <Columns3 class="size-4" />列
-        </summary>
-        <div
-          class="absolute right-0 z-10 flex min-w-40 flex-col gap-2 border bg-background p-3 shadow-sm"
-        >
-          <label class="flex items-center gap-2"
-            ><input v-model="showEnvironment" type="checkbox" />Environment</label
-          ><label class="flex items-center gap-2"
-            ><input v-model="showTrace" type="checkbox" />Trace ID</label
-          ><label class="flex items-center gap-2"
-            ><input v-model="showAttributes" type="checkbox" />Attributes</label
+      <PopoverRoot>
+        <PopoverTrigger as-child>
+          <button
+            type="button"
+            aria-label="Columns"
+            class="flex cursor-pointer items-center gap-1"
+            :class="controlStyles"
           >
-        </div>
-      </details>
+            <Columns3 class="size-4" />Columns
+          </button>
+        </PopoverTrigger>
+        <PopoverPortal>
+          <PopoverContent
+            aria-label="Columns"
+            align="end"
+            :side-offset="4"
+            class="flex min-w-40 max-w-[calc(100vw-2rem)] flex-col gap-2 p-3 text-sm"
+            :class="menuStyles"
+          >
+            <label class="flex items-center gap-2"
+              ><input
+                v-model="showEnvironment"
+                type="checkbox"
+                aria-label="Show environment"
+              />Environment</label
+            ><label class="flex items-center gap-2"
+              ><input v-model="showTrace" type="checkbox" aria-label="Show trace ID" />Trace
+              ID</label
+            ><label class="flex items-center gap-2"
+              ><input
+                v-model="showAttributes"
+                type="checkbox"
+                aria-label="Show attributes"
+              />Attributes</label
+            >
+          </PopoverContent>
+        </PopoverPortal>
+      </PopoverRoot>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full table-fixed text-left text-sm">
         <thead>
           <tr>
             <th class="w-44" :aria-sort="sortDirection === 'desc' ? 'descending' : 'ascending'">
-              <button class="flex items-center gap-1" aria-label="按时间排序" @click="sort">
+              <button class="flex items-center gap-1" aria-label="Sort by time" @click="sort">
                 Timestamp<ArrowDown v-if="sortDirection === 'desc'" class="size-3" /><ArrowUp
                   v-else
                   class="size-3"
@@ -404,7 +455,9 @@ onBeforeUnmount(() => {
         <tbody>
           <template v-for="log in result?.items" :key="log.logId"
             ><tr>
-              <td class="whitespace-nowrap">{{ new Date(log.timestamp).toLocaleString() }}</td>
+              <td class="whitespace-nowrap">
+                {{ new Date(log.timestamp).toLocaleString('en-US') }}
+              </td>
               <td>
                 <span class="font-medium" :style="{ color: colors[log.level] }">{{
                   log.level
@@ -413,7 +466,7 @@ onBeforeUnmount(() => {
               <td>
                 <button
                   class="flex w-full items-start gap-1 text-left"
-                  :aria-label="`查看日志 ${log.logId}`"
+                  :aria-label="`View log ${log.logId}`"
                   :aria-expanded="expanded === log.logId"
                   @click="expanded = expanded === log.logId ? null : log.logId"
                 >
@@ -473,29 +526,29 @@ onBeforeUnmount(() => {
       v-if="!loading && !error && result?.total === 0"
       class="py-6 text-center text-sm text-muted-foreground"
     >
-      没有匹配的日志
+      No matching logs
     </p>
     <footer class="flex items-center justify-end gap-3 text-sm">
       <Button
         variant="outline"
         size="sm"
-        aria-label="上一页"
+        aria-label="Previous page"
         :disabled="loading || page <= 1"
         @click="paginate(-1)"
-        >上一页</Button
-      ><span>第 {{ page }} 页</span
+        >Previous page</Button
+      ><span>Page {{ page }}</span
       ><Button
         variant="outline"
         size="sm"
-        aria-label="下一页"
+        aria-label="Next page"
         :disabled="loading || !result || page * 20 >= result.total"
         @click="paginate(1)"
-        >下一页</Button
+        >Next page</Button
       >
     </footer>
     <details class="border-t pt-3">
       <summary class="flex cursor-pointer items-center gap-2 text-sm">
-        <Code class="size-4" />SDK 接入
+        <Code class="size-4" />SDK setup
       </summary>
       <pre class="mt-3 overflow-x-auto bg-muted/30 p-3 text-xs"><code>{{ snippet }}</code></pre>
     </details>
@@ -503,20 +556,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.logs-view select,
-.logs-view input:not([type='checkbox']) {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 10px;
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 13px;
-}
-.logs-view label:has(select),
+.logs-view label:has([role='combobox']),
 .logs-view label:has(input:not([type='checkbox'])) {
   display: flex;
   flex-direction: column;

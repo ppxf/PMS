@@ -58,14 +58,14 @@ describe('group views', () => {
     })
     await flushPromises()
     expect(populated.text()).toContain('Acme')
-    expect(populated.text()).toContain('1 个项目')
+    expect(populated.text()).toContain('1 project')
 
     listGroups.mockResolvedValueOnce([])
     const empty = mount(GroupsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
-    expect(empty.text()).toContain('还没有组')
+    expect(empty.text()).toContain('No groups yet')
   })
 
   it('shows group projects and a create project action', async () => {
@@ -80,6 +80,6 @@ describe('group views', () => {
 
     expect(wrapper.text()).toContain('Acme')
     expect(wrapper.text()).toContain('Frontend')
-    expect(wrapper.text()).toContain('创建项目')
+    expect(wrapper.text()).toContain('Create project')
   })
 })

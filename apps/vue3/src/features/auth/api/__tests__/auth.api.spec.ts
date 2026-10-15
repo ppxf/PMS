@@ -23,7 +23,7 @@ describe('auth API', () => {
   it('posts credentials to the login endpoint', async () => {
     const session = {
       accessToken: 'token',
-      user: { id: '1', name: '管理员', email: 'admin@example.com' },
+      user: { id: '1', name: 'Administrator', email: 'admin@example.com' },
       permissions: ['user:read'],
     }
     post.mockResolvedValue(session)
@@ -37,7 +37,7 @@ describe('auth API', () => {
 
   it('gets the current user from the session endpoint', async () => {
     const current = {
-      user: { id: '1', name: '管理员', email: 'admin@example.com' },
+      user: { id: '1', name: 'Administrator', email: 'admin@example.com' },
       permissions: ['user:read'],
     }
     get.mockResolvedValue(current)
@@ -49,7 +49,7 @@ describe('auth API', () => {
   it('posts account lifecycle requests to their endpoints', async () => {
     post.mockResolvedValue({ message: 'ok' })
     await register({
-      name: '用户',
+      name: 'User',
       email: 'user@example.com',
       password: 'password123',
       passwordConfirmation: 'password123',
@@ -67,7 +67,7 @@ describe('auth API', () => {
       [
         '/auth/register',
         {
-          name: '用户',
+          name: 'User',
           email: 'user@example.com',
           password: 'password123',
           passwordConfirmation: 'password123',

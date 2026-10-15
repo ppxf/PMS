@@ -22,7 +22,10 @@ async function submit(): Promise<void> {
     onboarding.addGroup(group)
     await router.push({ name: 'create-project', params: { groupSlug: group.slug } })
   } catch (cause) {
-    error.value = cause instanceof AppError ? cause.message : '创建组失败，请稍后重试'
+    error.value =
+      cause instanceof AppError
+        ? cause.message
+        : 'Unable to create the group. Please try again later.'
   } finally {
     submitting.value = false
   }
@@ -33,18 +36,26 @@ async function submit(): Promise<void> {
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <Card class="w-full max-w-lg">
       <CardHeader>
-        <CardTitle>创建第一个组</CardTitle>
-        <CardDescription>监控项目将归属到组中，之后还可以继续创建更多组。</CardDescription>
+        <CardTitle>Create your first group</CardTitle>
+        <CardDescription
+          >Monitoring projects belong to groups. You can create more groups later.</CardDescription
+        >
       </CardHeader>
       <CardContent>
         <p v-if="error" role="alert" class="mb-4 text-sm text-destructive">{{ error }}</p>
         <form class="space-y-4" @submit.prevent="submit">
           <label class="grid gap-2 text-sm font-medium">
-            组名称
-            <Input v-model="name" name="name" required minlength="2" placeholder="例如：前端团队" />
+            Group name
+            <Input
+              v-model="name"
+              name="name"
+              required
+              minlength="2"
+              placeholder="e.g. Frontend team"
+            />
           </label>
           <Button class="w-full" :disabled="submitting" type="submit">
-            {{ submitting ? '创建中…' : '创建组并继续' }}
+            {{ submitting ? 'Creating…' : 'Create group and continue' }}
           </Button>
         </form>
       </CardContent>

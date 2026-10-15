@@ -8,8 +8,27 @@ import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { contentHash } from '../traces/traces.service';
 import { MetricBatchEntity, MetricEntity } from './metric.entity';
-import { MetricQuery, MetricsEnvelope } from './metrics-contract';
-import { MetricQueryPipe, MetricsEnvelopePipe } from './metrics-validation';
+import {
+  MetricQuery,
+  MetricsEnvelope,
+  TraceMetricsQuery,
+} from './metrics-contract';
+import {
+  MetricQueryPipe,
+  MetricsEnvelopePipe,
+  TraceMetricsQueryPipe,
+} from './metrics-validation';
+import { validId } from '../traces/traces-validation';
+import { isIP } from 'node:net';
+import { METRIC_GROUP_FIELDS } from './metrics-contract';
+import {
+  METRIC_FILTER_FIELDS,
+  metricFieldOperators,
+  metricFilterField,
+} from './metrics-fields';
+
+const sampleColumns =
+  'event_id AS "eventId", sample_index AS "sampleIndex", name, type, unit, value, timestamp, attributes, environment, release, trace_id AS "traceId", span_id AS "spanId"';
 
 @Injectable()
 export class MetricsService {
@@ -21,6 +40,7 @@ export class MetricsService {
     projectId: string,
     key: string | undefined,
     input: MetricsEnvelope,
+    clientAddress?: string,
   ) {
     const envelope = new MetricsEnvelopePipe().transform(input);
     const project = await this.projects.findForIngestion(projectId, key);
@@ -48,6 +68,16 @@ export class MetricsService {
       await manager.getRepository(MetricEntity).insert(
         envelope.samples.map((sample, sampleIndex) => ({
           ...sample,
+          attributes: {
+            ...Object.fromEntries(
+              Object.entries(sample.attributes).filter(
+                ([key]) => key !== 'client.address',
+              ),
+            ),
+            ...(clientAddress && isIP(clientAddress)
+              ? { 'client.address': clientAddress }
+              : {}),
+          },
           timestamp: new Date(sample.timestamp),
           projectId,
           eventId: envelope.eventId,
@@ -79,15 +109,104 @@ export class MetricsService {
         `SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen" FROM monitoring_metrics WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit ORDER BY name, type, unit LIMIT 201`,
         [project.id],
       );
-      const attributes = await manager.query<{ key: string }[]>(
-        `SELECT DISTINCT key FROM monitoring_metrics CROSS JOIN LATERAL jsonb_object_keys(attributes) AS key WHERE project_id = $1 AND timestamp >= now() - interval '7 days' ORDER BY key LIMIT 100`,
+      const attributes = await manager.query<
+        { key: string; types: string[] }[]
+      >(
+        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types FROM monitoring_metrics CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
         [project.id],
       );
       return {
         items: items.slice(0, 200),
         truncated: items.length > 200,
-        attributes: attributes.map((row) => row.key),
+        attributes: attributes.slice(0, 100).map((row) => row.key),
+        groupFields: [
+          ...METRIC_GROUP_FIELDS,
+          ...attributes
+            .slice(0, 100)
+            .filter(
+              (row) =>
+                ['value', 'project'].includes(row.key) ||
+                !METRIC_GROUP_FIELDS.some((field) => field.key === row.key),
+            )
+            .map((row) => ({
+              key: `attributes.${row.key}`,
+              label: ['value', 'project'].includes(row.key)
+                ? `attributes.${row.key}`
+                : row.key,
+              type: row.types?.length === 1 ? row.types[0] : 'mixed',
+            })),
+        ],
+        filterFields: [
+          ...METRIC_FILTER_FIELDS.map(({ key, label, type, operators }) => ({
+            key,
+            label,
+            type,
+            operators,
+          })),
+          ...attributes
+            .slice(0, 100)
+            .filter(
+              (row) =>
+                !METRIC_GROUP_FIELDS.some(
+                  (field) =>
+                    field.key === row.key &&
+                    !['value', 'project'].includes(field.key),
+                ),
+            )
+            .map((row) => {
+              const type =
+                row.types?.length === 1 &&
+                ['string', 'number', 'boolean'].includes(row.types[0])
+                  ? (row.types[0] as 'string' | 'number' | 'boolean')
+                  : 'mixed';
+              return {
+                key: `attributes.${row.key}`,
+                label: `attributes.${row.key}`,
+                type,
+                operators: metricFieldOperators(type),
+              };
+            }),
+        ],
+        truncatedAttributes: attributes.length > 100,
         enabled: project.metricsEnabled,
+      };
+    });
+  }
+  async forTrace(
+    user: string,
+    group: string,
+    slug: string,
+    traceId: string,
+    input: TraceMetricsQuery,
+  ) {
+    if (!validId(traceId, 32)) throw new BadRequestException('Invalid traceId');
+    const q = new TraceMetricsQueryPipe().transform(input);
+    const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const params: unknown[] = [project.id, traceId];
+    let where = 'project_id = $1 AND trace_id = $2';
+    if (q.spanId !== undefined) {
+      params.push(q.spanId);
+      where += ` AND span_id = $${params.length}`;
+    }
+    if (q.search !== undefined) {
+      params.push(q.search);
+      where += ` AND strpos(lower(name), lower($${params.length}::text)) > 0`;
+    }
+    return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
+      await manager.query("SET LOCAL statement_timeout = '5000ms'");
+      const counts = await manager.query<{ total: number }[]>(
+        `SELECT count(*)::int AS total FROM monitoring_metrics WHERE ${where}`,
+        params,
+      );
+      const samples = await manager.query<Record<string, unknown>[]>(
+        `SELECT ${sampleColumns} FROM monitoring_metrics WHERE ${where} ORDER BY timestamp DESC, event_id DESC, sample_index DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, q.pageSize, (q.page - 1) * q.pageSize],
+      );
+      return {
+        total: counts[0].total,
+        page: q.page,
+        pageSize: q.pageSize,
+        samples,
       };
     });
   }
@@ -108,13 +227,43 @@ export class MetricsService {
     };
     let where =
       'project_id = $1 AND timestamp >= $2::timestamptz AND timestamp < $3::timestamptz AND name = $4 AND type = $5 AND unit = $6';
-    if (q.environment !== undefined)
-      where += ` AND environment = ${bind(q.environment)}`;
-    for (const filter of q.filters)
-      where += ` AND attributes -> ${bind(filter.key)}::text = ${bind(JSON.stringify(filter.value))}::jsonb`;
-    const groupSql = q.groupBy
-      ? `attributes -> ${bind(q.groupBy)}::text`
-      : '\'"all"\'::jsonb';
+    if (q.traceId !== undefined) where += ` AND trace_id = ${bind(q.traceId)}`;
+    if (q.spanId !== undefined) where += ` AND span_id = ${bind(q.spanId)}`;
+    for (const filter of q.filters) {
+      const field = metricFilterField(filter.field)!;
+      const expression = field.column
+        ? `to_jsonb(${field.column})`
+        : field.key === 'project'
+          ? `to_jsonb(${bind(project.slug ?? slug)}::text)`
+          : `NULLIF(attributes -> ${bind(field.attribute)}::text, 'null'::jsonb)`;
+      if (filter.operator === 'exists')
+        where += ` AND ${expression} IS ${filter.value === false ? '' : 'NOT '}NULL`;
+      else if (filter.operator === 'in' || filter.operator === 'not_in') {
+        const values = filter.value as (string | number | boolean)[];
+        const membership = `${expression} ${filter.operator === 'not_in' ? 'NOT ' : ''}IN (${values.map((value) => `${bind(JSON.stringify(value))}::jsonb`).join(', ')})`;
+        where += ` AND ${filter.operator === 'not_in' ? `(${expression} IS NULL OR ${membership})` : membership}`;
+      } else if (filter.operator === 'contains') {
+        where += ` AND strpos(CASE WHEN jsonb_typeof(${expression}) = 'string' THEN ${expression} #>> '{}' END, ${bind(filter.value)}) > 0`;
+      } else if (filter.operator === 'eq')
+        where += ` AND ${expression} = ${bind(JSON.stringify(filter.value))}::jsonb`;
+      else {
+        const operators = { gt: '>', gte: '>=', lt: '<', lte: '<=' };
+        where += ` AND (CASE WHEN jsonb_typeof(${expression}) = 'number' THEN (${expression} #>> '{}')::double precision END) ${operators[filter.operator]} ${bind(filter.value)}`;
+      }
+    }
+    const scopeParams = [...params];
+    const fields =
+      typeof q.groupBy === 'string' ? [q.groupBy] : (q.groupBy ?? []);
+    const groupExpressions = fields.map((field) => {
+      if (field === 'value') return 'to_jsonb(value)';
+      if (field === 'project')
+        return `to_jsonb(${bind(project.slug ?? slug)}::text)`;
+      return `attributes -> ${bind(field.startsWith('attributes.') ? field.slice(11) : field)}::text`;
+    });
+    const groupSql =
+      groupExpressions.length > 1
+        ? `jsonb_build_array(${groupExpressions.join(', ')})`
+        : (groupExpressions[0] ?? '\'"all"\'::jsonb');
     const aggregates = {
       sum: 'sum(value)',
       avg: 'avg(value)',
@@ -131,7 +280,7 @@ export class MetricsService {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       const bounded = await manager.query<{ total: number }[]>(
         `SELECT count(*)::int AS total FROM (SELECT 1 FROM monitoring_metrics WHERE ${where} LIMIT 100001) bounded`,
-        params.slice(0, q.groupBy ? -1 : undefined),
+        scopeParams,
       );
       const total = bounded[0].total;
       if (total > 100000)
@@ -171,8 +320,8 @@ export class MetricsService {
         ]),
       );
       const samples = await manager.query<Record<string, unknown>[]>(
-        `SELECT event_id AS "eventId", sample_index AS "sampleIndex", name, type, unit, value, timestamp, attributes, environment, release, trace_id AS "traceId", span_id AS "spanId" FROM monitoring_metrics WHERE ${where} ORDER BY timestamp DESC, event_id DESC, sample_index DESC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
-        params.slice(0, q.groupBy ? -1 : undefined),
+        `SELECT ${sampleColumns} FROM monitoring_metrics WHERE ${where} ORDER BY timestamp DESC, event_id DESC, sample_index DESC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
+        scopeParams,
       );
       return {
         total,
@@ -182,6 +331,8 @@ export class MetricsService {
         aggregates: groups,
         truncatedGroups: rows.length > 20,
         intervalMs,
+        aggregation: q.aggregation,
+        unit: q.aggregation === 'count' ? 'none' : q.unit,
         series: groups.map((row) => ({
           groupValue: row.groupValue,
           points: Array.from(

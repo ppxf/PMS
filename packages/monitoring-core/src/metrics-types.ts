@@ -3,6 +3,7 @@ export type MetricType = 'count' | 'gauge' | 'distribution'
 export interface MetricOptions {
   unit?: string
   attributes?: Record<string, string | number | boolean>
+  /** Overrides the current callback/page context; pass explicitly after an await. */
   traceContext?: TraceContext
 }
 export interface MetricSample {

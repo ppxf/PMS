@@ -1,16 +1,35 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { use } from 'echarts/core'
 import { LineChart, BarChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import { Download, RefreshCw, Plus, X, ChartNoAxesCombined } from '@lucide/vue'
+import { Download, RefreshCw, ChartNoAxesCombined } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import FormSelect from '@/components/ui/select/FormSelect.vue'
 import { metricCatalog, metricQuery } from '../api/metrics.api'
-import { metricCsv, metricGroupLabel } from '../model/metrics'
-import type { MetricAggregation, MetricCatalog, MetricQuery, MetricResult } from '../model/metrics'
+import {
+  metricCsv,
+  metricGroupLabel,
+  metricAggregations,
+  defaultMetricAggregation,
+  metricTypeLabel,
+  metricAggregationLabel,
+  catalogGroupFields,
+  catalogFilterFields,
+  buildMetricFilter,
+} from '../model/metrics'
+import MetricOptionPicker from '../components/MetricOptionPicker.vue'
+import type {
+  MetricAggregation,
+  MetricCatalog,
+  MetricQuery,
+  MetricResult,
+  MetricFilterOperator,
+} from '../model/metrics'
 use([LineChart, BarChart, CanvasRenderer, GridComponent, TooltipComponent, LegendComponent])
 const route = useRoute()
 const catalog = ref<MetricCatalog | null>(null),
@@ -19,32 +38,51 @@ const selected = ref(''),
   aggregation = ref<MetricAggregation>('sum'),
   range = ref(24),
   interval = ref(0)
-const environment = ref(''),
-  groupBy = ref(''),
-  filterKey = ref(''),
+const groupBy = ref<string[]>([]),
+  filterField = ref('environment'),
   filterValue = ref(''),
-  filterType = ref('string')
+  filterOperator = ref<MetricFilterOperator>('eq')
 const filters = ref<MetricQuery['filters']>([]),
   chartType = ref<'line' | 'bar'>('line'),
   tab = ref('samples')
 const loading = ref(false),
   error = ref(''),
   page = ref(1)
-const aggregations: MetricAggregation[] = [
-  'sum',
-  'avg',
-  'min',
-  'max',
-  'count',
-  'p50',
-  'p95',
-  'p99',
-  'last',
-]
 const metricKey = (item: { name: string; type: string; unit: string }) =>
   JSON.stringify([item.name, item.type, item.unit])
 const identity = computed(() =>
   catalog.value?.items.find((item) => metricKey(item) === selected.value),
+)
+const aggregations = computed(() => metricAggregations(identity.value?.type ?? 'count'))
+const metricOptions = computed(
+  () =>
+    catalog.value?.items.map((item) => ({
+      key: metricKey(item),
+      label: item.name,
+      type: metricTypeLabel(item.type),
+      unit: item.unit,
+    })) ?? [],
+)
+const groupOptions = computed(() => catalogGroupFields(catalog.value))
+const filterFields = computed(() => catalogFilterFields(catalog.value))
+const currentFilterField = computed(() =>
+  filterFields.value.find((field) => field.key === filterField.value),
+)
+const filterOperators = computed(() => currentFilterField.value?.operators ?? ['eq'])
+watch(filterField, () => {
+  if (!filterOperators.value.includes(filterOperator.value)) filterOperator.value = 'eq'
+  filterValue.value = filterOperator.value === 'exists' ? 'true' : ''
+})
+watch(filterOperator, (value) => {
+  filterValue.value = value === 'exists' ? 'true' : ''
+})
+const groupLabel = computed(() =>
+  groupBy.value
+    .map((key) => groupOptions.value.find((field) => field.key === key)?.label ?? key)
+    .join(' / '),
+)
+const aggregateUnit = computed(() =>
+  aggregation.value === 'count' ? 'none' : (identity.value?.unit ?? 'none'),
 )
 const chart = computed(() => ({
   animation: false,
@@ -53,10 +91,12 @@ const chart = computed(() => ({
   legend: { type: 'scroll', bottom: 0 },
   grid: { left: 55, right: 20, top: 20, bottom: 60 },
   xAxis: { type: 'time' },
-  yAxis: { type: 'value', name: identity.value?.unit === 'none' ? '' : identity.value?.unit },
+  yAxis: { type: 'value', name: aggregateUnit.value === 'none' ? '' : aggregateUnit.value },
   series:
     result.value?.series.map((series) => ({
-      name: metricGroupLabel(series.groupValue),
+      name: groupBy.value.length
+        ? metricGroupLabel(series.groupValue)
+        : `${aggregation.value}(${identity.value?.name ?? ''})`,
       type: chartType.value,
       showSymbol: false,
       connectNulls: false,
@@ -86,16 +126,13 @@ async function load(reset = true) {
       catalog.value = next
       if (!next.items.some((item) => metricKey(item) === selected.value)) {
         selected.value = next.items[0] ? metricKey(next.items[0]) : ''
-        aggregation.value =
-          next.items[0]?.type === 'gauge'
-            ? 'last'
-            : next.items[0]?.type === 'distribution'
-              ? 'p95'
-              : 'sum'
+        aggregation.value = defaultMetricAggregation(next.items[0]?.type ?? 'count')
       }
     }
     const item = identity.value
     if (!item) return
+    if (!metricAggregations(item.type).includes(aggregation.value))
+      aggregation.value = defaultMetricAggregation(item.type)
     if (!appliedWindow) {
       const now = Date.now()
       appliedWindow = {
@@ -109,48 +146,48 @@ async function load(reset = true) {
       unit: item.unit,
       ...appliedWindow,
       aggregation: aggregation.value,
-      filters: filters.value.map((f) => ({ ...f })),
+      filters: filters.value.map((f) => ({
+        ...f,
+        ...(Array.isArray(f.value) ? { value: [...f.value] } : {}),
+      })),
       page: page.value,
       pageSize: 20,
-      ...(environment.value ? { environment: environment.value } : {}),
-      ...(groupBy.value ? { groupBy: groupBy.value } : {}),
+      ...(groupBy.value.length ? { groupBy: [...groupBy.value] } : {}),
       ...(interval.value ? { intervalSeconds: interval.value } : {}),
     }
     const next = await metricQuery(group, project, query)
     if (current === generation) result.value = next
   } catch (e) {
-    if (current === generation) error.value = e instanceof Error ? e.message : '指标查询失败'
+    if (current === generation) error.value = e instanceof Error ? e.message : 'Metric query failed'
   } finally {
     if (current === generation) loading.value = false
   }
 }
-function changeMetric() {
-  aggregation.value =
-    identity.value?.type === 'count' ? 'sum' : identity.value?.type === 'gauge' ? 'last' : 'p95'
+function changeMetric(value: string | string[]) {
+  if (typeof value !== 'string') return
+  selected.value = value
+  aggregation.value = defaultMetricAggregation(identity.value?.type ?? 'count')
+  void load()
+}
+function changeGroups(value: string | string[]) {
+  groupBy.value = Array.isArray(value) ? value : []
   void load()
 }
 function addFilter() {
-  if (!filterKey.value || filters.value.length >= 10) return
-  const value =
-    filterType.value === 'number'
-      ? Number(filterValue.value)
-      : filterType.value === 'boolean'
-        ? filterValue.value === 'true'
-        : filterValue.value
-  if (typeof value === 'number' && (!filterValue.value.trim() || !Number.isFinite(value))) {
-    error.value = '请输入有效数值'
-    return
+  if (!currentFilterField.value || filters.value.length >= 10) return
+  try {
+    filters.value.push(
+      buildMetricFilter(currentFilterField.value, filterOperator.value, filterValue.value),
+    )
+    filterValue.value = filterOperator.value === 'exists' ? 'true' : ''
+    void load()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Invalid filter condition'
   }
-  filters.value.push({ key: filterKey.value, value })
-  filterValue.value = ''
-  void load()
 }
 function removeFilter(index: number) {
   filters.value.splice(index, 1)
   void load()
-}
-function changeFilterType() {
-  filterValue.value = filterType.value === 'boolean' ? 'true' : ''
 }
 function paginate(delta: number) {
   page.value += delta
@@ -172,15 +209,17 @@ function exportCsv() {
   URL.revokeObjectURL(url)
 }
 const format = (value: number | null) =>
-  value === null ? '-' : new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 3 }).format(value)
+  value === null ? '-' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 }).format(value)
 watch(
   () => [route.params.groupSlug, route.params.projectSlug],
   () => {
     catalog.value = null
     selected.value = ''
     filters.value = []
-    environment.value = ''
-    groupBy.value = ''
+    filterField.value = 'environment'
+    filterOperator.value = 'eq'
+    filterValue.value = ''
+    groupBy.value = []
     void load()
   },
   { immediate: true },
@@ -199,18 +238,24 @@ onBeforeUnmount(() => {
         <span class="text-sm text-muted-foreground">{{ route.params.projectSlug }}</span>
       </div>
       <div class="flex items-center gap-2">
-        <select v-model.number="range" aria-label="时间范围" @change="load()">
-          <option :value="1">最近 1 小时</option>
-          <option :value="6">最近 6 小时</option>
-          <option :value="24">最近 24 小时</option>
-          <option :value="72">最近 3 天</option>
-          <option :value="168">最近 7 天</option>
-        </select>
+        <FormSelect
+          v-model="range"
+          aria-label="Time range"
+          class="w-36"
+          :options="[
+            { value: 1, label: 'Last hour' },
+            { value: 6, label: 'Last 6 hours' },
+            { value: 24, label: 'Last 24 hours' },
+            { value: 72, label: 'Last 3 days' },
+            { value: 168, label: 'Last 7 days' },
+          ]"
+          @change="load()"
+        />
         <Button
           variant="outline"
           size="icon"
-          title="刷新"
-          aria-label="刷新"
+          title="Refresh"
+          aria-label="Refresh"
           :disabled="loading"
           @click="refresh"
           ><RefreshCw class="size-4"
@@ -218,8 +263,8 @@ onBeforeUnmount(() => {
         <Button
           variant="outline"
           size="icon"
-          title="导出当前页样本"
-          aria-label="导出当前页样本"
+          title="Export current sample page"
+          aria-label="Export current sample page"
           :disabled="!result?.samples.length"
           @click="exportCsv"
           ><Download class="size-4"
@@ -227,108 +272,144 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <p v-if="catalog && !catalog.enabled" class="text-sm text-amber-700">
-      此项目的 Metrics 上报已关闭。<RouterLink
-        :to="{ name: 'project-detail', params: route.params }"
-        class="underline"
-        >项目配置</RouterLink
+      Metric ingestion is disabled for this project.
+      <RouterLink :to="{ name: 'project-detail', params: route.params }" class="underline"
+        >Project settings</RouterLink
       >
     </p>
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-3 md:grid-cols-3">
+      <div class="min-w-0">
+        <p class="mb-1 text-xs text-muted-foreground">Metric</p>
+        <MetricOptionPicker
+          :model-value="selected"
+          :options="metricOptions"
+          label="Metric"
+          search-label="Search application metrics"
+          title="Application Metrics"
+          placeholder="Select a metric"
+          @update:model-value="changeMetric"
+        />
+      </div>
       <label
-        >指标<select v-model="selected" aria-label="指标" @change="changeMetric">
-          <option value="" disabled>选择指标</option>
-          <option v-for="item in catalog?.items" :key="metricKey(item)" :value="metricKey(item)">
-            {{ item.name }} · {{ item.type }} · {{ item.unit }}
-          </option>
-        </select></label
-      >
-      <label
-        >聚合<select v-model="aggregation" aria-label="聚合" @change="load()">
-          <option v-for="agg in aggregations" :key="agg" :value="agg">{{ agg }}</option>
-        </select></label
-      >
-      <label
-        >分组<select v-model="groupBy" aria-label="分组" @change="load()">
-          <option value="">不分组</option>
-          <option v-for="key in catalog?.attributes" :key="key">{{ key }}</option>
-        </select></label
-      >
-      <label
-        >环境<input
-          v-model="environment"
-          aria-label="环境"
-          placeholder="全部环境"
-          maxlength="128"
+        >Aggregation<FormSelect
+          v-model="aggregation"
+          aria-label="Aggregation"
+          :options="
+            aggregations.map((agg) => ({
+              value: agg,
+              label: metricAggregationLabel(agg, identity?.type ?? 'count'),
+            }))
+          "
           @change="load()"
       /></label>
+      <div class="min-w-0">
+        <p class="mb-1 text-xs text-muted-foreground">Group by</p>
+        <MetricOptionPicker
+          :model-value="groupBy"
+          :options="groupOptions"
+          label="Group by"
+          search-label="Search group fields"
+          multiple
+          @update:model-value="changeGroups"
+        />
+      </div>
     </div>
-    <form class="flex flex-wrap items-end gap-2" @submit.prevent="addFilter">
-      <label class="min-w-40"
-        >属性<select v-model="filterKey" aria-label="过滤属性">
-          <option value="">选择属性</option>
-          <option v-for="key in catalog?.attributes" :key="key">{{ key }}</option>
-        </select></label
-      >
-      <label
-        >值类型<select v-model="filterType" aria-label="过滤值类型" @change="changeFilterType">
-          <option value="string">文本</option>
-          <option value="number">数字</option>
-          <option value="boolean">布尔值</option>
-        </select></label
-      >
-      <label class="min-w-40"
-        >等于<select v-if="filterType === 'boolean'" v-model="filterValue" aria-label="过滤值">
-          <option value="true">true</option>
-          <option value="false">false</option></select
-        ><input
+    <p v-if="identity" class="text-xs text-muted-foreground">
+      {{ metricTypeLabel(identity.type) }} ·
+      {{
+        identity.type === 'count'
+          ? 'Counter: sum adds reported increments; count returns the number of samples.'
+          : identity.type === 'gauge'
+            ? 'Gauge: last returns the latest observation in the selected time range.'
+            : 'Distribution: percentiles and averages are calculated from reported samples.'
+      }}
+    </p>
+    <form
+      class="metric-filter-panel rounded-xl border p-5 space-y-4"
+      aria-label="Metric filters"
+      @submit.prevent="addFilter"
+    >
+      <div class="flex flex-wrap gap-2">
+        <FormSelect
+          v-model="filterField"
+          aria-label="Filter field"
+          class="filter-field"
+          :options="filterFields.map((field) => ({ value: field.key, label: field.label }))"
+        />
+        <FormSelect
+          v-model="filterOperator"
+          aria-label="Filter operator"
+          class="filter-operator"
+          :options="filterOperators.map((op) => ({ value: op, label: op }))"
+        />
+        <FormSelect
+          v-if="filterOperator === 'exists'"
+          v-model="filterValue"
+          aria-label="Filter existence"
+          class="filter-value"
+          :options="[
+            { value: 'true', label: 'Exists' },
+            { value: 'false', label: 'Missing' },
+          ]"
+        />
+        <Input
           v-else
           v-model="filterValue"
-          aria-label="过滤值"
-          maxlength="256"
-          :type="filterType === 'number' ? 'number' : 'text'"
-          step="any"
-      /></label>
-      <Button
-        type="submit"
-        variant="outline"
-        size="icon"
-        title="添加过滤"
-        aria-label="添加过滤"
-        :disabled="!filterKey || filters.length >= 10"
-        ><Plus class="size-4"
-      /></Button>
-      <span
-        v-for="(filter, index) in filters"
-        :key="index"
-        class="flex max-w-full items-center gap-1 text-sm"
-        ><span class="break-all">{{ filter.key }} = {{ JSON.stringify(filter.value) }}</span
-        ><button
+          aria-label="Filter value"
+          placeholder="Value / comma-separated values"
+          class="filter-value"
+        />
+        <Button
+          type="submit"
+          variant="outline"
+          :disabled="!currentFilterField || filters.length >= 10"
+          >Add condition</Button
+        >
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button
+          v-for="(filter, index) in filters"
+          :key="index"
           type="button"
-          :aria-label="`移除过滤 ${filter.key}`"
-          title="移除过滤"
+          class="metric-filter-chip rounded-md border px-3 py-1.5 text-sm"
+          :aria-label="`Remove condition ${index + 1}`"
           @click="removeFilter(index)"
         >
-          <X class="size-4" /></button
-      ></span>
+          {{ filter.field }} {{ filter.operator }}
+          {{ filter.value === undefined ? '' : JSON.stringify(filter.value) }} ×
+        </button>
+      </div>
     </form>
     <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
     <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
       <span
-        >{{ result?.total ?? 0 }} 个样本<span v-if="result?.truncatedGroups">
-          · 仅显示样本数最多的 20 个分组</span
-        ><span v-if="catalog?.truncated"> · 指标目录已截断</span></span
+        >{{ result?.total ?? 0 }} samples<span v-if="result?.truncatedGroups">
+          · Showing the 20 groups with the most samples</span
+        ><span v-if="catalog?.truncated"> · Metric catalog truncated</span></span
       >
       <div class="flex gap-2">
-        <select v-model="chartType" aria-label="图表类型">
-          <option value="line">折线图</option>
-          <option value="bar">柱状图</option></select
-        ><select v-model.number="interval" aria-label="时间粒度" @change="load()">
-          <option :value="0">自动粒度</option>
-          <option :value="60" :disabled="range > 6">1 分钟</option>
-          <option :value="300" :disabled="range > 24">5 分钟</option>
-          <option :value="3600">1 小时</option>
-          <option :value="86400">1 天</option>
-        </select>
+        <FormSelect
+          v-model="chartType"
+          aria-label="Chart type"
+          class="w-24"
+          :options="[
+            { value: 'line', label: 'Line' },
+            { value: 'bar', label: 'Bar' },
+          ]"
+        />
+        <FormSelect
+          v-model="interval"
+          aria-label="Interval"
+          class="w-36"
+          :options="[
+            { value: 0, label: 'Auto interval' },
+            { value: 60, label: '1 minute', disabled: range > 6 },
+            { value: 300, label: '5 minutes', disabled: range > 24 },
+            { value: 3600, label: '1 hour' },
+            { value: 86400, label: '1 day' },
+          ]"
+          @change="load()"
+        />
       </div>
     </div>
     <div class="relative h-80 min-w-0 overflow-hidden border-b" :aria-busy="loading">
@@ -337,14 +418,14 @@ onBeforeUnmount(() => {
         role="status"
         class="grid h-full place-items-center text-sm text-muted-foreground"
       >
-        加载中…
+        Loading…
       </p>
       <VChart v-else-if="result?.total" :option="chart" autoresize class="h-full w-full" />
       <p v-else class="grid h-full place-items-center text-sm text-muted-foreground">
-        {{ error ? '查询未完成' : '此时间范围内没有指标样本' }}
+        {{ error ? 'Query not completed' : 'No metric samples in this time range' }}
       </p>
     </div>
-    <nav class="flex gap-4 border-b" aria-label="指标数据视图">
+    <nav class="flex gap-4 border-b" aria-label="Metric data views">
       <button
         v-for="item in [
           { id: 'samples', label: 'Samples' },
@@ -386,13 +467,16 @@ onBeforeUnmount(() => {
                     projectSlug: route.params.projectSlug,
                     traceId: sample.traceId,
                   },
+                  query: sample.spanId ? { spanId: sample.spanId } : {},
                 }"
                 class="font-mono text-cyan-700 underline"
                 >{{ sample.traceId }}</RouterLink
               ><span v-else>-</span>
             </td>
             <td class="tabular-nums">{{ format(sample.value) }}</td>
-            <td class="whitespace-nowrap">{{ new Date(sample.timestamp).toLocaleString() }}</td>
+            <td class="whitespace-nowrap">
+              {{ new Date(sample.timestamp).toLocaleString('en-US') }}
+            </td>
             <td>{{ sample.environment ?? '-' }}</td>
             <td class="max-w-80 break-words">{{ JSON.stringify(sample.attributes) }}</td>
           </tr>
@@ -401,8 +485,12 @@ onBeforeUnmount(() => {
       <table v-else class="w-full text-left text-sm">
         <thead>
           <tr>
-            <th>{{ groupBy || 'Group' }}</th>
-            <th>{{ aggregation }} ({{ identity?.unit ?? 'none' }})</th>
+            <th>{{ groupLabel || 'Group' }}</th>
+            <th>
+              {{ metricAggregationLabel(aggregation, identity?.type ?? 'count') }} ({{
+                aggregateUnit
+              }})
+            </th>
             <th>Samples</th>
           </tr>
         </thead>
@@ -420,35 +508,42 @@ onBeforeUnmount(() => {
         variant="outline"
         size="sm"
         :disabled="loading || page <= 1"
-        aria-label="上一页"
+        aria-label="Previous page"
         @click="paginate(-1)"
-        >上一页</Button
-      ><span>第 {{ page }} 页</span
+        >Previous page</Button
+      ><span>Page {{ page }}</span
       ><Button
         variant="outline"
         size="sm"
         :disabled="loading || !result || page * 20 >= result.total"
-        aria-label="下一页"
+        aria-label="Next page"
         @click="paginate(1)"
-        >下一页</Button
+        >Next page</Button
       >
     </footer>
   </section>
 </template>
 
 <style scoped>
-.metrics-view select,
-.metrics-view input {
-  display: block;
-  width: 100%;
+.metric-filter-panel .filter-field,
+.metric-filter-panel .filter-operator,
+.metric-filter-panel .filter-value {
   max-width: 100%;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 10px;
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 13px;
+}
+.metric-filter-panel .filter-field {
+  width: 296px;
+}
+.metric-filter-panel .filter-operator {
+  width: 106px;
+}
+.metric-filter-panel .filter-value {
+  width: 184px;
+}
+.metric-filter-chip {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .metrics-view label {
   display: flex;

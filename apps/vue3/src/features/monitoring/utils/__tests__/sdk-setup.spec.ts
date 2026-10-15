@@ -27,7 +27,7 @@ describe('SDK setup helpers', () => {
   it('only includes optional tracing initialization for enabled projects', () => {
     expect(buildInitSnippet(false)).not.toContain('tracesSampleRate')
     expect(buildInitSnippet(true)).toContain('tracesSampleRate: import.meta.env.DEV ? 1 : 0.1')
-    expect(buildInitSnippet(true)).toContain('router, // 可选')
+    expect(buildInitSnippet(true)).toContain('router, // Optional')
     expect(buildInitSnippet(true)).toContain('integrations: [browserTracingIntegration()]')
     expect(buildInitSnippet(false)).not.toContain('monitoring-browser')
   })

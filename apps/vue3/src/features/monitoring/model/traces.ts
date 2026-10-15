@@ -171,7 +171,7 @@ export function metricUnit(metric: TraceMetric): string {
 export function formatMetric(value: number | null | undefined, metric: TraceMetric): string {
   return value == null
     ? '—'
-    : `${(metric.function === 'errorRate' ? value * 100 : value).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${metricUnit(metric)}`
+    : `${(metric.function === 'errorRate' ? value * 100 : value).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${metricUnit(metric)}`
 }
 export function waterfallRows(
   spans: Span[],

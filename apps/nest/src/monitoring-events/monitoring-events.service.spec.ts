@@ -560,7 +560,7 @@ describe('MonitoringEventsService', () => {
       const app = fixture();
       await expect(
         app.service.ingest(projectId, key, errorEnvelope()),
-      ).rejects.toThrow(new NotFoundException('监控项目不存在'));
+      ).rejects.toThrow(new NotFoundException('Monitoring project not found'));
       expect(app.operations).toEqual([]);
       expect(app.state().projects[0].lastSeenAt).toBeNull();
     },
@@ -574,7 +574,7 @@ describe('MonitoringEventsService', () => {
         publicKey,
         clientReport(),
       ),
-    ).rejects.toThrow(new NotFoundException('监控项目不存在'));
+    ).rejects.toThrow(new NotFoundException('Monitoring project not found'));
     expect(app.operations).toEqual([]);
   });
 
@@ -929,7 +929,7 @@ describe('MonitoringEventsService management queries', () => {
     const app = queryFixture({ foundIssue: null });
     await expect(
       app.service.getOwnedIssue('user-2', 'other', 'web', issueId),
-    ).rejects.toThrow(new NotFoundException('监控错误不存在'));
+    ).rejects.toThrow(new NotFoundException('Issue not found'));
     expect(app.eventRepository.find).not.toHaveBeenCalled();
   });
 });

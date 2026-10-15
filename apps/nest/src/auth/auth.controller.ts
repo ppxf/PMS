@@ -33,7 +33,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
-  @ApiOperation({ summary: '账号登录' })
+  @ApiOperation({ summary: 'Sign in' })
   login(@Body() dto: LoginDto): Promise<AuthSession> {
     return this.auth.login(dto.email, dto.password);
   }
@@ -74,7 +74,7 @@ export class AuthController {
 
   @Get('me')
   @ApiBearerAuth()
-  @ApiOperation({ summary: '获取当前登录用户' })
+  @ApiOperation({ summary: 'Get the current signed-in user' })
   me(@Req() request: AuthenticatedRequest): Promise<CurrentUserResponse> {
     return this.auth.getCurrentUser(request.user.id);
   }

@@ -46,19 +46,19 @@ const auth = useAuthStore()
 
 const navigation: NavigationItem[] = [
   {
-    label: '首页',
+    label: 'Dashboard',
     routeName: 'dashboard',
     activeRouteNames: ['dashboard'],
     icon: LayoutDashboard,
   },
   {
-    label: '组与项目',
+    label: 'Groups and projects',
     routeName: 'groups',
     activeRouteNames: ['groups', 'group-detail', 'create-project'],
     icon: FolderKanban,
   },
   {
-    label: '用户管理',
+    label: 'Users',
     routeName: 'users',
     activeRouteNames: ['users'],
     icon: Users,
@@ -67,37 +67,38 @@ const navigation: NavigationItem[] = [
 ]
 
 const projectNavigation: ProjectNavigationItem[] = [
-  { label: '查看 Logs', routeName: 'project-logs', activeRouteNames: ['project-logs'], icon: Logs },
+  { label: 'Logs', routeName: 'project-logs', activeRouteNames: ['project-logs'], icon: Logs },
   {
-    label: '查看 Metrics',
+    label: 'Metrics',
     routeName: 'project-metrics',
     activeRouteNames: ['project-metrics'],
     icon: ChartNoAxesCombined,
   },
   {
-    label: '查看 SDK 接入',
+    label: 'SDK setup',
     routeName: 'project-setup',
-    activeRouteNames: ['project-setup', 'project-traces-setup'],
+    activeRouteNames: ['project-setup', 'project-traces-setup', 'project-metrics-setup'],
     children: [
-      { label: '基础接入', routeName: 'project-setup' },
-      { label: 'Traces接入', routeName: 'project-traces-setup' },
+      { label: 'Basic setup', routeName: 'project-setup' },
+      { label: 'Traces setup', routeName: 'project-traces-setup' },
+      { label: 'Metrics setup', routeName: 'project-metrics-setup' },
     ],
     icon: Plug,
   },
   {
-    label: '查看错误',
+    label: 'Errors',
     routeName: 'project-issues',
     activeRouteNames: ['project-issues', 'project-issue-detail'],
     icon: Bug,
   },
   {
-    label: '功能配置',
+    label: 'Settings',
     routeName: 'project-detail',
     activeRouteNames: ['project-detail'],
     icon: Settings,
   },
   {
-    label: '查看 Traces',
+    label: 'Traces',
     routeName: 'project-traces',
     activeRouteNames: ['project-traces', 'project-trace-detail'],
     icon: Plug,
@@ -134,13 +135,13 @@ async function logout(): Promise<void> {
         </div>
         <div>
           <p class="font-semibold">PMS CMS</p>
-          <p class="text-xs text-muted-foreground">Vue 管理后台</p>
+          <p class="text-xs text-muted-foreground">Application monitoring</p>
         </div>
       </div>
 
       <Separator />
 
-      <nav class="space-y-1 p-3" aria-label="主导航">
+      <nav class="space-y-1 p-3" aria-label="Main navigation">
         <RouterLink
           v-for="item in visibleNavigation"
           :key="item.routeName"
@@ -159,7 +160,7 @@ async function logout(): Promise<void> {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
           >
             <FolderOpen class="size-4" />
-            当前项目
+            Current project
           </p>
           <template v-for="item in projectNavigation" :key="item.routeName">
             <div v-if="item.children" class="ml-3">
@@ -210,7 +211,7 @@ async function logout(): Promise<void> {
       >
         <div>
           <h1 class="font-semibold">{{ route.meta.title }}</h1>
-          <p class="text-xs text-muted-foreground">生产级 Vue 基础框架</p>
+          <p class="text-xs text-muted-foreground">Application monitoring console</p>
         </div>
 
         <div class="flex items-center gap-3">
@@ -220,7 +221,7 @@ async function logout(): Promise<void> {
           </div>
           <Button type="button" variant="outline" size="sm" @click="logout">
             <LogOut />
-            退出
+            Sign out
           </Button>
         </div>
       </header>

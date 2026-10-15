@@ -27,6 +27,16 @@ export const listProjects = (groupSlug: string) =>
 export const getProject = (groupSlug: string, projectSlug: string) =>
   http.get<MonitoringProject>(`/groups/${groupSlug}/projects/${projectSlug}`)
 
+export const updateProjectErrorMonitoring = (
+  groupSlug: string,
+  projectSlug: string,
+  errorMonitoringEnabled: boolean,
+) =>
+  http.patch<MonitoringProject, { errorMonitoringEnabled: boolean }>(
+    `/groups/${groupSlug}/projects/${projectSlug}/error-monitoring`,
+    { errorMonitoringEnabled },
+  )
+
 export const updateProjectTracing = (
   groupSlug: string,
   projectSlug: string,

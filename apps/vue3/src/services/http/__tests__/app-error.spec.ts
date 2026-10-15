@@ -4,7 +4,7 @@ import { AppError, normalizeHttpError } from '../app-error'
 
 describe('normalizeHttpError', () => {
   it('keeps application errors unchanged', () => {
-    const source = new AppError('权限不足', { status: 403 })
+    const source = new AppError('Insufficient permissions', { status: 403 })
 
     expect(normalizeHttpError(source)).toBe(source)
   })

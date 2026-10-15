@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,59 +8,37 @@ import {
   updateProjectTracing,
   updateProjectMetrics,
   updateProjectLogging,
+  updateProjectErrorMonitoring,
 } from '../api/monitoring.api'
-import { Button } from '@/components/ui/button'
 import type { MonitoringProject } from '../model/types'
 
 const route = useRoute()
-const groupSlug = String(route.params.groupSlug)
-const projectSlug = String(route.params.projectSlug)
+const groupSlug = computed(() => String(route.params.groupSlug))
+const projectSlug = computed(() => String(route.params.projectSlug))
 const project = ref<MonitoringProject | null>(null)
 const error = ref('')
-const saving = ref(false)
-async function toggleLogging() {
-  if (!project.value) return
-  saving.value = true
-  try {
-    project.value = await updateProjectLogging(
-      groupSlug,
-      projectSlug,
-      !project.value.loggingEnabled,
-    )
-  } catch {
-    error.value = '无法更新 Logs 配置'
-  } finally {
-    saving.value = false
-  }
+type FeatureKey = 'errorMonitoringEnabled' | 'loggingEnabled' | 'tracingEnabled' | 'metricsEnabled'
+const saving = ref<FeatureKey | null>(null)
+let generation = 0
+const updates = {
+  errorMonitoringEnabled: updateProjectErrorMonitoring,
+  loggingEnabled: updateProjectLogging,
+  tracingEnabled: updateProjectTracing,
+  metricsEnabled: updateProjectMetrics,
 }
-async function toggleMetrics() {
-  if (!project.value) return
-  saving.value = true
+async function toggleFeature(key: FeatureKey, label: string) {
+  if (!project.value || saving.value) return
+  const current = generation
+  saving.value = key
+  error.value = ''
   try {
-    project.value = await updateProjectMetrics(
-      groupSlug,
-      projectSlug,
-      !project.value.metricsEnabled,
-    )
+    const next = await updates[key](groupSlug.value, projectSlug.value, !project.value[key])
+    if (current === generation) project.value = next
   } catch {
-    error.value = '无法更新 Metrics 配置'
+    if (current === generation)
+      error.value = `Unable to update ${label} settings. Please try again.`
   } finally {
-    saving.value = false
-  }
-}
-async function toggleTracing() {
-  if (!project.value) return
-  saving.value = true
-  try {
-    project.value = await updateProjectTracing(
-      groupSlug,
-      projectSlug,
-      !project.value.tracingEnabled,
-    )
-  } catch {
-    error.value = '无法更新 Tracing 配置'
-  } finally {
-    saving.value = false
+    if (current === generation) saving.value = null
   }
 }
 
@@ -71,33 +49,45 @@ const featureLabels = [
   ['metricsEnabled', 'Application Metrics'],
 ] as const
 
-onMounted(async () => {
-  try {
-    project.value = await getProject(groupSlug, projectSlug)
-  } catch {
-    error.value = '无法加载项目详情'
-  }
+watch(
+  [groupSlug, projectSlug],
+  async () => {
+    const current = ++generation
+    project.value = null
+    error.value = ''
+    saving.value = null
+    try {
+      const next = await getProject(groupSlug.value, projectSlug.value)
+      if (current === generation) project.value = next
+    } catch {
+      if (current === generation) error.value = 'Unable to load project details'
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  generation++
 })
 </script>
 
 <template>
   <section class="space-y-6">
     <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
-    <template v-else-if="project">
+    <template v-if="project">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 class="text-2xl font-semibold tracking-tight">{{ project.name }}</h2>
-          <p class="mt-1 text-muted-foreground">Vue 监控项目</p>
+          <p class="mt-1 text-muted-foreground">Vue monitoring project</p>
         </div>
         <Badge :variant="project.connected ? 'default' : 'secondary'">
-          {{ project.connected ? '已连接' : '等待连接' }}
+          {{ project.connected ? 'Connected' : 'Awaiting connection' }}
         </Badge>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">功能配置</CardTitle>
-          <CardDescription>监控采集状态与功能开关。</CardDescription>
+          <CardTitle class="text-base">Feature settings</CardTitle>
+          <CardDescription>Manage data collection and enabled features.</CardDescription>
         </CardHeader>
         <CardContent class="grid gap-3 sm:grid-cols-2">
           <div
@@ -106,33 +96,23 @@ onMounted(async () => {
             class="flex items-center justify-between rounded-lg border p-3"
           >
             <span>{{ label }}</span>
-            <Badge :variant="project[key] ? 'default' : 'secondary'">{{
-              project[key] ? '已开启' : '未开启'
-            }}</Badge>
+            <Badge
+              as="button"
+              type="button"
+              role="switch"
+              :aria-label="label"
+              :aria-checked="project[key]"
+              :aria-busy="saving === key"
+              :disabled="saving !== null"
+              :variant="project[key] ? 'default' : 'secondary'"
+              :title="`${project[key] ? 'Disable' : 'Enable'} ${label}`"
+              class="h-8 min-w-24 cursor-pointer px-4 py-1.5 text-sm hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="toggleFeature(key, label)"
+              >{{ saving === key ? 'Saving…' : project[key] ? 'Enabled' : 'Disabled' }}</Badge
+            >
           </div>
         </CardContent>
       </Card>
-      <Button :disabled="saving" variant="outline" @click="toggleTracing">{{
-        project.tracingEnabled ? '关闭 Tracing' : '开启 Tracing'
-      }}</Button>
-      <label class="ml-4 inline-flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          :checked="project.metricsEnabled"
-          :disabled="saving"
-          @change="toggleMetrics"
-        />
-        Application Metrics
-      </label>
-      <label class="ml-4 inline-flex items-center gap-2 text-sm"
-        ><input
-          type="checkbox"
-          aria-label="Application Logs"
-          :checked="project.loggingEnabled"
-          :disabled="saving"
-          @change="toggleLogging"
-        />Application Logs</label
-      >
     </template>
   </section>
 </template>

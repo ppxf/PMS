@@ -27,13 +27,13 @@ const view = ref<'active' | 'archived'>('active')
 function formatDate(value: string | null | undefined): string {
   if (!value) return '-'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('en-US')
 }
 
 const columnHelper = createColumnHelper<DataTableFeatures, MonitoringIssueSummary>()
 const baseColumns = [
   columnHelper.accessor('title', {
-    header: '错误',
+    header: 'Issue',
     cell: ({ row }) =>
       h(
         RouterLink,
@@ -47,54 +47,59 @@ const baseColumns = [
         () => row.original.title,
       ),
   }),
-  columnHelper.accessor('exceptionType', { header: '异常类型' }),
+  columnHelper.accessor('exceptionType', { header: 'Exception type' }),
   columnHelper.accessor('source', {
-    header: '来源',
+    header: 'Source',
     cell: ({ row }) => row.original.source ?? '-',
   }),
   columnHelper.accessor('status', {
-    header: '状态',
+    header: 'Status',
     cell: ({ row }) =>
       h(Badge, { variant: row.original.status === 'resolved' ? 'success' : 'secondary' }, () =>
-        row.original.status === 'unresolved' ? '未解决' : '已解决',
+        row.original.status === 'unresolved' ? 'Unresolved' : 'Resolved',
       ),
   }),
   columnHelper.accessor('eventCount', {
-    header: '次数',
+    header: 'Events',
     cell: ({ row }) =>
       h(
         Badge,
         { variant: row.original.status === 'resolved' ? 'success' : 'destructive' },
-        () => `${row.original.eventCount} 次`,
+        () =>
+          `${row.original.eventCount.toLocaleString('en-US')} ${row.original.eventCount === 1 ? 'event' : 'events'}`,
       ),
   }),
   columnHelper.accessor('firstSeenAt', {
-    header: '首次出现',
+    header: 'First seen',
     cell: ({ row }) => formatDate(row.original.firstSeenAt),
   }),
   columnHelper.accessor('lastSeenAt', {
-    header: '最近出现',
+    header: 'Last seen',
     cell: ({ row }) => formatDate(row.original.lastSeenAt),
   }),
 ]
 const archiveColumn = columnHelper.accessor('visibility', {
-  header: '归档方式',
-  cell: ({ row }) => h(
-    Badge,
-    {
-      variant: 'secondary',
-      'data-testid': `archive-label-${row.original.id}`,
-    },
-    () => row.original.visibility === 'archived_permanent'
-      ? '永久归档'
-      : `达到 ${row.original.archiveThreshold} 次后恢复`,
-  ),
+  header: 'Archive mode',
+  cell: ({ row }) =>
+    h(
+      Badge,
+      {
+        variant: 'secondary',
+        'data-testid': `archive-label-${row.original.id}`,
+      },
+      () =>
+        row.original.visibility === 'archived_permanent'
+          ? 'Archive permanently'
+          : `Restore after ${row.original.archiveThreshold?.toLocaleString('en-US')} events`,
+    ),
 })
-const columns = computed(() => columnHelper.columns(
-  view.value === 'archived'
-    ? [...baseColumns.slice(0, 5), archiveColumn, ...baseColumns.slice(5)]
-    : baseColumns,
-))
+const columns = computed(() =>
+  columnHelper.columns(
+    view.value === 'archived'
+      ? [...baseColumns.slice(0, 5), archiveColumn, ...baseColumns.slice(5)]
+      : baseColumns,
+  ),
+)
 
 async function loadIssues(): Promise<void> {
   loading.value = true
@@ -109,7 +114,7 @@ async function loadIssues(): Promise<void> {
     issues.value = result.items
     total.value = result.total
   } catch {
-    error.value = '无法加载错误列表'
+    error.value = 'Unable to load issues'
   } finally {
     loading.value = false
   }
@@ -145,23 +150,20 @@ function issueRowClass(issue: MonitoringIssueSummary): string | undefined {
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight">
-          {{ view === 'active' ? '错误列表' : '已归档错误' }}
+          {{ view === 'active' ? 'Issues' : 'Archived issues' }}
         </h2>
-        <p class="mt-1 text-muted-foreground">查看项目中聚合后的前端错误。</p>
+        <p class="mt-1 text-muted-foreground">Review grouped frontend errors in this project.</p>
       </div>
-      <Button
-        data-testid="show-archived"
-        type="button"
-        variant="outline"
-        @click="toggleView"
-      >{{ view === 'active' ? '查看已归档' : '返回当前错误' }}</Button>
+      <Button data-testid="show-archived" type="button" variant="outline" @click="toggleView">{{
+        view === 'active' ? 'View archived issues' : 'Back to active issues'
+      }}</Button>
     </div>
 
     <Input
       v-model="searchInput"
       class="max-w-md"
-      aria-label="搜索错误列表"
-      placeholder="搜索错误、异常类型、来源、状态、次数或时间"
+      aria-label="Search issues"
+      placeholder="Search issues, exception types, sources, statuses, counts, or dates"
     />
 
     <DataTable
@@ -174,7 +176,7 @@ function issueRowClass(issue: MonitoringIssueSummary): string | undefined {
       :total="total"
       :row-key="(issue) => issue.id"
       :row-class="issueRowClass"
-      empty-text="暂无错误"
+      empty-text="No issues"
       manual-pagination
       @retry="loadIssues"
     />

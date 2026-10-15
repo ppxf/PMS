@@ -54,7 +54,7 @@ export class MonitoringProjectsService {
       return this.toResponse(await this.repository.save(project));
     } catch (error) {
       if ((error as { code?: string }).code === '23505') {
-        throw new ConflictException('该项目名称已存在');
+        throw new ConflictException('A project with this name already exists');
       }
       throw error;
     }
@@ -81,7 +81,7 @@ export class MonitoringProjectsService {
     const project = await this.repository.findOne({
       where: { groupId: group.id, slug: projectSlug },
     });
-    if (!project) throw new NotFoundException('监控项目不存在');
+    if (!project) throw new NotFoundException('Monitoring project not found');
     return this.toResponse(project);
   }
 
@@ -95,6 +95,17 @@ export class MonitoringProjectsService {
       connected: project.connected,
       lastSeenAt: project.lastSeenAt,
     };
+  }
+
+  async updateErrorMonitoring(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    errorMonitoringEnabled: boolean,
+  ): Promise<MonitoringProjectResponse> {
+    const project = await this.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.repository.update(project.id, { errorMonitoringEnabled });
+    return Object.assign(project, { errorMonitoringEnabled });
   }
 
   async updateTracing(
@@ -174,7 +185,7 @@ export class MonitoringProjectsService {
     const project = await this.repository.findOne({
       where: { id: projectId, publicKey },
     });
-    if (!project) throw new NotFoundException('监控项目不存在');
+    if (!project) throw new NotFoundException('Monitoring project not found');
 
     const checkedAt = new Date();
     await this.repository.update(project.id, { lastSeenAt: checkedAt });
@@ -185,11 +196,11 @@ export class MonitoringProjectsService {
     projectId: string,
     publicKey: string | undefined,
   ): Promise<MonitoringProject> {
-    if (!publicKey?.trim()) throw new NotFoundException('监控项目不存在');
+    if (!publicKey?.trim()) throw new NotFoundException('Monitoring project not found');
     const project = await this.repository.findOne({
       where: { id: projectId, publicKey },
     });
-    if (!project) throw new NotFoundException('监控项目不存在');
+    if (!project) throw new NotFoundException('Monitoring project not found');
     return project;
   }
 

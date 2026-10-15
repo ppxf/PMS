@@ -13,8 +13,8 @@ export class MailService {
   sendEmailVerification(email: string, token: string): Promise<unknown> {
     return this.send(
       email,
-      '验证您的邮箱',
-      '请验证您的邮箱',
+      'Verify your email',
+      'Please verify your email',
       `/verify-email?token=${encodeURIComponent(token)}`,
     );
   }
@@ -22,8 +22,8 @@ export class MailService {
   sendPasswordReset(email: string, token: string): Promise<unknown> {
     return this.send(
       email,
-      '重置您的密码',
-      '请重置您的密码',
+      'Reset your password',
+      'Please reset your password',
       `/reset-password?token=${encodeURIComponent(token)}`,
     );
   }
@@ -42,7 +42,7 @@ export class MailService {
       from: this.config.getOrThrow<string>('mail.from'),
       to,
       subject,
-      text: `${introduction}：${url}`,
+      text: `${introduction}: ${url}`,
       html: `<p>${introduction}</p><p><a href="${url}">${url}</a></p>`,
     });
   }

@@ -1,5 +1,55 @@
 export const buildEnvSnippet = (dsn: string) => `VITE_PMS_DSN=${dsn}`
 
+export const buildMetricsInitSnippet = () => `import { createApp } from 'vue'
+import { init } from '@pms/monitoring-vue'
+import App from './App.vue'
+
+const app = createApp(App)
+
+// Enable Application Metrics in the PMS project settings first.
+// Update your existing initialization instead of initializing a second time.
+init({
+  app,
+  dsn: import.meta.env.VITE_PMS_DSN,
+  environment: import.meta.env.MODE,
+  enableMetrics: true,
+})
+
+app.mount('#app')`
+
+export const buildMetricsUsageSnippet = () => `<script setup lang="ts">
+import { metrics, flush, getMetricStats } from '@pms/monitoring-vue'
+
+async function recordMetrics() {
+  // Counter: report an increment, not a running total. The value defaults to 1.
+  metrics.count('button_click', 1, {
+    attributes: { button: 'checkout', route: '/cart' },
+  })
+
+  // Gauge: report the current value at this moment.
+  metrics.gauge('cart_items', 3, {
+    attributes: { route: '/cart', signed_in: true },
+  })
+
+  // Distribution: report each observation for averages and percentiles.
+  const started = performance.now()
+  // Replace this delay with the operation you want to measure.
+  await new Promise<void>((resolve) => setTimeout(resolve, 200))
+  metrics.distribution('checkout_duration', performance.now() - started, {
+    unit: 'millisecond',
+    attributes: { route: '/cart', successful: true },
+  })
+
+  // For verification: send buffered samples now. Normal reporting is batched.
+  await flush()
+  console.info('Metric reporting state', getMetricStats())
+}
+</script>
+
+<template>
+  <button type="button" @click="recordMetrics">Send test metrics</button>
+</template>`
+
 export const buildInstallSnippet = (tracingEnabled = false) =>
   `pnpm add @pms/monitoring-vue${tracingEnabled ? ' @pms/monitoring-browser' : ''}`
 
@@ -15,10 +65,10 @@ import router from './router'
 const app = createApp(App)
 app.use(router)
 
-// 在业务应用启动前初始化；先在 PMS 项目功能配置中启用 Traces。
+// Initialize before starting the application. Enable Traces in the PMS project settings first.
 init({
   app,
-  router, // 可选：采集 Vue Router 导航
+  router, // Optional: capture Vue Router navigation
   dsn: import.meta.env.VITE_PMS_DSN,
   environment: import.meta.env.MODE,
   integrations: [browserTracingIntegration()],
@@ -37,7 +87,7 @@ initPmsMonitoring({
   app,
   dsn: import.meta.env.VITE_PMS_DSN,
   debug: import.meta.env.DEV,
-  environment: import.meta.env.MODE,${tracingEnabled ? '\n  integrations: [browserTracingIntegration()],\n  tracesSampleRate: import.meta.env.DEV ? 1 : 0.1,\n  router, // 可选：追踪 Vue Router 导航' : ''}
+  environment: import.meta.env.MODE,${tracingEnabled ? '\n  integrations: [browserTracingIntegration()],\n  tracesSampleRate: import.meta.env.DEV ? 1 : 0.1,\n  router, // Optional: trace Vue Router navigation' : ''}
 })
 
 captureException(new Error('PMS SDK test error'))
@@ -47,25 +97,25 @@ app.mount('#app')`
 export const buildManualTraceSnippet = () => `<script setup lang="ts">
 import { startSpan, flush } from '@pms/monitoring-vue'
 
-// 在完成 Traces 初始化后调用；测试时将 tracesSampleRate 设为 1。
+// Call after initializing Traces. Set tracesSampleRate to 1 for testing.
 async function triggerTrace() {
   await startSpan(
-    { name: '手动 Trace 测试', op: 'business' },
+    { name: 'Manual trace test', op: 'business' },
     async (parent) => {
       await startSpan(
-        { name: '处理数据', op: 'business', parent },
+        { name: 'Process data', op: 'business', parent },
         async () => {
-          // 替换成需要统计耗时的业务操作。
+          // Replace with the business operation you want to measure.
           await new Promise<void>((resolve) => setTimeout(resolve, 200))
         },
       )
     },
   )
-  // 等待已结束的 Trace 上报；日常业务通常无需手动调用。
+  // Wait for completed traces to be sent. Normal application code usually does not need this call.
   await flush()
 }
 </script>
 
 <template>
-  <button type="button" @click="triggerTrace">触发测试 Trace</button>
+  <button type="button" @click="triggerTrace">Trigger test trace</button>
 </template>`

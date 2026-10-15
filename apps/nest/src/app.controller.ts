@@ -14,7 +14,7 @@ export class AppController {
 
   @Get()
   @Public()
-  @ApiOperation({ summary: '服务健康检查' })
+  @ApiOperation({ summary: 'Service health check' })
   @ApiOkResponse({ type: HealthResponseDto })
   getHealth(): HealthDataDto {
     return this.appService.getHealth();

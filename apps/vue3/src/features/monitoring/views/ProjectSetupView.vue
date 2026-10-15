@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   buildManualTraceSnippet,
@@ -11,12 +12,15 @@ import {
   buildInstallSnippet,
   buildBrowserTracesInstallSnippet,
   buildBrowserTracesInitSnippet,
+  buildMetricsInitSnippet,
 } from '../utils/sdk-setup'
+import MetricsSetupGuide from '../components/MetricsSetupGuide.vue'
 import { updateProjectOrigins, getProject, getProjectConnection } from '../api/monitoring.api'
 import type { MonitoringProject } from '../model/types'
 
 const route = useRoute()
 const isTracesSetup = computed(() => route.name === 'project-traces-setup')
+const isMetricsSetup = computed(() => route.name === 'project-metrics-setup')
 const groupSlug = computed(() => String(route.params.groupSlug))
 const projectSlug = computed(() => String(route.params.projectSlug))
 const project = ref<MonitoringProject | null>(null)
@@ -59,11 +63,11 @@ async function saveOrigins(): Promise<void> {
     })
   actionError.value = ''
   if (origins.length > 20) {
-    actionError.value = '最多允许 20 个来源。'
+    actionError.value = 'Up to 20 origins are allowed.'
     return
   }
   if (!valid) {
-    actionError.value = '每行请输入精确的 http(s) Origin，或单独使用 *。'
+    actionError.value = 'Enter an exact http(s) origin on each line, or use * by itself.'
     return
   }
   savingOrigins.value = true
@@ -71,7 +75,8 @@ async function saveOrigins(): Promise<void> {
     const result = await updateProjectOrigins(groupSlug.value, projectSlug.value, origins)
     if (version === scopeVersion) applyProject(result)
   } catch {
-    if (version === scopeVersion) actionError.value = '保存来源设置失败，请重试。'
+    if (version === scopeVersion)
+      actionError.value = 'Unable to save origin settings. Please try again.'
   } finally {
     if (version === scopeVersion) savingOrigins.value = false
   }
@@ -85,7 +90,8 @@ async function refreshOrigins(): Promise<void> {
     const result = await getProject(groupSlug.value, projectSlug.value)
     if (version === scopeVersion) applyProject(result)
   } catch {
-    if (version === scopeVersion) actionError.value = '刷新来源设置失败，请重试。'
+    if (version === scopeVersion)
+      actionError.value = 'Unable to refresh origin settings. Please try again.'
   } finally {
     if (version === scopeVersion) refreshingOrigins.value = false
   }
@@ -97,7 +103,11 @@ const installSnippet = computed(() =>
   isTracesSetup.value ? buildBrowserTracesInstallSnippet() : buildInstallSnippet(),
 )
 const initSnippet = computed(() =>
-  isTracesSetup.value ? buildBrowserTracesInitSnippet() : buildInitSnippet(),
+  isMetricsSetup.value
+    ? buildMetricsInitSnippet()
+    : isTracesSetup.value
+      ? buildBrowserTracesInitSnippet()
+      : buildInitSnippet(),
 )
 
 async function load(): Promise<void> {
@@ -110,7 +120,7 @@ async function load(): Promise<void> {
       applyProject(result)
     }
   } catch {
-    if (version === scopeVersion) error.value = '无法加载 SDK 接入信息'
+    if (version === scopeVersion) error.value = 'Unable to load SDK setup information'
   } finally {
     if (version === scopeVersion) loading.value = false
   }
@@ -122,7 +132,8 @@ async function copy(value: string, label: string): Promise<void> {
     await navigator.clipboard.writeText(value)
     if (version === scopeVersion) copied.value = label
   } catch {
-    if (version === scopeVersion) actionError.value = '复制失败，请手动复制代码。'
+    if (version === scopeVersion)
+      actionError.value = 'Unable to copy. Please copy the code manually.'
   }
 }
 
@@ -136,7 +147,8 @@ async function refreshConnection(): Promise<void> {
       project.value.lastSeenAt = connection.lastSeenAt
     }
   } catch {
-    if (version === scopeVersion) actionError.value = '刷新连接状态失败，请重试。'
+    if (version === scopeVersion)
+      actionError.value = 'Unable to refresh connection status. Please try again.'
   }
 }
 
@@ -157,63 +169,84 @@ watch(
 
 <template>
   <section class="space-y-6">
-    <p v-if="loading" class="text-muted-foreground">正在加载…</p>
+    <p v-if="loading" class="text-muted-foreground">Loading…</p>
     <p v-else-if="error" role="alert" class="text-destructive">{{ error }}</p>
     <template v-else-if="project">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 class="text-2xl font-semibold tracking-tight">
-            {{ isTracesSetup ? 'Traces接入' : '基础接入' }}
+            {{ isMetricsSetup ? 'Metrics setup' : isTracesSetup ? 'Traces setup' : 'Basic setup' }}
           </h2>
           <p class="mt-1 text-muted-foreground">
             {{ project.name }} ·
-            {{ isTracesSetup ? '接入浏览器页面与 HTTP 性能追踪。' : '接入 Vue 与浏览器错误监控。' }}
+            {{
+              isMetricsSetup
+                ? 'Set up custom application measurements.'
+                : isTracesSetup
+                  ? 'Set up browser page and HTTP performance tracing.'
+                  : 'Set up Vue and browser error monitoring.'
+            }}
           </p>
         </div>
         <Badge :variant="project.connected ? 'default' : 'secondary'">
-          {{ project.connected ? '已连接' : '等待连接' }}
+          {{ project.connected ? 'Connected' : 'Awaiting connection' }}
         </Badge>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">1. 安装 SDK</CardTitle>
+          <CardTitle class="text-base">1. Install the SDK</CardTitle>
           <CardDescription
-            >从私有 npm 安装 Vue SDK；包管理器会自动安装其 Core 运行时依赖。</CardDescription
+            >Install the Vue SDK from the private npm registry. Your package manager also installs
+            its Core runtime dependency.</CardDescription
           >
         </CardHeader>
         <CardContent class="space-y-3">
           <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ installSnippet }}</pre>
-          <Button variant="outline" @click="copy(installSnippet, '安装命令')">复制安装命令</Button>
+          <Button variant="outline" @click="copy(installSnippet, 'install command')"
+            >Copy install command</Button
+          >
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">2. 配置 DSN</CardTitle>
-          <CardDescription>将项目 DSN 写入业务项目的 .env.local。</CardDescription>
+          <CardTitle class="text-base">2. Configure the DSN</CardTitle>
+          <CardDescription
+            >Add the project DSN to your application's .env.local file.</CardDescription
+          >
         </CardHeader>
         <CardContent class="space-y-3">
           <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ project.dsn }}</pre>
           <Button data-testid="copy-dsn" variant="outline" @click="copy(project.dsn, 'DSN')"
-            >复制 DSN</Button
+            >Copy DSN</Button
           >
           <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ envSnippet }}</pre>
-          <Button variant="outline" @click="copy(envSnippet, '环境变量')">复制环境变量</Button>
+          <Button variant="outline" @click="copy(envSnippet, 'environment variables')"
+            >Copy environment variables</Button
+          >
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">3. 初始化 SDK</CardTitle>
+          <CardTitle class="text-base">3. Initialize the SDK</CardTitle>
           <CardDescription>
-            <template v-if="isTracesSetup"
-              >在业务项目的 main.ts 中初始化，自动采集页面加载、Vue Router 导航及
-              fetch/XHR。已有基础接入时，请更新原初始化配置，只初始化一次。</template
+            <template v-if="isMetricsSetup"
+              >Enable Application Metrics in Project settings and set enableMetrics: true in your
+              application's main.ts. If the SDK is already initialized, merge these options into
+              that initialization and initialize only once. Traces are optional for metric
+              reporting.</template
+            >
+            <template v-else-if="isTracesSetup"
+              >Initialize in your application's main.ts to automatically capture page loads, Vue
+              Router navigation, and fetch/XHR. If basic setup is already configured, update the
+              existing initialization and initialize only once.</template
             >
             <template v-else
-              >在业务项目的 main.ts 中初始化。初始化时会发送连接报告，并自动捕获 Vue、window.error
-              和 unhandledrejection 错误；captureException 用于手动验证或手动上报。</template
+              >Initialize in your application's main.ts. Initialization sends a connection report
+              and automatically captures Vue, window.error, and unhandledrejection errors. Use
+              captureException for manual verification or reporting.</template
             >
           </CardDescription>
         </CardHeader>
@@ -226,36 +259,46 @@ watch(
             <Button
               data-testid="copy-init"
               variant="outline"
-              @click="copy(initSnippet, '初始化代码')"
-              >复制初始化代码</Button
+              @click="copy(initSnippet, 'initialization code')"
+              >Copy initialization code</Button
             >
             <Button data-testid="refresh-connection" @click="refreshConnection"
-              >刷新连接状态</Button
+              >Refresh connection status</Button
             >
           </div>
           <p v-if="copied" role="status" class="text-sm text-muted-foreground">
-            已复制{{ copied }}
+            Copied {{ copied }}
           </p>
           <p v-if="project.lastSeenAt" class="text-sm text-muted-foreground">
-            最近连接：{{
-              new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(
+            Last connected:
+            {{
+              new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
                 new Date(project.lastSeenAt),
               )
             }}
           </p>
         </CardContent>
       </Card>
+      <MetricsSetupGuide
+        v-if="isMetricsSetup"
+        :metrics-enabled="project.metricsEnabled"
+        :group-slug="groupSlug"
+        :project-slug="projectSlug"
+        :copied="copied"
+        @copy="copy"
+      />
       <Card v-if="isTracesSetup" data-testid="manual-trace-setup">
         <CardHeader>
-          <CardTitle class="text-base">4. 手动触发 Trace</CardTitle>
+          <CardTitle class="text-base">4. Trigger a manual trace</CardTitle>
           <CardDescription>
-            将以下代码放入业务项目的 Vue 组件，点击按钮即可记录一次业务操作及其子操作。
+            Add this code to a Vue component in your application. Click the button to record a
+            business operation and its child operation.
           </CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
           <p class="text-sm text-muted-foreground">
-            先在项目功能配置中开启 Traces，并完成上方 SDK 初始化。测试时将 tracesSampleRate 设为
-            1；手动 Trace 同样受采样配置影响。
+            Enable Traces in the project settings and complete the SDK initialization above. Set
+            tracesSampleRate to 1 for testing. Manual traces also follow the sampling configuration.
           </p>
           <pre
             data-testid="manual-trace-snippet"
@@ -264,67 +307,69 @@ watch(
           <Button
             data-testid="copy-manual-trace"
             variant="outline"
-            @click="copy(manualTraceSnippet, '手动 Trace 示例')"
+            @click="copy(manualTraceSnippet, 'manual trace example')"
           >
-            复制手动 Trace 示例
+            Copy manual trace example
           </Button>
           <p
-            v-if="copied === '手动 Trace 示例'"
+            v-if="copied === 'manual trace example'"
             role="status"
             class="text-sm text-muted-foreground"
           >
-            已复制手动 Trace 示例
+            Copied manual trace example
           </p>
           <p class="text-sm text-muted-foreground">
-            startSpan 会在同步回调返回或异步回调完成时自动结束，异常会标记为 error 并继续抛出；
-            子操作通过 parent 关联。如果需要自行控制结束时机，可使用 startInactiveSpan，
-            并在操作完成时调用 span.end('ok')，失败时调用 span.end('error')。
+            startSpan ends automatically when a synchronous callback returns or an asynchronous
+            callback completes. Exceptions mark the span as error and are rethrown. Link child
+            operations through parent. To control when a span ends, use startInactiveSpan and call
+            span.end('ok') on completion or span.end('error') on failure.
           </p>
           <p class="text-sm text-muted-foreground">
-            点击后进入“查看 Traces”，快捷查询选择“全部 spans”，按 span.name 等于“手动 Trace 测试”
-            筛选，再点击“更新图表”。在 Span Samples 中点击记录名称查看完整链路；
-            默认“页面性能”筛选不会显示此 business 操作。
+            After clicking, open Traces, select All spans in Quick query, and filter span.name equal
+            to Manual trace test. Click Update chart, then click a record name in Span Samples to
+            view the full trace. The default Page performance filter does not show this business
+            operation.
           </p>
         </CardContent>
       </Card>
       <Card data-testid="origins-settings">
         <CardHeader>
-          <CardTitle class="text-base">可选：限制 SDK 上报来源</CardTitle>
+          <CardTitle class="text-base">Optional: restrict SDK reporting origins</CardTitle>
           <CardDescription
-            >默认允许任意来源。最多 20 个来源，每行填写一个精确的 http(s) Origin，或单独填写
-            *；留空表示不允许浏览器来源。</CardDescription
+            >All origins are allowed by default. Enter up to 20 exact http(s) origins, one per line,
+            or use * by itself. Leave blank to block all browser origins.</CardDescription
           >
         </CardHeader>
         <CardContent class="space-y-3">
           <p data-testid="allowed-origins" class="text-sm">
             {{
               project.allowedOrigins?.includes('*') || !project.allowedOrigins
-                ? '允许任意来源'
+                ? 'All origins allowed'
                 : project.allowedOrigins.length
-                  ? project.allowedOrigins.join('、')
-                  : '不允许浏览器来源'
+                  ? project.allowedOrigins.join(', ')
+                  : 'Browser origins blocked'
             }}
           </p>
-          <label for="sdk-origins" class="text-sm">允许的来源（每行一个）</label>
-          <textarea
+          <label for="sdk-origins" class="text-sm">Allowed origins (one per line)</label>
+          <Textarea
             id="sdk-origins"
             v-model="originsInput"
             data-testid="origins-input"
-            class="min-h-24 w-full rounded border p-3 text-sm"
+            class="min-h-24"
           />
           <div class="flex flex-wrap gap-2">
             <Button
               data-testid="save-origins"
               :disabled="savingOrigins || refreshingOrigins"
               @click="saveOrigins"
-              >{{ savingOrigins ? '正在保存…' : '保存来源设置' }}</Button
+              >{{ savingOrigins ? 'Saving…' : 'Save origin settings' }}</Button
             >
             <Button
               data-testid="refresh-origins"
               variant="outline"
               :disabled="savingOrigins || refreshingOrigins"
               @click="refreshOrigins"
-              >刷新来源设置</Button
+              >Refresh origin settings</Button
             >
           </div>
           <p v-if="actionError" role="alert" class="text-destructive">{{ actionError }}</p>

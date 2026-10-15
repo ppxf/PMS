@@ -13,6 +13,8 @@ import {
 import VChart from 'vue-echarts'
 import { ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import FormSelect from '@/components/ui/select/FormSelect.vue'
 import {
   spanSamples,
   traceSamples,
@@ -59,20 +61,20 @@ const primaryMetric = ref(0),
 const chartType = ref<'line' | 'bar'>('line')
 const timeRange = ref('1h')
 const timeRanges = [
-  { value: '1h', label: '最近 1 小时', duration: 3600000 },
-  { value: '6h', label: '最近 6 小时', duration: 6 * 3600000 },
-  { value: '24h', label: '最近 24 小时', duration: 24 * 3600000 },
-  { value: '3d', label: '最近 3 天', duration: 3 * 86400000 },
-  { value: '7d', label: '最近 7 天', duration: 7 * 86400000 },
+  { value: '1h', label: 'Last hour', duration: 3600000 },
+  { value: '6h', label: 'Last 6 hours', duration: 6 * 3600000 },
+  { value: '24h', label: 'Last 24 hours', duration: 24 * 3600000 },
+  { value: '3d', label: 'Last 3 days', duration: 3 * 86400000 },
+  { value: '7d', label: 'Last 7 days', duration: 7 * 86400000 },
 ]
-const intervals: { value: TraceQuery['interval']; label: string; duration?: number }[] = [
-  { value: 'auto', label: '自动' },
-  { value: '1m', label: '1 分钟', duration: 60000 },
-  { value: '30m', label: '30 分钟', duration: 1800000 },
-  { value: '1h', label: '1 小时', duration: 3600000 },
-  { value: '3h', label: '3 小时', duration: 10800000 },
-  { value: '6h', label: '6 小时', duration: 21600000 },
-  { value: '1d', label: '1 天', duration: 86400000 },
+const intervals: { value: NonNullable<TraceQuery['interval']>; label: string; duration?: number }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: '1m', label: '1 minute', duration: 60000 },
+  { value: '30m', label: '30 minutes', duration: 1800000 },
+  { value: '1h', label: '1 hour', duration: 3600000 },
+  { value: '3h', label: '3 hours', duration: 10800000 },
+  { value: '6h', label: '6 hours', duration: 21600000 },
+  { value: '1d', label: '1 day', duration: 86400000 },
 ]
 function intervalDisabled(value: TraceQuery['interval']) {
   const duration = intervals.find((item) => item.value === value)?.duration
@@ -133,7 +135,7 @@ function query(): TraceQuery {
   const s = new Date(start.value),
     e = new Date(end.value)
   if (!Number.isFinite(s.getTime()) || !Number.isFinite(e.getTime()) || s >= e)
-    throw new Error('请选择有效时间范围')
+    throw new Error('Select a valid time range')
   return {
     start: s.toISOString(),
     end: e.toISOString(),
@@ -177,9 +179,9 @@ async function load() {
   } catch (cause) {
     if (current === generation)
       error.value =
-        cause instanceof Error && cause.message === '请选择有效时间范围'
+        cause instanceof Error && cause.message === 'Select a valid time range'
           ? cause.message
-          : '无法加载 Traces，请重试'
+          : 'Unable to load traces. Please try again.'
   } finally {
     if (current === generation) loading.value = false
   }
@@ -283,7 +285,7 @@ const chart = computed(() => ({
       connectNulls: false,
       showSymbol: chartType.value === 'line',
       yAxisIndex: units.value.indexOf(metricUnit(metric)),
-      name: `${group?.values.map((v) => (v == null ? '未知' : JSON.stringify(v))).join(' / ') || '全部'} · ${metric.function}(${metric.field})`,
+      name: `${group?.values.map((v) => (v == null ? 'Unknown' : JSON.stringify(v))).join(' / ') || 'All'} · ${metric.function}(${metric.field})`,
       data: s.points.map((p) => ({
         value: [
           p.timestamp,
@@ -352,44 +354,58 @@ onMounted(async () => {
     </div>
     <div class="flex flex-wrap items-center gap-3">
       <label
-        >快捷查询
-        <select v-model="preset" class="control" @change="applyPreset">
-          <option value="pages">页面性能</option>
-          <option value="slow">慢接口（fetch）</option>
-          <option value="requests">请求量（fetch）</option>
-          <option value="statuses">状态分布（fetch）</option>
-          <option value="ttfb">首字节等待（fetch）</option>
-          <option value="sizes">大响应（fetch）</option>
-          <option value="versions">版本回归（pageload，请补充同一 span.name）</option>
-          <option value="all">全部 spans</option>
-        </select></label
-      >
+        >Quick query
+        <FormSelect
+          v-model="preset"
+          class="control"
+          @change="applyPreset"
+          aria-label="Quick query"
+          :options="[
+            { value: 'pages', label: 'Page performance' },
+            { value: 'slow', label: 'Slow requests (fetch)' },
+            { value: 'requests', label: 'Request volume (fetch)' },
+            { value: 'statuses', label: 'Status distribution (fetch)' },
+            { value: 'ttfb', label: 'Time to first byte (fetch)' },
+            { value: 'sizes', label: 'Large responses (fetch)' },
+            {
+              value: 'versions',
+              label: 'Release regression (pageload; filter by the same span.name)',
+            },
+            { value: 'all', label: 'All spans' },
+          ]"
+      /></label>
       <Button
         variant="outline"
         @click="filters.push({ field: 'span.op', operator: 'eq', value: 'http.client' })"
-        >添加 HTTP 筛选</Button
+        >Add HTTP filter</Button
       >
     </div>
     <div class="filter-panel rounded-xl border p-5 space-y-4">
       <div class="flex flex-wrap gap-2">
-        <select v-model="filterField" aria-label="筛选字段" class="control">
-          <option v-for="f in availableFilters" :key="f">{{ f }}</option></select
-        ><select v-model="filterOperator" aria-label="筛选运算符" class="control">
-          <option v-for="op in filterOperators" :key="op">{{ op }}</option></select
-        ><input
+        <FormSelect
+          v-model="filterField"
+          aria-label="Filter field"
+          class="control"
+          :options="availableFilters.map((value) => ({ value, label: value }))"
+        /><FormSelect
+          v-model="filterOperator"
+          aria-label="Filter operator"
+          class="control"
+          :options="filterOperators.map((value) => ({ value, label: value }))"
+        /><Input
           v-if="filterOperator !== 'exists'"
           v-model="filterValue"
           class="control"
-          aria-label="筛选值"
-          placeholder="值 / 多值用逗号分隔"
-        /><Button variant="outline" @click="addFilter">添加条件</Button>
+          aria-label="Filter value"
+          placeholder="Value / comma-separated values"
+        /><Button variant="outline" @click="addFilter">Add condition</Button>
       </div>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="(f, i) in filters"
           :key="i"
           class="filter-chip rounded-md border px-3 py-1.5 text-sm"
-          :aria-label="`删除条件 ${f.field}`"
+          :aria-label="`Remove condition ${f.field}`"
           @click="filters.splice(i, 1)"
         >
           {{ f.field }} {{ f.operator }} {{ f.value }} ×
@@ -401,97 +417,107 @@ onMounted(async () => {
         <h3 class="font-semibold">Visualize</h3>
         <div v-for="(metric, i) in metrics" :key="i" class="space-y-3 border-b pb-4">
           <label class="flex items-center gap-2"
-            ><input v-model="primaryMetric" type="radio" :value="i" />主指标 {{ i + 1 }}</label
+            ><input v-model="primaryMetric" type="radio" :value="i" />Primary metric
+            {{ i + 1 }}</label
           >
-          <select
+          <FormSelect
             v-model="metric.function"
-            :aria-label="`聚合函数 ${i + 1}`"
+            :aria-label="`Aggregation function ${i + 1}`"
             class="control w-full"
             @change="changeFunction(metric)"
-          >
-            <option v-for="f in ['count', 'avg', 'p50', 'p95', 'errorRate']" :key="f">
-              {{ f }}
-            </option>
-          </select>
-          <select
+            :options="
+              (['count', 'avg', 'p50', 'p95', 'errorRate'] as const).map((value) => ({
+                value,
+                label: value,
+              }))
+            "
+          />
+          <FormSelect
             v-model="metric.field"
-            :aria-label="`指标字段 ${i + 1}`"
+            :aria-label="`Metric field ${i + 1}`"
             class="control w-full"
             :disabled="metric.function === 'count' || metric.function === 'errorRate'"
-          >
-            <option v-if="metric.function === 'count' || metric.function === 'errorRate'">
-              spans
-            </option>
-            <option v-for="f in metricFields" v-else :key="f">{{ f }}</option>
-          </select>
+            :options="
+              (metric.function === 'count' || metric.function === 'errorRate'
+                ? ['spans']
+                : metricFields
+              ).map((value) => ({ value, label: value }))
+            "
+          />
           <Button v-if="metrics.length > 1" variant="outline" @click="removeMetric(i)"
-            >删除指标</Button
+            >Remove metric</Button
           >
         </div>
         <Button
           v-if="metrics.length < 5"
           variant="outline"
           @click="metrics.push({ function: 'avg', field: 'span.duration' })"
-          >添加指标系列</Button
+          >Add metric series</Button
         >
-        <h3 class="font-semibold">Group By（最多两个）</h3>
-        <select
+        <h3 class="font-semibold">Group by (up to 2)</h3>
+        <FormSelect
           v-for="i in 2"
           :key="i"
           v-model="groups[i - 1]"
-          :aria-label="`分组 ${i}`"
+          :aria-label="`Group by ${i}`"
           class="control w-full"
-        >
-          <option value="">不分组</option>
-          <option
-            v-for="f in availableGroups"
-            :key="f"
-            :disabled="groups.includes(f) && groups[i - 1] !== f"
-          >
-            {{ f }}
-          </option>
-        </select>
+          :options="[
+            { value: '', label: 'None' },
+            ...availableGroups.map((value) => ({
+              value,
+              label: value,
+              disabled: groups.includes(value) && groups[i - 1] !== value,
+            })),
+          ]"
+        />
         <label class="top-limit"
           >Top
-          <select v-model.number="limit" class="control">
-            <option v-for="n in [5, 6, 7, 8, 9, 10]" :key="n">{{ n }}</option>
-          </select></label
-        >
-        <Button class="trace-blue-action" :disabled="loading" @click="apply">更新图表</Button>
+          <FormSelect
+            v-model="limit"
+            class="control"
+            aria-label="Top limit"
+            :options="[5, 6, 7, 8, 9, 10].map((value) => ({ value, label: String(value) }))"
+        /></label>
+        <Button :disabled="loading" @click="apply">Update chart</Button>
       </aside>
       <div class="chart-panel min-w-0 rounded-xl border p-5">
         <div
           class="chart-toolbar mb-5 flex flex-wrap items-center justify-end gap-3"
           role="group"
-          aria-label="图表设置"
+          aria-label="Chart settings"
         >
-          <select
+          <FormSelect
             v-model="timeRange"
             class="control"
-            aria-label="时间范围"
+            aria-label="Time range"
             @change="applyTimeRange"
-          >
-            <option v-if="timeRange === 'custom'" value="custom">自定义范围（缩放）</option>
-            <option v-for="range in timeRanges" :key="range.value" :value="range.value">
-              {{ range.label }}
-            </option>
-          </select>
-          <select v-model="chartType" class="control" aria-label="图表类型">
-            <option value="line">折线图</option>
-            <option value="bar">柱状图</option>
-          </select>
-          <select v-model="interval" class="control" aria-label="时间粒度" @change="apply">
-            <option
-              v-for="item in intervals"
-              :key="item.value"
-              :value="item.value"
-              :disabled="intervalDisabled(item.value)"
-            >
-              {{ item.label }}
-            </option>
-          </select>
+            :options="[
+              ...(timeRange === 'custom'
+                ? [{ value: 'custom', label: 'Custom range (zoom)' }]
+                : []),
+              ...timeRanges,
+            ]"
+          />
+          <FormSelect
+            v-model="chartType"
+            class="control"
+            aria-label="Chart type"
+            :options="[
+              { value: 'line', label: 'Line' },
+              { value: 'bar', label: 'Bar' },
+            ]"
+          />
+          <FormSelect
+            v-model="interval"
+            class="control"
+            aria-label="Interval"
+            @change="apply"
+            :options="
+              intervals.map((item) => ({ ...item, disabled: intervalDisabled(item.value) }))
+            "
+          />
         </div>
-        <p v-if="loading" role="status">加载中…</p>
+        <p v-if="loading" role="status">Loading…</p>
         <VChart
           v-if="series"
           :option="chart"
@@ -500,23 +526,23 @@ onMounted(async () => {
           autoresize
           @datazoom="zoom"
         />
-        <p v-else class="py-20 text-center">暂无统计数据</p>
+        <p v-else class="py-20 text-center">No chart data</p>
         <p class="text-sm text-muted-foreground">
-          匹配
+          Matched
           {{ series?.sampleCount ?? 0 }}
-          条采样记录。拖动缩放同步查询样本和聚合。时间按本地时区显示。
+          sampled records. Drag to zoom and query samples and aggregates together. Times use your
+          local time zone.
         </p>
       </div>
     </div>
     <div v-if="error" role="alert" class="text-destructive">
-      {{ error }} <Button variant="outline" @click="load">重试</Button>
+      {{ error }} <Button variant="outline" @click="load">Retry</Button>
     </div>
-    <nav class="result-tabs flex flex-wrap gap-2" aria-label="Traces 结果视图">
+    <nav class="result-tabs flex flex-wrap gap-2" aria-label="Trace result views">
       <Button
         v-for="t in tabs"
         :key="t"
         :variant="tab === t ? 'default' : 'outline'"
-        :class="{ 'trace-blue-action': tab === t }"
         @click="tab = t"
         >{{ t }}</Button
       >
@@ -526,19 +552,28 @@ onMounted(async () => {
         <thead>
           <tr>
             <th>Span</th>
-            <th>类型</th>
-            <th>根操作</th>
+            <th>Type</th>
+            <th>Root operation</th>
             <th :aria-sort="columnSort('startTime')">
-              <button class="sort-header" aria-label="按时间排序" @click="sortColumn('startTime')">
-                时间 <component :is="sortIcon('startTime')" class="sort-icon" aria-hidden="true" />
+              <button
+                class="sort-header"
+                aria-label="Sort by time"
+                @click="sortColumn('startTime')"
+              >
+                Time <component :is="sortIcon('startTime')" class="sort-icon" aria-hidden="true" />
               </button>
             </th>
             <th :aria-sort="columnSort('durationMs')">
-              <button class="sort-header" aria-label="按耗时排序" @click="sortColumn('durationMs')">
-                耗时 <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
+              <button
+                class="sort-header"
+                aria-label="Sort by duration"
+                @click="sortColumn('durationMs')"
+              >
+                Duration
+                <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
               </button>
             </th>
-            <th>状态 / 完整性</th>
+            <th>Status / completeness</th>
           </tr>
         </thead>
         <tbody>
@@ -550,9 +585,9 @@ onMounted(async () => {
             </td>
             <td>{{ s.op }}</td>
             <td>{{ s.isTransaction }}</td>
-            <td>{{ new Date(s.startTime).toLocaleString() }}</td>
+            <td>{{ new Date(s.startTime).toLocaleString('en-US') }}</td>
             <td>{{ s.durationMs }} ms</td>
-            <td>{{ s.status }} {{ s.truncated ? '截断' : '' }}</td>
+            <td>{{ s.status }} {{ s.truncated ? 'Truncated' : '' }}</td>
           </tr>
         </tbody>
       </table>
@@ -563,20 +598,25 @@ onMounted(async () => {
             <th :aria-sort="columnSort('startTime')">
               <button
                 class="sort-header"
-                aria-label="按开始时间排序"
+                aria-label="Sort by start time"
                 @click="sortColumn('startTime')"
               >
-                开始时间
+                Start time
                 <component :is="sortIcon('startTime')" class="sort-icon" aria-hidden="true" />
               </button>
             </th>
             <th :aria-sort="columnSort('durationMs')">
-              <button class="sort-header" aria-label="按跨度排序" @click="sortColumn('durationMs')">
-                跨度 <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
+              <button
+                class="sort-header"
+                aria-label="Sort by span duration"
+                @click="sortColumn('durationMs')"
+              >
+                Span duration
+                <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
               </button>
             </th>
-            <th>已保留 spans</th>
-            <th>完整性</th>
+            <th>Retained spans</th>
+            <th>Completeness</th>
           </tr>
         </thead>
         <tbody>
@@ -586,21 +626,21 @@ onMounted(async () => {
                 t.traceId
               }}</RouterLink>
             </td>
-            <td>{{ new Date(t.startTime).toLocaleString() }}</td>
+            <td>{{ new Date(t.startTime).toLocaleString('en-US') }}</td>
             <td>{{ t.durationMs }} ms</td>
             <td>{{ t.spanCount }}</td>
-            <td>{{ t.truncated ? '截断' : '已保留记录' }}</td>
+            <td>{{ t.truncated ? 'Truncated' : 'Retained records' }}</td>
           </tr>
         </tbody>
       </table>
       <table v-else class="w-full text-sm">
         <thead>
           <tr>
-            <th>分组</th>
+            <th>Group by</th>
             <th v-for="(m, i) in seriesMetrics" :key="i" :aria-sort="columnSort(String(i))">
               <button
                 class="sort-header"
-                :aria-label="`按 ${m.function}(${m.field}) 排序`"
+                :aria-label="`Sort by ${m.function}(${m.field})`"
                 @click="sortColumn(String(i))"
               >
                 {{ m.function }}({{ m.field }})
@@ -611,7 +651,7 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-for="a in aggregates?.items" :key="a.groupKey">
-            <td>{{ a.groupValues.map((v) => v ?? '未知').join(' / ') || '全部' }}</td>
+            <td>{{ a.groupValues.map((v) => v ?? 'Unknown').join(' / ') || 'All' }}</td>
             <td v-for="(m, i) in seriesMetrics" :key="i">
               {{ formatMetric(a.values[i], m) }}
               <span class="text-muted-foreground">(n={{ a.sampleCounts[i] ?? 0 }})</span>
@@ -623,70 +663,34 @@ onMounted(async () => {
         v-if="!loading && (tab === 'Aggregates' ? !aggregates?.items.length : !total)"
         class="p-8 text-center text-muted-foreground"
       >
-        暂无数据
+        No data
       </p>
     </div>
     <div v-if="tab !== 'Aggregates'" class="flex items-center gap-3">
       <Button
-        aria-label="上一页"
+        aria-label="Previous page"
         variant="outline"
         :disabled="page === 1 || loading"
         @click="changePage(-1)"
-        >上一页</Button
-      ><span>第 {{ page }} 页 · {{ total }} 条</span
+        >Previous page</Button
+      ><span>Page {{ page }} · {{ total }} records</span
       ><Button
-        aria-label="下一页"
+        aria-label="Next page"
         variant="outline"
         :disabled="page * 20 >= total || loading"
         @click="changePage(1)"
-        >下一页</Button
+        >Next page</Button
       >
     </div>
   </section>
 </template>
 <style scoped>
-.trace-blue-action {
-  background-color: #5b8def;
-  border-color: #5b8def;
-  color: #fff;
-}
-.trace-blue-action:hover {
-  background-color: #477bdb;
-  border-color: #477bdb;
-}
-.trace-blue-action:focus-visible {
-  border-color: #5b8def;
-  --tw-ring-color: #5b8def80;
-}
 .control {
-  min-height: 40px;
   max-width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background-color: var(--background);
-  color: var(--foreground);
-  font-size: 0.875rem;
-  line-height: 1.4;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
 }
-select.control {
-  appearance: none;
-  padding-right: 2.5rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23717b8c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-position: right 0.75rem center;
-  background-repeat: no-repeat;
-}
-.control:focus-visible,
 .sort-header:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
-}
-.control:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 label {
   font-size: 0.875rem;
@@ -705,13 +709,13 @@ label {
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--border);
 }
-.chart-toolbar select[aria-label='时间范围'] {
+.chart-toolbar [role='combobox'][aria-label='Time range'] {
   min-width: 155px;
 }
-.chart-toolbar select[aria-label='图表类型'] {
+.chart-toolbar [role='combobox'][aria-label='Chart type'] {
   min-width: 115px;
 }
-.chart-toolbar select[aria-label='时间粒度'] {
+.chart-toolbar [role='combobox'][aria-label='Interval'] {
   min-width: 110px;
 }
 .top-limit {
@@ -773,7 +777,7 @@ th[aria-sort='none'] .sort-icon {
     justify-content: flex-start;
     gap: 0.75rem;
   }
-  .chart-toolbar select {
+  .chart-toolbar [role='combobox'] {
     flex: 1;
   }
   .chart {

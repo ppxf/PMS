@@ -18,6 +18,13 @@ import { MonitoringProject } from '../monitoring-projects/entities/monitoring-pr
   'timestamp',
 ])
 @Index('monitoring_metrics_received', ['receivedAt'])
+@Index('monitoring_metrics_trace', [
+  'projectId',
+  'traceId',
+  'timestamp',
+  'eventId',
+  'sampleIndex',
+])
 export class MetricEntity {
   @PrimaryColumn({ name: 'project_id', type: 'uuid' }) projectId!: string;
   @PrimaryColumn({ name: 'event_id', type: 'uuid' }) eventId!: string;

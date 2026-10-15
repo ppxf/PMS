@@ -10,6 +10,7 @@ import type { PropagationSettings } from './dto/propagation-settings.pipe';
 import { UpdateOriginsPipe } from './dto/update-origins.pipe';
 import { UpdateMetricsPipe } from './dto/update-metrics.pipe';
 import { UpdateLoggingPipe } from './dto/update-logging.pipe';
+import { UpdateErrorMonitoringPipe } from './dto/update-error-monitoring.pipe';
 
 interface AuthenticatedRequest extends Request {
   user: AuthUser;
@@ -20,6 +21,22 @@ interface AuthenticatedRequest extends Request {
 @Controller('groups/:groupSlug/projects')
 export class MonitoringProjectsController {
   constructor(private readonly projects: MonitoringProjectsService) {}
+  @Patch(':projectSlug/error-monitoring')
+  errorMonitoring(
+    @Req() request: AuthenticatedRequest,
+    @Param('groupSlug') groupSlug: string,
+    @Param('projectSlug') projectSlug: string,
+    @Body(new UpdateErrorMonitoringPipe())
+    input: { errorMonitoringEnabled: boolean },
+  ) {
+    return this.projects.updateErrorMonitoring(
+      request.user.id,
+      groupSlug,
+      projectSlug,
+      input.errorMonitoringEnabled,
+    );
+  }
+
   @Patch(':projectSlug/logging')
   logging(
     @Req() request: AuthenticatedRequest,

@@ -11,9 +11,7 @@ const { listGroups, listProjects } = vi.hoisted(() => ({
     ]),
   ),
   listProjects: vi.fn<
-    (
-      slug: string,
-    ) => Promise<Array<{ id: string; name: string; slug: string; createdAt: string }>>
+    (slug: string) => Promise<Array<{ id: string; name: string; slug: string; createdAt: string }>>
   >((slug: string) =>
     Promise.resolve(
       slug === 'acme'
@@ -37,8 +35,8 @@ describe('DashboardView', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('2 个组')
-    expect(wrapper.text()).toContain('3 个项目')
+    expect(wrapper.text()).toContain('2 groups')
+    expect(wrapper.text()).toContain('3 projects')
     expect(wrapper.text().indexOf('Newest App')).toBeLessThan(wrapper.text().indexOf('Middle App'))
   })
 })

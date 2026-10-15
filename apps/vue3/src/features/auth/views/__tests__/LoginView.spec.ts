@@ -51,7 +51,7 @@ describe('LoginView', () => {
   it('stores the server session and follows a safe redirect', async () => {
     login.mockResolvedValue({
       accessToken: 'server-token',
-      user: { id: '1', name: '系统管理员', email: 'admin@example.com' },
+      user: { id: '1', name: 'System Administrator', email: 'admin@example.com' },
       permissions: ['user:read'],
     })
     const { wrapper, router, auth } = await mountLogin()
@@ -67,19 +67,19 @@ describe('LoginView', () => {
   })
 
   it('shows the normalized API error without navigating', async () => {
-    login.mockRejectedValue(new AppError('邮箱或密码错误', { status: 401 }))
+    login.mockRejectedValue(new AppError('Invalid email or password', { status: 401 }))
     const { wrapper, router } = await mountLogin('/login')
 
     await submitValidForm(wrapper)
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('邮箱或密码错误')
+    expect(wrapper.get('[role="alert"]').text()).toContain('Invalid email or password')
     expect(router.currentRoute.value.name).toBe('login')
   })
 
   it('rejects protocol-relative redirects', async () => {
     login.mockResolvedValue({
       accessToken: 'server-token',
-      user: { id: '1', name: '管理员', email: 'admin@example.com' },
+      user: { id: '1', name: 'Administrator', email: 'admin@example.com' },
       permissions: [],
     })
     const { wrapper, router } = await mountLogin('/login?redirect=//evil.example')

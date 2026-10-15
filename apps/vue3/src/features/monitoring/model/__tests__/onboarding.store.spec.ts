@@ -44,6 +44,6 @@ describe('onboarding store', () => {
 
     expect(store.loaded).toBe(false)
     expect(store.needsGroup).toBe(false)
-    expect(store.error).toBe('无法加载组信息，请重试')
+    expect(store.error).toBe('Unable to load group information. Please try again.')
   })
 })

@@ -28,7 +28,7 @@ export const useOnboardingStore = defineStore('monitoring-onboarding', () => {
       .catch(() => {
         groups.value = []
         loaded.value = false
-        error.value = '无法加载组信息，请重试'
+        error.value = 'Unable to load group information. Please try again.'
       })
       .finally(() => {
         loading.value = false

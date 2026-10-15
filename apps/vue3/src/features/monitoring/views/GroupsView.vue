@@ -15,7 +15,7 @@ async function load(): Promise<void> {
   try {
     groups.value = await listGroups()
   } catch {
-    error.value = '无法加载组列表'
+    error.value = 'Unable to load groups'
   } finally {
     loading.value = false
   }
@@ -28,23 +28,23 @@ onMounted(load)
   <section class="space-y-6">
     <div class="flex items-center justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight">组</h2>
-        <p class="mt-1 text-muted-foreground">组织你的监控项目。</p>
+        <h2 class="text-2xl font-semibold tracking-tight">Groups</h2>
+        <p class="mt-1 text-muted-foreground">Organize your monitoring projects.</p>
       </div>
       <Button as-child
-        ><RouterLink :to="{ name: 'create-group-onboarding' }">创建组</RouterLink></Button
+        ><RouterLink :to="{ name: 'create-group-onboarding' }">Create group</RouterLink></Button
       >
     </div>
 
-    <p v-if="loading" class="text-muted-foreground">正在加载…</p>
+    <p v-if="loading" class="text-muted-foreground">Loading…</p>
     <div v-else-if="error" class="space-y-3" role="alert">
       <p class="text-destructive">{{ error }}</p>
-      <Button variant="outline" @click="load">重试</Button>
+      <Button variant="outline" @click="load">Retry</Button>
     </div>
     <Card v-else-if="groups.length === 0">
       <CardHeader>
-        <CardTitle>还没有组</CardTitle>
-        <CardDescription>创建一个组后即可添加监控项目。</CardDescription>
+        <CardTitle>No groups yet</CardTitle>
+        <CardDescription>Create a group to add monitoring projects.</CardDescription>
       </CardHeader>
     </Card>
     <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -56,7 +56,10 @@ onMounted(load)
         <Card class="h-full transition-colors hover:bg-muted/30">
           <CardHeader>
             <CardTitle>{{ group.name }}</CardTitle>
-            <CardDescription>{{ group.projectCount }} 个项目</CardDescription>
+            <CardDescription
+              >{{ group.projectCount }}
+              {{ group.projectCount === 1 ? 'project' : 'projects' }}</CardDescription
+            >
           </CardHeader>
           <CardContent class="text-xs text-muted-foreground">/{{ group.slug }}</CardContent>
         </Card>

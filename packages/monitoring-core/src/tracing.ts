@@ -21,10 +21,22 @@ export function createTracing() {
   let config: MonitoringInitOptions | undefined
   let transport: Transport | undefined
   let droppedBatches = 0
+  let activeSpan: SpanHandle | undefined
+  let pageSpan: SpanHandle | undefined
   const recordings = new Set<Recording>()
   const parents = new WeakMap<SpanHandle, Recording>()
   const queue = new Set<Pending>()
   const clockTimers = new Set<ReturnType<typeof setTimeout>>()
+
+  function currentSpan(): SpanHandle | undefined {
+    const span = activeSpan && !activeSpan.ended ? activeSpan : pageSpan
+    return span && !span.ended ? span : undefined
+  }
+  function getActiveTraceContext(): TraceContext | undefined {
+    const span = currentSpan()
+    return span?.context.sampled && parents.get(span)?.spans.includes(span) ? span.context : undefined
+  }
+  function setPageSpan(span: SpanHandle): void { pageSpan = span }
 
   function configure(options: MonitoringInitOptions, sender: Transport): void {
     config = options
@@ -137,11 +149,14 @@ export function createTracing() {
   }
 
   function startSpan<T>(options: SpanOptions, callback: (span: SpanHandle) => T): T {
-    const span = startInactiveSpan(options)
+    const span = startInactiveSpan({ ...options, parent: options.parent ?? currentSpan() })
+    const previous = activeSpan
+    activeSpan = span
     let value: T
     try {
       value = callback(span)
     } catch (error) { span.end('error'); throw error }
+    finally { activeSpan = previous }
     try {
       if (value && typeof (value as unknown as PromiseLike<unknown>).then === 'function') {
         void Promise.resolve(value).then(() => span.end(), () => span.end('error')).catch(() => undefined)
@@ -155,10 +170,11 @@ export function createTracing() {
     await Promise.all([...queue].map((item) => item.sending ?? send(item)))
   }
   function reset(): void {
+    activeSpan = undefined; pageSpan = undefined
     for (const recording of recordings) if (recording.timer) clearTimeout(recording.timer)
     clockTimers.forEach(clearTimeout); clockTimers.clear()
     for (const item of queue) if (item.timer) clearTimeout(item.timer)
     queue.clear(); recordings.clear(); config = undefined; transport = undefined; droppedBatches = 0
   }
-  return { configure, startInactiveSpan, startSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
+  return { configure, startInactiveSpan, startSpan, getActiveTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
 }

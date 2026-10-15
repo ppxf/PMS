@@ -35,7 +35,7 @@ function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
 }
 
 function getErrorMessage(payload: ApiErrorResponse): string {
-  return Array.isArray(payload.message) ? payload.message.join('；') : payload.message
+  return Array.isArray(payload.message) ? payload.message.join('; ') : payload.message
 }
 
 export function normalizeHttpError(error: unknown): AppError {
@@ -56,13 +56,13 @@ export function normalizeHttpError(error: unknown): AppError {
     }
 
     if (error.code === 'ERR_CANCELED') {
-      return new AppError('请求已取消', {
+      return new AppError('Request canceled', {
         code: error.code,
         cause: error,
       })
     }
 
-    return new AppError(error.message || '网络请求失败', {
+    return new AppError(error.message || 'Network request failed', {
       status: error.response?.status,
       code: error.code,
       details: payload,
@@ -74,5 +74,5 @@ export function normalizeHttpError(error: unknown): AppError {
     return new AppError(error.message, { cause: error })
   }
 
-  return new AppError('发生未知错误', { details: error })
+  return new AppError('An unexpected error occurred', { details: error })
 }
