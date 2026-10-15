@@ -6,6 +6,32 @@ import type { MonitoringEnvelope } from './types.js'
 const dsn = 'https://key@monitor.example.com/api/sdk/project'
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 describe('application metrics', () => {
+  it('automatically correlates metrics after page idle and await, and clears on page hide', async () => {
+    vi.useFakeTimers()
+    const envelopes: MonitoringEnvelope[] = []
+    const client = createMonitoringClient()
+    client.init({ dsn, enableMetrics: true, tracesSampleRate: 1, transport: { send: e => { envelopes.push(e); return Promise.resolve() } } })
+    const browser = createBrowserTracing(client)
+    const page = browser.startNavigation('/cart')
+    browser.navigationReady()
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(page.ended).toBe(true)
+    client.metrics.count('click')
+    await Promise.resolve()
+    client.metrics.distribution('duration', 200)
+    const next = browser.startNavigation('/next')
+    client.metrics.count('next')
+    browser.endNavigation('page_hidden')
+    client.metrics.count('hidden')
+    await client.flush()
+    const samples = envelopes.filter(e => e.type === 'metrics').flatMap(e => e.samples)
+    expect(samples[0]).toMatchObject({ traceId: page.context.traceId, spanId: page.context.spanId })
+    expect(samples[1]).toMatchObject({ traceId: page.context.traceId, spanId: page.context.spanId })
+    expect(samples[2]).toMatchObject({ traceId: next.context.traceId, spanId: next.context.spanId })
+    expect(next.context.traceId).not.toBe(page.context.traceId)
+    expect(samples[3].traceId).toBeUndefined()
+    client.resetClientForTests()
+  })
   it('adds SDK and browser grouping attributes without replacing custom metric identities', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 Chrome/154.0.1 Safari/537.36' })

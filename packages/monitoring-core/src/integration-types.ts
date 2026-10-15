@@ -5,8 +5,8 @@ export interface MonitoringIntegrationClient {
   getClientState(): { endpoint: string } | undefined
   flush(): Promise<void>
   getPropagationTargets(): readonly string[]
-  /** Register the page root for automatic metric correlation during its lifetime. */
-  setPageSpan?(span: SpanHandle): void
+  /** Retain page metric correlation after idle completion; clear on navigation/hide. */
+  setPageSpan?(span: SpanHandle | undefined): void
 }
 
 export interface MonitoringRouter {

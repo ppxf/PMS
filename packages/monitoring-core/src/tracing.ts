@@ -33,10 +33,12 @@ export function createTracing() {
     return span && !span.ended ? span : undefined
   }
   function getActiveTraceContext(): TraceContext | undefined {
-    const span = currentSpan()
+    // A completed page trace remains the correlation context until navigation or hide.
+    // Keep currentSpan() strict so new spans never attach to an ended recording.
+    const span = currentSpan() ?? pageSpan
     return span?.context.sampled && parents.get(span)?.spans.includes(span) ? span.context : undefined
   }
-  function setPageSpan(span: SpanHandle): void { pageSpan = span }
+  function setPageSpan(span: SpanHandle | undefined): void { pageSpan = span }
 
   function configure(options: MonitoringInitOptions, sender: Transport): void {
     config = options

@@ -23,6 +23,7 @@ import {
   buildMetricFilter,
 } from '../model/metrics'
 import MetricOptionPicker from '../components/MetricOptionPicker.vue'
+import MetricAttributeTree from '../components/MetricAttributeTree.vue'
 import type {
   MetricAggregation,
   MetricCatalog,
@@ -478,7 +479,15 @@ onBeforeUnmount(() => {
               {{ new Date(sample.timestamp).toLocaleString('en-US') }}
             </td>
             <td>{{ sample.environment ?? '-' }}</td>
-            <td class="max-w-80 break-words">{{ JSON.stringify(sample.attributes) }}</td>
+            <td class="w-96 max-w-96 align-top">
+              <details v-if="Object.keys(sample.attributes).length" class="min-w-56">
+                <summary class="cursor-pointer rounded text-cyan-700 focus-visible:outline-2">
+                  Attributes ({{ Object.keys(sample.attributes).length }})
+                </summary>
+                <MetricAttributeTree :entries="Object.entries(sample.attributes)" class="mt-3" />
+              </details>
+              <span v-else class="text-muted-foreground">-</span>
+            </td>
           </tr>
         </tbody>
       </table>

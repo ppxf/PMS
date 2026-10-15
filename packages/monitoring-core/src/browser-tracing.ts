@@ -6,7 +6,7 @@ interface Client {
   getClientState(): { endpoint: string } | undefined
   flush(): Promise<void>
   getPropagationTargets?(): readonly string[]
-  setPageSpan?(span: SpanHandle): void
+  setPageSpan?(span: SpanHandle | undefined): void
 }
 export interface BrowserTracingOptions {
   browserTracing?: boolean
@@ -26,16 +26,17 @@ export function createBrowserTracing(client: Client) {
   function later(action: () => void, ms: number) {
     return setTimeout(() => safe(action), ms)
   }
-  function endRoot(reason = 'completed') {
+  function endRoot(reason = 'completed', retainMetricContext = false) {
     if (idle) clearTimeout(idle)
     if (deadline) clearTimeout(deadline)
     if (root && !root.ended) root.end(reason === 'completed' ? 'ok' : reason === 'deadline_exceeded' ? 'deadline_exceeded' : 'unknown', reason)
     root = undefined
+    if (!retainMetricContext) client.setPageSpan?.(undefined)
     if (reason !== 'completed') void client.flush()
   }
   function scheduleIdle() {
     if (idle) clearTimeout(idle)
-    if (root && pending === 0) idle = later(() => endRoot(), 1000)
+    if (root && pending === 0) idle = later(() => endRoot('completed', true), 1000)
   }
   function startNavigation(name: string, op = 'navigation', startTime?: number) {
     endRoot('navigation')

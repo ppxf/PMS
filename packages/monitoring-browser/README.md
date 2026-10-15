@@ -97,7 +97,9 @@ await startSpan({ name: 'load-orders', op: 'task' }, async (span) => {
 })
 ```
 
-浏览器没有可靠的原生异步局部上下文，因此 `await` 之后的指标需要显式传入 `span.context`，避免并发任务串链。没有有效采样上下文时，指标仍会上报，但自动关联不填入 Trace ID。显式传入的上下文继续按原协议保存。页面 Trace 在加载/请求完成且空闲一秒、导航切换、页面隐藏或超时后结束，结束后的指标不会继续自动关联该 Trace。
+启用浏览器 Traces 后，普通 `metrics.*` 调用自动关联当前已采样的页面 Trace，无需手动调用 `startSpan`。页面 Trace 在加载/请求完成且空闲一秒后结束计时，但 SDK 保留页面上下文，因此稍后点击及 `await` 后的指标仍会关联该页面 Trace。导航切换时改用新页面上下文，页面隐藏、显式结束或超时后清除关联；Vue Router 应通过初始化的 `router` 选项接入，才能在路由切换时更新上下文。
+
+浏览器没有可靠的原生异步局部上下文。若需要关联到特定业务子 Span（而非页面 Trace），`await` 之后仍应显式传入 `span.context`，避免并发任务串链。没有有效采样上下文时，指标仍会上报，但自动关联不填入 Trace ID。显式传入的上下文继续按原协议保存。
 
 指标 Samples 的 Trace ID 链接携带 Span ID，打开瀑布图后定位对应 Span。Trace 详情的 Application Metrics 标签页展示同项目、同 Trace 的指标，支持名称搜索、分页及仅当前 Span 筛选；点击指标的 Span 可返回瀑布图。
 
