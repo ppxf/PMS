@@ -1,4 +1,19 @@
 <script setup lang="ts">
+import {
+  ChevronLeft,
+  ChevronRight,
+  Logs,
+  Search,
+  RefreshCw,
+  Download,
+  Plus,
+  X,
+  ChevronDown,
+  ArrowDown,
+  ArrowUp,
+  Columns3,
+  Code,
+} from '@lucide/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from 'reka-ui'
 import { useRoute } from 'vue-router'
@@ -7,20 +22,6 @@ import { BarChart, LineChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import {
-  Logs,
-  Search,
-  RefreshCw,
-  Download,
-  Plus,
-  X,
-  ChevronDown,
-  ChevronRight,
-  ArrowDown,
-  ArrowUp,
-  Columns3,
-  Code,
-} from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
@@ -531,20 +532,20 @@ onBeforeUnmount(() => {
     <footer class="flex items-center justify-end gap-3 text-sm">
       <Button
         variant="outline"
-        size="sm"
+        size="icon-sm"
         aria-label="Previous page"
         :disabled="loading || page <= 1"
         @click="paginate(-1)"
-        >Previous page</Button
-      ><span>Page {{ page }}</span
+        ><ChevronLeft aria-hidden="true" /></Button
+      ><span class="min-w-8 text-center tabular-nums" aria-current="page">{{ page }}</span
       ><Button
         variant="outline"
-        size="sm"
+        size="icon-sm"
         aria-label="Next page"
         :disabled="loading || !result || page * 20 >= result.total"
         @click="paginate(1)"
-        >Next page</Button
-      >
+        ><ChevronRight aria-hidden="true"
+      /></Button>
     </footer>
     <details class="border-t pt-3">
       <summary class="flex cursor-pointer items-center gap-2 text-sm">

@@ -228,9 +228,7 @@ function changePageSize(size: number): void {
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-muted-foreground">
-        {{ totalRows }} rows, page {{ currentPage }} of {{ pageCount }}
-      </p>
+      <p class="text-sm text-muted-foreground">{{ totalRows }} rows</p>
 
       <div class="flex items-center gap-2">
         <label class="text-sm text-muted-foreground" for="data-table-page-size">
@@ -252,8 +250,11 @@ function changePageSize(size: number): void {
           aria-label="Previous page"
           @click="changePage(currentPage - 1)"
         >
-          <ChevronLeft />
+          <ChevronLeft aria-hidden="true" />
         </Button>
+        <span class="min-w-8 text-center text-sm tabular-nums" aria-current="page">{{
+          currentPage
+        }}</span>
         <Button
           type="button"
           variant="outline"
@@ -262,7 +263,7 @@ function changePageSize(size: number): void {
           aria-label="Next page"
           @click="changePage(currentPage + 1)"
         >
-          <ChevronRight />
+          <ChevronRight aria-hidden="true" />
         </Button>
       </div>
     </div>

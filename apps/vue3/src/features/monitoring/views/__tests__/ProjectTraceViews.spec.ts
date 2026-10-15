@@ -216,6 +216,23 @@ describe('Traces views', () => {
       sampleCount: 1,
     })
   })
+  it.each([1, 0])('opens the correct tab from Metrics with %i related metrics', async (total) => {
+    state.query.tab = 'metrics'
+    state.query.spanId = 'root'
+    if (!total)
+      metricApi.traceMetrics.mockResolvedValue({ total: 0, page: 1, pageSize: 20, samples: [] })
+    api.traceDetail.mockResolvedValue({ items: [root], hasMore: false })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe(
+      total ? 'Application Metrics' : 'Waterfall',
+    )
+    if (total) {
+      expect(view.text()).toContain('orders')
+      await view.get('button[aria-label="View span child"]').trigger('click')
+      expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Waterfall')
+    }
+  })
   it('locates the linked span across cursor pages and changes selection when the query changes', async () => {
     state.query.spanId = 'child'
     api.traceDetail

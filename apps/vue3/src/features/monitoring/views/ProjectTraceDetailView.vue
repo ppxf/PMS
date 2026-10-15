@@ -15,7 +15,18 @@ const route = useRoute(),
   loading = ref(false),
   error = ref('')
 const rows = computed(() => waterfallRows(spans.value))
-const tab = ref<'waterfall' | 'metrics'>('waterfall')
+const tab = ref<'waterfall' | 'metrics'>(route.query?.tab === 'metrics' ? 'metrics' : 'waterfall')
+let preferMetrics = route.query?.tab === 'metrics'
+function selectTab(value: string) {
+  preferMetrics = false
+  tab.value = value === 'metrics' ? 'metrics' : 'waterfall'
+}
+function metricsLoaded(total: number) {
+  if (preferMetrics) {
+    preferMetrics = false
+    if (!total && tab.value === 'metrics') tab.value = 'waterfall'
+  }
+}
 const targetSpanId = ref(typeof route.query?.spanId === 'string' ? route.query.spanId : '')
 const targetMissing = computed(
   () => targetSpanId.value && !spans.value.some((s) => s.spanId === targetSpanId.value),
@@ -132,7 +143,8 @@ watch(
     selected.value = null
     hasMore.value = false
     cursor.value = undefined
-    tab.value = 'waterfall'
+    preferMetrics = route.query?.tab === 'metrics'
+    tab.value = preferMetrics ? 'metrics' : 'waterfall'
     targetSpanId.value = typeof route.query?.spanId === 'string' ? route.query.spanId : ''
     void load()
   },
@@ -177,7 +189,7 @@ onBeforeUnmount(() => {
             : 'border-transparent text-muted-foreground'
         "
         :aria-pressed="tab === item.id"
-        @click="tab = item.id as typeof tab"
+        @click="selectTab(item.id)"
       >
         {{ item.label }}
       </button>
@@ -214,6 +226,7 @@ onBeforeUnmount(() => {
       :trace-id="String(route.params.traceId)"
       :selected-span-id="selected?.spanId"
       @select-span="selectMetricSpan"
+      @loaded="metricsLoaded"
     />
     <div v-show="tab === 'waterfall'" ref="waterfall" class="detail-grid">
       <div class="waterfall-panel">

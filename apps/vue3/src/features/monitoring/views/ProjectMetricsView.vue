@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight, Download, RefreshCw, ChartNoAxesCombined } from '@lucide/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { use } from 'echarts/core'
@@ -6,7 +7,6 @@ import { LineChart, BarChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import { Download, RefreshCw, ChartNoAxesCombined } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
@@ -468,7 +468,7 @@ onBeforeUnmount(() => {
                     projectSlug: route.params.projectSlug,
                     traceId: sample.traceId,
                   },
-                  query: sample.spanId ? { spanId: sample.spanId } : {},
+                  query: { tab: 'metrics', ...(sample.spanId ? { spanId: sample.spanId } : {}) },
                 }"
                 class="font-mono text-cyan-700 underline"
                 >{{ sample.traceId }}</RouterLink
@@ -515,20 +515,20 @@ onBeforeUnmount(() => {
     <footer v-if="tab === 'samples'" class="flex items-center justify-end gap-3 text-sm">
       <Button
         variant="outline"
-        size="sm"
+        size="icon-sm"
         :disabled="loading || page <= 1"
         aria-label="Previous page"
         @click="paginate(-1)"
-        >Previous page</Button
-      ><span>Page {{ page }}</span
+        ><ChevronLeft aria-hidden="true" /></Button
+      ><span class="min-w-8 text-center tabular-nums" aria-current="page">{{ page }}</span
       ><Button
         variant="outline"
-        size="sm"
+        size="icon-sm"
         :disabled="loading || !result || page * 20 >= result.total"
         aria-label="Next page"
         @click="paginate(1)"
-        >Next page</Button
-      >
+        ><ChevronRight aria-hidden="true"
+      /></Button>
     </footer>
   </section>
 </template>

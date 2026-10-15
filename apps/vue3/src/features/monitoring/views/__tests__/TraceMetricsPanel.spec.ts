@@ -54,6 +54,17 @@ describe('Trace application metrics', () => {
       { page: 2, pageSize: 20 },
     ])
   })
+  it('shows attribute counts and expandable values with no disclosure for empty attributes', async () => {
+    const view = mount(TraceMetricsPanel, { props })
+    await flushPromises()
+    const rows = view.findAll('tbody tr')
+    expect(rows[0]!.get('summary').text()).toBe('Attributes (1)')
+    rows[0]!.get('details').element.open = true
+    await rows[0]!.get('summary').trigger('toggle')
+    expect(rows[0]!.get('details ul').text()).toContain('route')
+    expect(rows[0]!.get('details ul').text()).toContain('/')
+    expect(rows[1]!.find('details').exists()).toBe(false)
+  })
   it('searches metric names and restricts to the selected span while resetting pagination', async () => {
     const view = mount(TraceMetricsPanel, { props })
     await flushPromises()

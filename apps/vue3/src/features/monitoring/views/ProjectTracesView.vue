@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { use } from 'echarts/core'
@@ -11,7 +12,6 @@ import {
   DataZoomComponent,
 } from 'echarts/components'
 import VChart from 'vue-echarts'
-import { ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
@@ -67,7 +67,11 @@ const timeRanges = [
   { value: '3d', label: 'Last 3 days', duration: 3 * 86400000 },
   { value: '7d', label: 'Last 7 days', duration: 7 * 86400000 },
 ]
-const intervals: { value: NonNullable<TraceQuery['interval']>; label: string; duration?: number }[] = [
+const intervals: {
+  value: NonNullable<TraceQuery['interval']>
+  label: string
+  duration?: number
+}[] = [
   { value: 'auto', label: 'Auto' },
   { value: '1m', label: '1 minute', duration: 60000 },
   { value: '30m', label: '30 minutes', duration: 1800000 },
@@ -670,17 +674,20 @@ onMounted(async () => {
       <Button
         aria-label="Previous page"
         variant="outline"
+        size="icon-sm"
         :disabled="page === 1 || loading"
         @click="changePage(-1)"
-        >Previous page</Button
-      ><span>Page {{ page }} · {{ total }} records</span
+        ><ChevronLeft aria-hidden="true" /></Button
+      ><span class="min-w-8 text-center text-sm tabular-nums" aria-current="page">{{ page }}</span
       ><Button
         aria-label="Next page"
         variant="outline"
+        size="icon-sm"
         :disabled="page * 20 >= total || loading"
         @click="changePage(1)"
-        >Next page</Button
-      >
+        ><ChevronRight aria-hidden="true"
+      /></Button>
+      <span class="text-sm text-muted-foreground">{{ total }} records</span>
     </div>
   </section>
 </template>

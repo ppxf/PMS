@@ -17,7 +17,7 @@ const props = withDefaults(
     }
   >(),
   {
-    size: 'default',
+    size: 'icon-sm',
   },
 )
 
@@ -28,12 +28,12 @@ const forwarded = useForwardProps(delegatedProps)
 <template>
   <PaginationPrev
     data-slot="pagination-previous"
-    :class="cn(buttonVariants({ variant: 'ghost', size }), 'pl-2!', props.class)"
+    aria-label="Previous page"
+    :class="cn(buttonVariants({ variant: 'outline', size }), props.class)"
     v-bind="forwarded"
   >
     <slot>
-      <ChevronLeftIcon data-icon="inline-start" class="cn-rtl-flip" />
-      <span class="hidden sm:block">Previous</span>
+      <ChevronLeftIcon aria-hidden="true" class="cn-rtl-flip" />
     </slot>
   </PaginationPrev>
 </template>

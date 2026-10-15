@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import MetricAttributeTree from './MetricAttributeTree.vue'
 import { traceMetrics } from '../api/metrics.api'
 import type { TraceMetricsResult } from '../model/metrics'
 
@@ -11,7 +13,7 @@ const props = defineProps<{
   traceId: string
   selectedSpanId?: string
 }>()
-const emit = defineEmits<{ selectSpan: [spanId: string] }>()
+const emit = defineEmits<{ selectSpan: [spanId: string]; loaded: [total: number] }>()
 const result = ref<TraceMetricsResult>(),
   loading = ref(false),
   error = ref('')
@@ -32,7 +34,10 @@ async function load() {
       ...(appliedSearch.value ? { search: appliedSearch.value } : {}),
       ...(onlySpan.value && props.selectedSpanId ? { spanId: props.selectedSpanId } : {}),
     })
-    if (current === generation) result.value = response
+    if (current === generation) {
+      result.value = response
+      emit('loaded', response.total)
+    }
   } catch {
     if (current === generation) error.value = 'Unable to load related metrics'
   } finally {
@@ -69,7 +74,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section aria-label="Related application metrics" class="space-y-4">
+  <section aria-label="Related application metrics" class="trace-metrics space-y-4">
     <form class="flex flex-wrap items-center gap-3" @submit.prevent="applySearch">
       <Input
         v-model="search"
@@ -93,9 +98,9 @@ onBeforeUnmount(() => {
     <p v-if="error" role="alert">
       {{ error }} <Button variant="outline" @click="load">Retry</Button>
     </p>
-    <div class="overflow-x-auto rounded-lg border">
+    <div class="overflow-x-auto">
       <table class="w-full text-left text-sm">
-        <thead class="bg-muted">
+        <thead>
           <tr>
             <th class="p-3">Application Metric</th>
             <th class="p-3">Type</th>
@@ -106,14 +111,10 @@ onBeforeUnmount(() => {
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="sample in result?.samples"
-            :key="`${sample.eventId}:${sample.sampleIndex}`"
-            class="border-t"
-          >
+          <tr v-for="sample in result?.samples" :key="`${sample.eventId}:${sample.sampleIndex}`">
             <td class="p-3">{{ sample.name }}</td>
             <td class="p-3">{{ sample.type }}</td>
-            <td class="whitespace-nowrap p-3">
+            <td class="whitespace-nowrap p-3 tabular-nums">
               {{ sample.value.toLocaleString('en-US') }}
               {{ sample.unit === 'none' ? '' : sample.unit }}
             </td>
@@ -125,24 +126,25 @@ onBeforeUnmount(() => {
                 v-if="sample.spanId"
                 type="button"
                 :aria-label="`View span ${sample.spanId}`"
-                class="font-mono text-primary underline"
+                class="font-mono text-cyan-700 underline"
                 @click="emit('selectSpan', sample.spanId)"
               >
                 {{ sample.spanId }}
               </button>
               <span v-else>—</span>
             </td>
-            <td class="max-w-80 break-words p-3">
-              <details>
-                <summary>View attributes</summary>
-                <p>
+            <td class="w-96 max-w-96 align-top">
+              <details v-if="Object.keys(sample.attributes).length" class="min-w-56">
+                <summary class="cursor-pointer rounded text-cyan-700 focus-visible:outline-2">
+                  Attributes ({{ Object.keys(sample.attributes).length }})
+                </summary>
+                <MetricAttributeTree :entries="Object.entries(sample.attributes)" class="mt-3" />
+                <p class="mt-3 text-xs text-muted-foreground">
                   Environment: {{ sample.environment ?? '—' }} / Release:
                   {{ sample.release ?? '—' }}
                 </p>
-                <pre class="whitespace-pre-wrap">{{
-                  JSON.stringify(sample.attributes, null, 2)
-                }}</pre>
               </details>
+              <span v-else class="text-muted-foreground">-</span>
             </td>
           </tr>
         </tbody>
@@ -151,24 +153,39 @@ onBeforeUnmount(() => {
         No matching related metrics
       </p>
     </div>
-    <div v-if="result" class="flex items-center justify-between gap-3 text-sm">
-      <span>{{ result.total }} metrics · Page {{ result.page }}</span>
+    <div v-if="result" class="flex flex-wrap items-center justify-end gap-3 text-sm">
+      <span class="mr-auto text-muted-foreground">{{ result.total }} metrics</span>
       <div class="flex gap-2">
         <Button
           variant="outline"
+          size="icon-sm"
           aria-label="Previous metrics page"
           :disabled="loading || result.page <= 1"
           @click="changePage(result.page - 1)"
-          >Previous</Button
-        >
+          ><ChevronLeft aria-hidden="true"
+        /></Button>
+        <span class="min-w-8 text-center tabular-nums" aria-current="page">{{ result.page }}</span>
         <Button
           variant="outline"
+          size="icon-sm"
           aria-label="Next metrics page"
           :disabled="loading || result.page * result.pageSize >= result.total"
           @click="changePage(result.page + 1)"
-          >Next</Button
-        >
+          ><ChevronRight aria-hidden="true"
+        /></Button>
       </div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.trace-metrics th {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.trace-metrics th,
+.trace-metrics td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+</style>

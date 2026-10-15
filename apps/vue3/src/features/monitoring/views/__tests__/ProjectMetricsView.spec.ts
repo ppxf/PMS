@@ -54,7 +54,7 @@ describe('Metrics explorer', () => {
     expect(view.getComponent({ name: 'RouterLink' }).props('to')).toEqual({
       name: 'project-trace-detail',
       params: { groupSlug: 'team', projectSlug: 'web', traceId: '1'.repeat(32) },
-      query: { spanId: '2'.repeat(16) },
+      query: { tab: 'metrics', spanId: '2'.repeat(16) },
     })
   })
   it('queries filters and preserves time boundaries when paging', async () => {
