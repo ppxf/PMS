@@ -1,6 +1,6 @@
 {
   "name": "@pms/monitoring-browser",
-  "version": "0.1.0",
+  "version": "0.1.7",
   "type": "module",
   "files": ["dist", "README.md"],
   "types": "./dist/index.d.ts",
