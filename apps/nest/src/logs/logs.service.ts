@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { contentHash } from '../traces/traces.service';
 import { LogBatchEntity, LogEntity } from './log.entity';
+import { aggregateSql, conditionsSql, logField } from './logs-query';
 import { LOG_LEVELS } from './logs-contract';
 import type { LogQuery, LogsEnvelope } from './logs-contract';
 import { LogQueryPipe, LogsEnvelopePipe } from './logs-validation';
@@ -81,7 +82,34 @@ export class LogsService {
         `SELECT DISTINCT key FROM monitoring_logs CROSS JOIN LATERAL jsonb_object_keys(attributes) AS key WHERE project_id = $1 AND timestamp >= now() - interval '7 days' ORDER BY key LIMIT 101`,
         [project.id],
       );
+      const types = await manager.query<{ key: string; type: string }[]>(
+        `SELECT a.key, CASE WHEN count(DISTINCT jsonb_typeof(a.value)) = 1 THEN min(jsonb_typeof(a.value)) ELSE 'mixed' END AS type FROM monitoring_logs CROSS JOIN LATERAL jsonb_each(attributes) a WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY a.key ORDER BY a.key LIMIT 100`,
+        [project.id],
+      );
       return {
+        fields: [
+          ...[
+            'message',
+            'severity',
+            'trace',
+            'timestamp',
+            'environment',
+            'release',
+            'logId',
+            'spanId',
+          ].map((key) => ({
+            key,
+            type: key === 'timestamp' ? 'date' : 'string',
+            category: 'Logs',
+          })),
+          { key: 'payload_size', type: 'size', category: 'Logs' },
+          { key: 'timestamp_precise', type: 'number', category: 'Logs' },
+          ...types.map((row) => ({
+            ...row,
+            key: `attributes.${row.key}`,
+            category: 'Attributes',
+          })),
+        ],
         attributes: rows.slice(0, 100).map((row) => row.key),
         truncated: rows.length > 100,
         levels: LOG_LEVELS,
@@ -107,6 +135,8 @@ export class LogsService {
     if (q.traceId) where += ` AND trace_id = ${bind(q.traceId)}`;
     for (const f of q.filters)
       where += ` AND attributes -> ${bind(f.key)}::text = ${bind(JSON.stringify(f.value))}::jsonb`;
+    const condition = conditionsSql(q.conditions ?? [], bind);
+    if (condition) where += ` AND ${condition}`;
     return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       const counts = await manager.query<{ total: number }[]>(
@@ -118,7 +148,7 @@ export class LogsService {
         throw new BadRequestException('Too many logs; narrow range or filters');
       const direction = q.sortDirection === 'asc' ? 'ASC' : 'DESC';
       const items = await manager.query<Record<string, unknown>[]>(
-        `SELECT log_id AS "logId", timestamp, level, message, attributes, environment, release, trace_id AS "traceId", span_id AS "spanId" FROM monitoring_logs WHERE ${where} ORDER BY timestamp ${direction}, log_id ${direction} LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
+        `SELECT log_id AS "logId", timestamp, level, message, attributes, environment, release, trace_id AS "traceId", span_id AS "spanId", octet_length(convert_to(jsonb_build_object('message', message, 'attributes', attributes)::text, 'UTF8')) AS "payloadSize" FROM monitoring_logs WHERE ${where} ORDER BY timestamp ${direction}, log_id ${direction} LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
         params,
       );
       const intervalMs = q.intervalSeconds * 1000;
@@ -132,7 +162,66 @@ export class LogsService {
       const lookup = new Map(
         rows.map((row) => [`${row.level}:${row.bucket}`, row.count]),
       );
+      const charts: {
+        title: string;
+        groups: {
+          name: string;
+          value: number | null;
+          points: { timestamp: string; value: number | null }[];
+        }[];
+      }[] = [];
+      for (const v of q.visualizations ?? []) {
+        const chartParams = [...params];
+        const chartBind = (value: unknown) => {
+          chartParams.push(value);
+          return `$${chartParams.length}`;
+        };
+        const extra = conditionsSql(v.conditions ?? [], chartBind);
+        const group = v.groupBy?.length
+          ? `jsonb_build_array(${v.groupBy.map((key) => logField(key, chartBind)).join(', ')})::text`
+          : "'[]'::text";
+        const aggregate = aggregateSql(v, chartBind);
+        const aggregateRows = await manager.query<
+          { bucket: number | null; name: string; value: number | null }[]
+        >(
+          `WITH matched AS (SELECT *, ${group} AS log_group FROM monitoring_logs WHERE ${where}${extra ? ` AND ${extra}` : ''}), top_groups AS (SELECT log_group FROM matched GROUP BY log_group ORDER BY count(*) DESC, log_group LIMIT 20) SELECT ${bucket} AS bucket, log_group AS name, ${aggregate} AS value FROM matched WHERE log_group IN (SELECT log_group FROM top_groups) GROUP BY GROUPING SETS ((log_group), (log_group, ${bucket})) ORDER BY log_group, bucket`,
+          chartParams,
+        );
+        const points = new Map(
+          aggregateRows
+            .filter((row) => row.bucket !== null)
+            .map((row) => [`${row.name}:${row.bucket}`, row.value]),
+        );
+        const totals = aggregateRows.filter((row) => row.bucket === null);
+        charts.push({
+          title: `${v.aggregate}(${v.field})`,
+          groups: totals.map((total) => ({
+            name: v.groupBy?.length
+              ? (JSON.parse(total.name) as (string | number | boolean | null)[])
+                  .map((value) => (value == null ? '(missing)' : String(value)))
+                  .join(' / ')
+              : `${v.aggregate}(${v.field})`,
+            value: total.value,
+            points: Array.from(
+              {
+                length: Math.ceil(
+                  (Date.parse(q.end) - Date.parse(q.start)) / intervalMs,
+                ),
+              },
+              (_, index) => ({
+                timestamp: new Date(
+                  Date.parse(q.start) + index * intervalMs,
+                ).toISOString(),
+                value:
+                  points.get(`${total.name}:${index}`) ??
+                  (['count', 'count_unique'].includes(v.aggregate) ? 0 : null),
+              }),
+            ),
+          })),
+        });
+      }
       return {
+        ...(q.visualizations ? { charts } : {}),
         items,
         total,
         page: q.page,

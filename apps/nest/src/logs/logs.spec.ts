@@ -53,6 +53,37 @@ describe('logs validation', () => {
       BadRequestException,
     );
   });
+  it('accepts condition operators and validates visualization requests', () => {
+    const pipe = new LogQueryPipe();
+    const input = {
+      ...queryInput(),
+      conditions: [
+        { key: 'severity', operator: 'in', value: ['error', 'warn'] },
+      ],
+      visualizations: [
+        {
+          aggregate: 'avg',
+          field: 'duration',
+          groupBy: ['severity'],
+          conditions: [],
+        },
+      ],
+    };
+    expect(pipe.transform(input)).toMatchObject(input);
+    for (const change of [
+      { conditions: [{ key: 'message', operator: 'sql', value: 'x' }] },
+      { conditions: [{ key: 'message', operator: 'in', value: [] }] },
+      { visualizations: [{ aggregate: 'avg', field: 'message' }] },
+      {
+        visualizations: [
+          { aggregate: 'count', field: 'logs', groupBy: ['x', 'y', 'z'] },
+        ],
+      },
+    ])
+      expect(() => pipe.transform({ ...input, ...change })).toThrow(
+        BadRequestException,
+      );
+  });
   it('bounds filters, time windows, sorting and pagination', () => {
     expect(new LogQueryPipe().transform(queryInput())).toMatchObject({
       page: 1,
@@ -205,6 +236,52 @@ describe('logs storage', () => {
       expect.arrayContaining(["%_quote'", 'count', '2']),
     );
     expect(result.series[0].points.map((point) => point.count)).toEqual([0, 1]);
+  });
+  it('aggregates the full filtered window independently of the current page and series filters', async () => {
+    const f = fixture();
+    f.manager.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ total: 21 }])
+      .mockResolvedValueOnce([{ logId: 'page-two' }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { bucket: 0, name: '["prod"]', value: 3 },
+        { bucket: null, name: '["prod"]', value: 3 },
+      ]);
+    const result = await f.service.query('u', 'g', 'p', {
+      ...queryInput(),
+      page: 2,
+      intervalSeconds: 60,
+      conditions: [
+        { key: 'severity', operator: 'in', value: ['error', 'warn'] },
+      ],
+      visualizations: [
+        {
+          aggregate: 'avg',
+          field: 'attributes.count',
+          groupBy: ['environment'],
+          conditions: [
+            { key: 'message', operator: 'contains', value: "quote'" },
+          ],
+        },
+      ],
+    } as never);
+    const sql = f.manager.query.mock.calls[4][0] as string;
+    expect(sql).toContain('GROUPING SETS');
+    expect(sql).not.toContain('OFFSET 20');
+    expect(sql).not.toContain("quote'");
+    expect(sql).toContain('avg(CASE WHEN jsonb_typeof(');
+    expect(f.manager.query.mock.calls[4][1]).toEqual(
+      expect.arrayContaining(['"error"', '"warn"', "quote'", 'count']),
+    );
+    expect(result.charts?.[0].groups[0]).toMatchObject({
+      name: 'prod',
+      value: 3,
+    });
+    expect(result.charts?.[0].groups[0].points.map((p) => p.value)).toEqual([
+      3,
+      null,
+    ]);
   });
   it('rejects overly broad queries before fetching records', async () => {
     const f = fixture();

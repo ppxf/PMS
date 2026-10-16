@@ -5,7 +5,7 @@ import {
   reject,
   validId,
 } from '../traces/traces-validation';
-import { LOG_LEVELS } from './logs-contract';
+import { LOG_AGGREGATES, LOG_LEVELS } from './logs-contract';
 import type { LogQuery, LogsEnvelope } from './logs-contract';
 const uuid = (value: unknown) =>
   typeof value === 'string' &&
@@ -102,6 +102,8 @@ export class LogsEnvelopePipe implements PipeTransform<unknown, LogsEnvelope> {
 export class LogQueryPipe implements PipeTransform<unknown, LogQuery> {
   transform(input: unknown): LogQuery {
     const q = jsonObject(input, [
+      'conditions',
+      'visualizations',
       'start',
       'end',
       'search',
@@ -139,6 +141,52 @@ export class LogQueryPipe implements PipeTransform<unknown, LogQuery> {
       const filter = jsonObject(inputFilter, ['key', 'value']);
       attribute(filter.key, filter.value);
     });
+    validateConditions(q.conditions ?? []);
+    if (q.visualizations !== undefined) {
+      if (
+        !Array.isArray(q.visualizations) ||
+        !q.visualizations.length ||
+        q.visualizations.length > 3
+      )
+        reject('Expected 1 to 3 charts');
+      for (const item of q.visualizations) {
+        const v = jsonObject(item, [
+          'aggregate',
+          'field',
+          'groupBy',
+          'conditions',
+        ]);
+        if (!(LOG_AGGREGATES as readonly unknown[]).includes(v.aggregate))
+          reject('Invalid aggregate');
+        queryField(v.field);
+        if (['__proto__', 'prototype', 'constructor'].includes(v.field))
+          reject('Reserved field');
+        if (v.field === 'logs' && v.aggregate !== 'count')
+          reject('Select a field');
+        if (
+          !['count', 'count_unique'].includes(String(v.aggregate)) &&
+          [
+            'message',
+            'severity',
+            'level',
+            'trace',
+            'traceId',
+            'environment',
+            'release',
+            'timestamp',
+            'logId',
+            'spanId',
+          ].includes(v.field)
+        )
+          reject('Select a numeric field');
+        if (v.groupBy !== undefined) {
+          if (!Array.isArray(v.groupBy) || v.groupBy.length > 2)
+            reject('Maximum 2 groups');
+          for (const key of v.groupBy) queryField(key);
+        }
+        validateConditions(v.conditions ?? []);
+      }
+    }
     const intervalSeconds =
       q.intervalSeconds ?? Math.max(60, Math.ceil((end - start) / 120000));
     if (
@@ -173,4 +221,55 @@ export class LogQueryPipe implements PipeTransform<unknown, LogQuery> {
       sortDirection,
     } as LogQuery;
   }
+}
+
+function validateConditions(input: unknown) {
+  if (!Array.isArray(input) || input.length > 10)
+    reject('Maximum 10 conditions');
+  for (const item of input) {
+    const c = jsonObject(item, ['key', 'operator', 'value']);
+    queryField(c.key);
+    if (['__proto__', 'prototype', 'constructor'].includes(c.key))
+      reject('Reserved field');
+    if (
+      ![
+        'eq',
+        'neq',
+        'in',
+        'not_in',
+        'contains',
+        'gt',
+        'gte',
+        'lt',
+        'lte',
+        'exists',
+        'not_exists',
+      ].includes(String(c.operator))
+    )
+      reject('Invalid condition operator');
+    if (c.operator === 'exists' || c.operator === 'not_exists') continue;
+    if (c.operator === 'in' || c.operator === 'not_in') {
+      if (!Array.isArray(c.value) || !c.value.length || c.value.length > 50)
+        reject('Expected 1 to 50 values');
+      for (const value of c.value)
+        attribute(String(c.key).replace(/^attributes\./, ''), value);
+    } else {
+      attribute(String(c.key).replace(/^attributes\./, ''), c.value);
+      if (
+        ['gt', 'gte', 'lt', 'lte'].includes(String(c.operator)) &&
+        typeof c.value !== 'number'
+      )
+        reject('Expected numeric value');
+      if (c.operator === 'contains' && typeof c.value !== 'string')
+        reject('Expected text value');
+    }
+  }
+}
+
+function queryField(value: unknown): asserts value is string {
+  text(value, 75);
+  const key = value.replace(/^attributes\./, '');
+  text(key, 64);
+  if (['__proto__', 'prototype', 'constructor'].includes(key))
+    reject('Reserved field');
 }
