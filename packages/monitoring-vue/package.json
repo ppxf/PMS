@@ -3,7 +3,7 @@
   "version": "0.1.7",
   "type": "module",
   "files": [
-    "dist"
+    "dist", "README.md"
   ],
   "types": "./dist/index.d.ts",
   "exports": {

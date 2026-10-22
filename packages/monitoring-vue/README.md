@@ -1,13 +1,13 @@
 # PMS Vue Traces 接入指引
 
-monitoring-vue 提供统一初始化和错误监控；monitoring-browser 提供可选 browserTracingIntegration()。两个包不互相依赖或引用，通过 core 的通用插件协议组合。只调用一次 Vue init，无需调用 browser init 或 initTraces。
+monitoring-vue 统一提供错误监控、链路、指标和日志能力；通过同一包导出的 browserTracingIntegration() 启用自动浏览器链路。只需安装一个包并调用一次 init，所有能力共用同一个客户端。
 
 ## 1. 准备项目
 
 执行数据库迁移，从 PMS 项目 SDK 接入页复制自动生成的初始化配置；使用 Traces 时在项目功能配置中启用 Traces。SDK 需先发布到项目使用的私有 npm；本仓库可使用工作区包。
 
 ```sh
-pnpm add @pms/monitoring-vue @pms/monitoring-browser
+pnpm add @pms/monitoring-vue
 ```
 
 业务应用 .env.local：
@@ -24,8 +24,7 @@ Vue + Vite 示例；没有 Router 时删除 router 的导入、app.use 和 init 
 
 ```ts
 import { createApp } from 'vue'
-import { init, startSpan } from '@pms/monitoring-vue'
-import { browserTracingIntegration } from '@pms/monitoring-browser'
+import { init, startSpan, browserTracingIntegration } from '@pms/monitoring-vue'
 import App from './App.vue'
 import router from './router'
 

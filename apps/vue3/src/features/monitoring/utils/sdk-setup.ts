@@ -50,15 +50,12 @@ async function recordMetrics() {
   <button type="button" @click="recordMetrics">Send test metrics</button>
 </template>`
 
-export const buildInstallSnippet = (tracingEnabled = false) =>
-  `pnpm add @pms/monitoring-vue${tracingEnabled ? ' @pms/monitoring-browser' : ''}`
+export const buildInstallSnippet = () => 'pnpm add @pms/monitoring-vue'
 
-export const buildBrowserTracesInstallSnippet = () =>
-  'pnpm add @pms/monitoring-vue @pms/monitoring-browser'
+export const buildBrowserTracesInstallSnippet = () => 'pnpm add @pms/monitoring-vue'
 
 export const buildBrowserTracesInitSnippet = () => `import { createApp } from 'vue'
-import { init } from '@pms/monitoring-vue'
-import { browserTracingIntegration } from '@pms/monitoring-browser'
+import { init, browserTracingIntegration } from '@pms/monitoring-vue'
 import App from './App.vue'
 import router from './router'
 
@@ -79,7 +76,7 @@ app.mount('#app')`
 
 export const buildInitSnippet = (tracingEnabled = false) => `import { createApp } from 'vue'
 import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'
-import App from './App.vue'${tracingEnabled ? "\nimport { browserTracingIntegration } from '@pms/monitoring-browser'\nimport router from './router'" : ''}
+import App from './App.vue'${tracingEnabled ? "\nimport { browserTracingIntegration } from '@pms/monitoring-vue'\nimport router from './router'" : ''}
 
 const app = createApp(App)${tracingEnabled ? '\napp.use(router)' : ''}
 

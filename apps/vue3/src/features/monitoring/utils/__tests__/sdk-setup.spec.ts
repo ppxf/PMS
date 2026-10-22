@@ -11,12 +11,11 @@ const dsn = 'http://abc123@localhost:3001/api/sdk/550e8400-e29b-41d4-a716-446655
 
 describe('SDK setup helpers', () => {
   it('provides independent trace-only browser installation and initialization', () => {
-    expect(buildBrowserTracesInstallSnippet()).toBe(
-      'pnpm add @pms/monitoring-vue @pms/monitoring-browser',
-    )
+    expect(buildBrowserTracesInstallSnippet()).toBe('pnpm add @pms/monitoring-vue')
     const snippet = buildBrowserTracesInitSnippet()
-    expect(snippet).toContain("import { init } from '@pms/monitoring-vue'")
-    expect(snippet).toContain("import { browserTracingIntegration } from '@pms/monitoring-browser'")
+    expect(snippet).toContain(
+      "import { init, browserTracingIntegration } from '@pms/monitoring-vue'",
+    )
     expect(snippet).toContain('init({')
     expect(snippet).toContain('integrations: [browserTracingIntegration()]')
     expect(snippet).toContain('tracesSampleRate: import.meta.env.DEV ? 1 : 0.1')
@@ -29,6 +28,7 @@ describe('SDK setup helpers', () => {
     expect(buildInitSnippet(true)).toContain('tracesSampleRate: import.meta.env.DEV ? 1 : 0.1')
     expect(buildInitSnippet(true)).toContain('router, // Optional')
     expect(buildInitSnippet(true)).toContain('integrations: [browserTracingIntegration()]')
+    expect(buildInitSnippet(true)).not.toContain('monitoring-browser')
     expect(buildInitSnippet(false)).not.toContain('monitoring-browser')
   })
   it('builds registry-based SDK installation and initialization instructions', () => {
