@@ -24,6 +24,7 @@ let configuredIntegrations: readonly MonitoringIntegration[] | undefined
 let configuredRouter: MonitoringRouter | undefined
 export const { metrics, getMetricStats } = client
 export const { logger, getLogStats, captureConsoleLogs } = client
+export const { uiProfiler } = client
 export { startSpan, startInactiveSpan, flush, getTraceStats }
 
 function capture(error: unknown, source: MonitoringEventSource): void {
@@ -60,7 +61,7 @@ function isVueApp(value: unknown): value is App {
 export function init(options: VueMonitoringInitOptions): ClientState {
   if (!isVueApp(options.app)) throw new TypeError('PMS monitoring init requires a Vue app')
 
-  const integrations = options.browserTracing === false ? [] : options.integrations ?? []
+  const integrations = (options.integrations ?? []).filter(integration => options.browserTracing !== false || integration?.name === 'BrowserProfiling')
   if (integrations.some(i => !i || typeof i.setup !== 'function' || typeof i.name !== 'string')) {
     throw new TypeError('PMS integrations require a name and setup function')
   }
@@ -84,8 +85,12 @@ export function init(options: VueMonitoringInitOptions): ClientState {
   appStates.set(app, state)
   installVueHandler(app)
   if (typeof window !== 'undefined') installBrowserHandlers(window)
-  if (typeof window !== 'undefined' && (options.tracesSampleRate ?? 0) > 0 && options.browserTracing !== false) {
-    for (const integration of integrations) integration.setup({ client, window, router: options.router })
+  if (typeof window !== 'undefined') {
+    for (const integration of integrations) {
+      if (integration.name === 'BrowserProfiling' || ((options.tracesSampleRate ?? 0) > 0 && options.browserTracing !== false)) {
+        integration.setup({ client, window, router: options.router })
+      }
+    }
   }
   return state
 }

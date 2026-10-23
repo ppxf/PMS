@@ -57,6 +57,16 @@ function createTestRouter() {
       },
       { path: '/login', name: 'login', component: EmptyView },
       {
+        path: '/groups/:groupSlug/projects/:projectSlug/profiles',
+        name: 'project-profiles',
+        component: EmptyView,
+      },
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/profiles/:profileId',
+        name: 'project-profile-detail',
+        component: EmptyView,
+      },
+      {
         path: '/groups/:groupSlug/projects/:projectSlug/metrics',
         name: 'project-metrics',
         component: EmptyView,
@@ -81,6 +91,12 @@ async function mountAt(path: string) {
 }
 
 describe('AppLayout navigation', () => {
+  it('keeps Profiles highlighted on profile detail pages', async () => {
+    const wrapper = await mountAt('/groups/acme/projects/frontend/profiles/profile-1')
+    const link = wrapper.get('a[href="/groups/acme/projects/frontend/profiles"]')
+    expect(link.text()).toContain('Profiles')
+    expect(link.classes()).toContain('bg-muted')
+  })
   it('links and highlights Metrics setup for the current project', async () => {
     const wrapper = await mountAt('/groups/acme/projects/frontend/setup/metrics')
     const link = wrapper.get('a[href="/groups/acme/projects/frontend/setup/metrics"]')

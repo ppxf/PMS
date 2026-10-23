@@ -43,6 +43,7 @@ export class MonitoringProjectsService {
       lastSeenAt: null,
       loggingEnabled: input.loggingEnabled ?? false,
       metricsEnabled: input.metricsEnabled ?? false,
+      profilesEnabled: input.profilesEnabled ?? false,
       name: input.name.trim(),
       platform: MonitoringPlatform.Vue,
       publicKey: randomBytes(16).toString('hex'),
@@ -141,6 +142,17 @@ export class MonitoringProjectsService {
     return Object.assign(project, { loggingEnabled });
   }
 
+  async updateProfiles(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    profilesEnabled: boolean,
+  ): Promise<MonitoringProjectResponse> {
+    const project = await this.findOwnedBySlug(userId, groupSlug, projectSlug);
+    await this.repository.update(project.id, { profilesEnabled });
+    return Object.assign(project, { profilesEnabled });
+  }
+
   async updatePropagation(
     userId: string,
     groupSlug: string,
@@ -196,7 +208,8 @@ export class MonitoringProjectsService {
     projectId: string,
     publicKey: string | undefined,
   ): Promise<MonitoringProject> {
-    if (!publicKey?.trim()) throw new NotFoundException('Monitoring project not found');
+    if (!publicKey?.trim())
+      throw new NotFoundException('Monitoring project not found');
     const project = await this.repository.findOne({
       where: { id: projectId, publicKey },
     });

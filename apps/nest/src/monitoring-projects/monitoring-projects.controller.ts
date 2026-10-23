@@ -11,6 +11,7 @@ import { UpdateOriginsPipe } from './dto/update-origins.pipe';
 import { UpdateMetricsPipe } from './dto/update-metrics.pipe';
 import { UpdateLoggingPipe } from './dto/update-logging.pipe';
 import { UpdateErrorMonitoringPipe } from './dto/update-error-monitoring.pipe';
+import { UpdateProfilesPipe } from '../profiles/profiles-validation';
 
 interface AuthenticatedRequest extends Request {
   user: AuthUser;
@@ -34,6 +35,21 @@ export class MonitoringProjectsController {
       groupSlug,
       projectSlug,
       input.errorMonitoringEnabled,
+    );
+  }
+
+  @Patch(':projectSlug/profiles')
+  profiles(
+    @Req() request: AuthenticatedRequest,
+    @Param('groupSlug') groupSlug: string,
+    @Param('projectSlug') projectSlug: string,
+    @Body(new UpdateProfilesPipe()) input: { profilesEnabled: boolean },
+  ) {
+    return this.projects.updateProfiles(
+      request.user.id,
+      groupSlug,
+      projectSlug,
+      input.profilesEnabled,
     );
   }
 

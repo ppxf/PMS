@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import {
   Bug,
+  Flame,
   Logs,
   ChartNoAxesCombined,
   FolderKanban,
@@ -67,6 +68,12 @@ const navigation: NavigationItem[] = [
 ]
 
 const projectNavigation: ProjectNavigationItem[] = [
+  {
+    label: 'Profiles',
+    routeName: 'project-profiles',
+    activeRouteNames: ['project-profiles', 'project-profile-detail'],
+    icon: Flame,
+  },
   { label: 'Logs', routeName: 'project-logs', activeRouteNames: ['project-logs'], icon: Logs },
   {
     label: 'Metrics',

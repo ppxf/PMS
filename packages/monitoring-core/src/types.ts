@@ -1,6 +1,7 @@
 import type { LogsEnvelope, LogEntry } from './logs-types.js'
 import type { TransactionEnvelope } from './tracing-types.js'
 import type { MetricsEnvelope } from './metrics-types.js'
+import type { ProfileEnvelope } from './profiling-types.js'
 export type MonitoringEventType = 'error'
 export type MonitoringLevel = 'error'
 export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual'
@@ -90,7 +91,7 @@ export interface EventEnvelope {
   event: MonitoringEvent
 }
 
-export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope | LogsEnvelope
+export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope | LogsEnvelope | ProfileEnvelope
 
 export interface Transport {
   send(envelope: MonitoringEnvelope): Promise<void>
@@ -109,6 +110,8 @@ export interface CaptureExceptionContext {
 }
 
 export interface MonitoringInitOptions {
+  profileSessionSampleRate?: number
+  profileLifecycle?: 'manual' | 'trace'
   enableLogs?: boolean
   beforeSendLog?: (log: LogEntry) => LogEntry | null
   enableMetrics?: boolean

@@ -11,6 +11,7 @@ import { SdkEnvelopeController } from './sdk-envelope.controller';
 import { TracesModule } from '../traces/traces.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { LogsModule } from '../logs/logs.module';
+import { ProfilesModule } from '../profiles/profiles.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { LogsModule } from '../logs/logs.module';
     TracesModule,
     MetricsModule,
     LogsModule,
+    ProfilesModule,
   ],
   controllers: [SdkEnvelopeController, MonitoringIssuesController],
   providers: [MonitoringEventsService, IssueAutoResolutionService],

@@ -36,3 +36,7 @@ pnpm clean
 5. 启动后访问 `/register` 自助注册，并通过 SMTP 邮件完成邮箱验证后登录。
 
 生产部署必须替换 `JWT_SECRET`，并关闭 `DB_SYNCHRONIZE`。
+
+## Profiles
+
+浏览器函数采样的接入、响应头配置和分析说明见 [Profiles 文档](PROFILES.md)。在项目的 Profiles 页面启用采集后，使用 PMS Vue SDK 的 `browserProfilingIntegration()` 接入。

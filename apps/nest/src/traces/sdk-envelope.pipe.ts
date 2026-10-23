@@ -7,15 +7,28 @@ import { MetricsEnvelope } from '../metrics/metrics-contract';
 import { MetricsEnvelopePipe } from '../metrics/metrics-validation';
 import type { LogsEnvelope } from '../logs/logs-contract';
 import { LogsEnvelopePipe } from '../logs/logs-validation';
+import type { ProfileEnvelope } from '../profiles/profiles-contract';
+import { ProfileEnvelopePipe } from '../profiles/profiles-validation';
 
 @Injectable()
 export class SdkEnvelopePipe implements PipeTransform<
   unknown,
-  IngestEnvelopeDto | TransactionEnvelope | MetricsEnvelope | LogsEnvelope
+  | IngestEnvelopeDto
+  | TransactionEnvelope
+  | MetricsEnvelope
+  | LogsEnvelope
+  | ProfileEnvelope
 > {
   transform(
     input: unknown,
-  ): IngestEnvelopeDto | TransactionEnvelope | MetricsEnvelope | LogsEnvelope {
+  ):
+    | IngestEnvelopeDto
+    | TransactionEnvelope
+    | MetricsEnvelope
+    | LogsEnvelope
+    | ProfileEnvelope {
+    if (jsonObject(input).type === 'profile')
+      return new ProfileEnvelopePipe().transform(input);
     if (jsonObject(input).type === 'logs')
       return new LogsEnvelopePipe().transform(input);
     if (jsonObject(input).type === 'metrics')

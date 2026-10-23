@@ -4,11 +4,16 @@ import { HttpTransport, TransportError } from './http-transport.js'
 import { createTracing } from './tracing.js'
 import { createMetrics } from './metrics.js'
 import { createLogs } from './logs.js'
+import { createProfiling } from './profiling.js'
 import { normalizePropagationTargets } from './propagation.js'
 import type { CaptureExceptionContext, ClientState, MonitoringEnvelope, MonitoringInitOptions, Transport } from './types.js'
 
 export function createMonitoringClient() {
   const tracing = createTracing()
+  const profiling = createProfiling()
+  tracing.setRootSpanObserver(profiling)
+  let activeProfileRate = 0
+  let activeProfileLifecycle: MonitoringInitOptions['profileLifecycle'] = 'manual'
   const metricRecorder = createMetrics(tracing.getActiveTraceContext)
   const logs = createLogs()
   let activeLogs = false
@@ -67,6 +72,8 @@ export function createMonitoringClient() {
   }
 
   function init(options: MonitoringInitOptions): ClientState {
+    if (options.profileSessionSampleRate !== undefined && (!Number.isFinite(options.profileSessionSampleRate) || options.profileSessionSampleRate < 0 || options.profileSessionSampleRate > 1)) throw new TypeError('profileSessionSampleRate must be between 0 and 1')
+    if (options.profileLifecycle !== undefined && !['manual', 'trace'].includes(options.profileLifecycle)) throw new TypeError('profileLifecycle must be manual or trace')
     const propagationTargets = normalizePropagationTargets(options.propagationTargets)
     if (options.tracesSampleRate !== undefined && (!Number.isFinite(options.tracesSampleRate) || options.tracesSampleRate < 0 || options.tracesSampleRate > 1)) throw new TypeError('tracesSampleRate must be between 0 and 1')
     const parsed = parseDsn(options.dsn)
@@ -86,6 +93,7 @@ export function createMonitoringClient() {
         activeSdk?.name === sdk.name && activeSdk.version === sdk.version &&
         activeLogs === (options.enableLogs ?? false) && activeBeforeSendLog === options.beforeSendLog &&
         activeMetrics === (options.enableMetrics ?? false) && activeSampleRate === (options.tracesSampleRate ?? 0) && activeRelease === options.release &&
+        activeProfileRate === (options.profileSessionSampleRate ?? 0) && activeProfileLifecycle === (options.profileLifecycle ?? 'manual') &&
         JSON.stringify(activePropagationTargets) === JSON.stringify(propagationTargets)) return state
       throw new Error('PMS monitoring client is already initialized with different options')
     }
@@ -108,6 +116,9 @@ export function createMonitoringClient() {
       ...(options.propagationTargets === undefined ? {} : { propagationTargets }),
     }
     tracing.configure(options, activeTransport)
+    profiling.configure(options, activeTransport)
+    activeProfileRate = options.profileSessionSampleRate ?? 0
+    activeProfileLifecycle = options.profileLifecycle ?? 'manual'
     activeMetrics = options.enableMetrics ?? false
     metricRecorder.configure({ ...options, sdk: activeSdk }, activeTransport)
     activeLogs = options.enableLogs ?? false
@@ -138,6 +149,9 @@ export function createMonitoringClient() {
   /** @internal Test isolation; not exported from the package public entrypoint. */
   function resetClientForTests(): void {
     tracing.reset()
+    profiling.reset()
+    activeProfileRate = 0
+    activeProfileLifecycle = 'manual'
     metricRecorder.reset()
     logs.reset()
     activeLogs = false
@@ -155,12 +169,13 @@ export function createMonitoringClient() {
   }
 
   return { init, captureException, getClientState, getTransport, getPropagationTargets, resetClientForTests,
+    enableProfiling: profiling.enable, uiProfiler: profiling.uiProfiler,
     setPageSpan: tracing.setPageSpan,
     metrics: metricRecorder.metrics, getMetricStats: metricRecorder.getMetricStats,
     logger: logs.logger, getLogStats: logs.getLogStats, captureConsoleLogs: logs.captureConsoleLogs,
     startSpan: tracing.startSpan, startInactiveSpan: tracing.startInactiveSpan,
-    flush: async () => { await Promise.all([tracing.flush(), metricRecorder.flush(), logs.flush()]) }, getTraceStats: tracing.getTraceStats }
+    flush: async () => { await Promise.all([tracing.flush(), metricRecorder.flush(), logs.flush(), profiling.flush()]) }, getTraceStats: tracing.getTraceStats }
 }
 
 const defaultClient = createMonitoringClient()
-export const { init, captureException, getClientState, getTransport, resetClientForTests, startSpan, startInactiveSpan, flush, getTraceStats, metrics, getMetricStats, logger, getLogStats, captureConsoleLogs } = defaultClient
+export const { init, captureException, getClientState, getTransport, resetClientForTests, startSpan, startInactiveSpan, flush, getTraceStats, metrics, getMetricStats, logger, getLogStats, captureConsoleLogs, uiProfiler } = defaultClient

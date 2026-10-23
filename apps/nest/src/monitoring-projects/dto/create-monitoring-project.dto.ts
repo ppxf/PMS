@@ -31,4 +31,8 @@ export class CreateMonitoringProjectDto {
   @IsOptional()
   @IsBoolean()
   metricsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  profilesEnabled?: boolean;
 }

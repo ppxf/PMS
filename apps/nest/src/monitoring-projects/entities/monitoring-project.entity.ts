@@ -69,6 +69,9 @@ export class MonitoringProject {
   @Column({ name: 'metrics_enabled', default: false })
   metricsEnabled!: boolean;
 
+  @Column({ name: 'profiles_enabled', default: false })
+  profilesEnabled!: boolean;
+
   @Column({ name: 'public_key', unique: true, length: 64 })
   publicKey!: string;
 

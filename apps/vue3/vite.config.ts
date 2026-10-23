@@ -8,6 +8,8 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), vueDevTools(), tailwindcss()],
+  server: { headers: { 'Document-Policy': 'js-profiling' } },
+  preview: { headers: { 'Document-Policy': 'js-profiling' } },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

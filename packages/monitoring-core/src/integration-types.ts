@@ -1,6 +1,7 @@
 import type { SpanHandle, SpanOptions } from './tracing-types.js'
 
 export interface MonitoringIntegrationClient {
+  enableProfiling?(): void
   startInactiveSpan(options: SpanOptions): SpanHandle
   getClientState(): { endpoint: string } | undefined
   flush(): Promise<void>

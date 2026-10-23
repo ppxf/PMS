@@ -18,6 +18,7 @@ interface Recording { spans: SpanHandle[]; root: SpanHandle; sealed: boolean; ti
 interface Pending { envelope: TransactionEnvelope; attempts: number; created: number; timer?: ReturnType<typeof setTimeout>; sending?: Promise<void> }
 
 export function createTracing() {
+  let rootObserver: { rootStarted(span: SpanHandle): void; rootEnded(span: SpanHandle): void } | undefined
   let config: MonitoringInitOptions | undefined
   let transport: Transport | undefined
   let droppedBatches = 0
@@ -118,6 +119,7 @@ export function createTracing() {
         span.status = status; span.endReason = safeText(reason, 64)
         span.truncated ||= status === 'deadline_exceeded' || (status === 'unknown' && reason !== 'completed')
         if (owner?.root === handle && !owner.sealed) {
+          rootObserver?.rootEnded(handle)
           owner.timer = setTimeout(() => seal(owner!), 1000)
         }
       },
@@ -145,6 +147,7 @@ export function createTracing() {
       } else if (owner.spans.length < 200) owner.spans.push(handle)
       else { owner.root.span.droppedSpanCount++; owner.root.span.truncated = true }
       parents.set(handle, owner)
+      if (owner.root === handle) rootObserver?.rootStarted(handle)
     }
     Object.entries(options.attributes ?? {}).forEach(([key, value]) => handle.setAttribute(key, value))
     return handle
@@ -178,5 +181,5 @@ export function createTracing() {
     for (const item of queue) if (item.timer) clearTimeout(item.timer)
     queue.clear(); recordings.clear(); config = undefined; transport = undefined; droppedBatches = 0
   }
-  return { configure, startInactiveSpan, startSpan, getActiveTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
+  return { configure, setRootSpanObserver: (observer: typeof rootObserver) => { rootObserver = observer }, startInactiveSpan, startSpan, getActiveTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
 }
