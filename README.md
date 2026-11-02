@@ -27,7 +27,7 @@ pnpm clean
 
 `apps/nest` 与 `apps/vue3` 使用 `@pms/config` 中相同的 ESLint、TypeScript 与 Prettier 公共入口。
 
-SDK 已分离为 `packages` 下的独立 workspace，根目录安装、构建和测试只处理主应用及共享配置。
+SDK 与主应用共用根目录 workspace 和锁文件，根目录构建、测试也覆盖 SDK。
 SDK 开发请执行 `pnpm sdk:install`、`pnpm sdk:build`、`pnpm sdk:test`；完整命令及迁移说明见 [SDK 工作区](packages/README.md)。
 
 ## 本地登录
@@ -82,7 +82,7 @@ docker compose --env-file docker/.env.production -f compose.production.yaml logs
 
 构建使用项目固定的 pnpm 版本和锁文件，并排除本机 `.npmrc`（其 registry 指向 `localhost:4873`）、环境文件和构建缓存。不要使用示例密码部署生产环境。
 
-Docker 构建不包含两个 SDK 包及其独立锁文件，使用 BuildKit 缓存复用 pnpm 下载。
+Docker 构建不包含两个 SDK 包的源码，仅安装主应用及其 workspace 依赖，使用共享锁文件，并通过 BuildKit 缓存复用 pnpm 包文件及元数据。
 首次构建仍需下载依赖；后续未修改依赖时，可直接执行 `docker compose -f compose.dev.yaml up -d`。
 
 ## Profiles

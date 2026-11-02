@@ -9,14 +9,18 @@ COPY apps/nest/package.json apps/nest/package.json
 COPY apps/vue3/package.json apps/vue3/package.json
 COPY packages/config/package.json packages/config/package.json
 RUN --mount=type=cache,id=pms-pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --store-dir /pnpm/store
+    --mount=type=cache,id=pms-pnpm-metadata,target=/pnpm/cache \
+    pnpm --filter "@pms/nest..." --filter "@pms/vue3..." install \
+    --frozen-lockfile --store-dir /pnpm/store --cache-dir /pnpm/cache
 COPY . .
 
 FROM development AS api-build
 RUN pnpm --filter @pms/nest build
 # Keep the workspace layout and symlinks, but discard development dependencies.
 RUN --mount=type=cache,id=pms-pnpm-store,target=/pnpm/store \
-    CI=true pnpm install --prod --frozen-lockfile --ignore-scripts --store-dir /pnpm/store
+    --mount=type=cache,id=pms-pnpm-metadata,target=/pnpm/cache \
+    CI=true pnpm --filter "@pms/nest..." install --prod --frozen-lockfile \
+    --ignore-scripts --store-dir /pnpm/store --cache-dir /pnpm/cache
 
 FROM node:24-bookworm-slim AS api-production
 ENV NODE_ENV=production

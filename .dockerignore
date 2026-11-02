@@ -19,6 +19,3 @@ hooks
 **/*.tgz
 packages/monitoring-core
 packages/monitoring-vue
-packages/package.json
-packages/pnpm-workspace.yaml
-packages/pnpm-lock.yaml
