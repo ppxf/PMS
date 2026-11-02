@@ -1,6 +1,21 @@
 import { validateEnvironment } from './env.validation';
 
 describe('validateEnvironment authentication settings', () => {
+  it.each(['-1', 'true', '1.5', '3'])(
+    'rejects unsafe or unsupported proxy hop counts: %s',
+    (hops) => {
+      expect(() => validateEnvironment({ TRUST_PROXY_HOPS: hops })).toThrow(
+        'TRUST_PROXY_HOPS',
+      );
+    },
+  );
+
+  it.each(['0', '1', '2'])('accepts explicit proxy hop count %s', (hops) => {
+    expect(validateEnvironment({ TRUST_PROXY_HOPS: hops })).toEqual({
+      TRUST_PROXY_HOPS: hops,
+    });
+  });
+
   it('rejects production configuration without a JWT secret', () => {
     expect(() =>
       validateEnvironment({

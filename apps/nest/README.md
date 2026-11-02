@@ -24,7 +24,7 @@ pnpm start:dev
 
 默认端口为 `3000`，健康检查地址为 `GET /api`。数据库默认关闭，因此没有
 PostgreSQL 服务时也可以启动。需要数据库时，将 `DB_ENABLED` 设置为 `true` 并
-填写连接信息。生产环境必须保持 `DB_SYNCHRONIZE=false`。当前开发阶段暂未保留数据库迁移；正式部署生产环境前，需要基于全部实体统一创建完整的数据库基线 migration。
+填写连接信息。生产环境必须保持 `DB_SYNCHRONIZE=false`，启动服务前执行下方数据库迁移。
 
 ## JWT 登录
 
@@ -97,9 +97,24 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:3002
 
 ## 数据库结构管理
 
-当前开发环境通过 `DB_SYNCHRONIZE=true` 根据全部 TypeORM 实体创建和更新数据库结构。仓库暂未保留增量 migration，也不能在 `DB_SYNCHRONIZE=false` 的空数据库中自动建立完整 PMS schema。
+`src/database/migrations/1793577600000-baseline.ts` 是完整基线，覆盖当前全部 14 张业务表：用户、认证令牌、组、监控项目、错误事件、错误归组、错误抑制、日志及批次、指标及批次、Span、Trace 批次和 Profile，以及全部实体声明的主键、外键、枚举、唯一约束、检查约束和索引。
 
-正式部署生产环境前，需要基于届时确认的全部实体统一生成并审查一份完整数据库基线 migration，覆盖用户、认证令牌、组、监控项目、错误归组和错误事件等全部表、外键、约束与索引。生产环境必须保持 `DB_SYNCHRONIZE=false`，并通过部署流程显式执行该完整 migration。
+在仓库根目录运行：
+
+```bash
+pnpm --filter @pms/nest migration:show
+pnpm --filter @pms/nest migration:run
+# 回滚最后一份迁移；基线回滚会删除全部业务表及其中的数据
+pnpm --filter @pms/nest migration:revert
+```
+
+CLI 自动加载 `apps/nest/.env.local`、`.env`（前者优先，进程环境变量优先于文件），使用与应用相同的 `DB_HOST/PORT/USERNAME/PASSWORD/NAME`。迁移显式连接数据库，不受应用的 `DB_ENABLED` 开关控制，始终关闭自动同步。执行记录保存在 `pms_migrations`，全部待执行迁移在同一事务中完成；成功后再次运行不会重复建表。数据库用户需要建表、建类型及创建 `uuid-ossp` 扩展的权限，也可由管理员预装扩展。回滚保留可能被其他应用共享的扩展。
+
+生产环境先构建，再运行 `pnpm --filter @pms/nest migration:run:prod`，或在 API 生产容器内执行 `node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js`。生产环境必须保持 `DB_SYNCHRONIZE=false`。`migration:show:prod` 和 `migration:revert:prod` 分别查看状态和回滚。旧的 `traces:migrate` 命令现在是完整迁移的别名。
+
+基线适用于空数据库，不是任意旧版本数据库的自动升级脚本。已经通过 synchronize 或历史 SQL 建表的数据库应先备份并核对实际结构；不要直接执行基线或仅伪造迁移记录。历史 `sql/20261023-profiles.sql` 是旧库的独立补丁，新库完整迁移后无需执行。
+
+可设置 `MIGRATIONS_TEST_DATABASE_URL` 指向可用于测试的 PostgreSQL，再运行 `pnpm --filter @pms/nest test -- database/migrations.spec.ts --runInBand`。测试使用随机 schema 并自动清理，验证实体结构一致性、迁移执行记录、重复执行、回滚和重新迁移。未设置时跳过数据库测试。
 
 已有数据库升级浏览器错误上下文结构时，需要执行以下等价变更：
 

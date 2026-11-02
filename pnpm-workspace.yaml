@@ -1,6 +1,6 @@
 packages:
   - "apps/*"
-  - "packages/*"
+  - "packages/config"
 allowBuilds:
   '@scarf/scarf': false
   bcrypt: true

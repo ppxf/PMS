@@ -17,6 +17,9 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const logger = app.get(AppLoggerService);
 
+  // Opt in only for a controlled proxy chain; local/direct deployments trust none.
+  app.set('trust proxy', Number(config.get<string>('TRUST_PROXY_HOPS', '0')));
+
   app.useLogger(logger);
   app.use(helmet());
   const apiPrefix = config.get<string>('app.apiPrefix', 'api');

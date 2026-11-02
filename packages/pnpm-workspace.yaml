@@ -1,0 +1,9 @@
+packages:
+  - config
+  - monitoring-core
+  - monitoring-vue
+allowBuilds:
+  '@scarf/scarf': false
+  bcrypt: true
+  unrs-resolver: false
+  vue-demi: false

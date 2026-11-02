@@ -112,7 +112,7 @@ SDK 自动采集 SDK/浏览器维度，浏览器身份优先使用 Client Hints�
 
 Metrics 条件筛选采用与 Traces 相同的字段、运算符、值和可删除条件标签，字段来自 Metrics 本身：指标名称/类型/单位、value、environment、release、traceId/spanId、项目、SDK/浏览器维度及 `attributes.*`。环境已并入统一条件，原独立环境参数与 `{ key, value }` 属性等值条件已移除。查询条件格式为 `{ field, operator, value }`，支持 `eq/in/not_in/contains/exists/gt/gte/lt/lte`，运算符按字段类型提供，最多 10 条 AND 条件、每个多值条件最多 50 个值。`exists` 默认匹配存在的字段，传 `value: false` 匹配缺失字段；`not_in` 包含缺失字段，文本包含按字面量匹配，数值比较不会把文本属性强转成数值。条件同时约束样本、聚合与时间序列。
 
-部署时可重新执行幂等的 `apps/nest/src/database/metrics-schema.sql`，为已有指标表补充 `monitoring_metrics_trace` 索引；开启 TypeORM synchronize 的开发环境会通过实体声明创建索引。本次不执行线上数据库变更。Trace 和指标独立上报及保留；未采样、尚未送达、截断或已清理的 Trace/Span 可能无法定位，详情页会提示并保留关联指标查询入口。
+新数据库部署时执行完整基线迁移 `pnpm --filter @pms/nest migration:run`，其中包含 `monitoring_metrics_trace` 索引；已有数据库升级方法见 `apps/nest/README.md` 的数据库结构管理。Trace 和指标独立上报及保留；未采样、尚未送达、截断或已清理的 Trace/Span 可能无法定位，详情页会提示并保留关联指标查询入口。
 
 ## 当前边界
 

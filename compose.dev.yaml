@@ -1,0 +1,87 @@
+name: pms-dev
+services:
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: pms
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pms-development}
+      POSTGRES_DB: pms
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U pms -d pms"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: development
+    working_dir: /app/apps/nest
+    command: [pnpm, dev]
+    init: true
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      API_PREFIX: api
+      DB_ENABLED: "true"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USERNAME: pms
+      DB_PASSWORD: ${DB_PASSWORD:-pms-development}
+      DB_NAME: pms
+      DB_SYNCHRONIZE: "true"
+      JWT_SECRET: development-only-jwt-secret-change-before-production
+      APP_FRONTEND_URL: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173
+      PUBLIC_URL: http://localhost:3000
+      SMTP_HOST: ${SMTP_HOST:-host.docker.internal}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@localhost}
+      TSC_WATCHFILE: DynamicPriorityPolling
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./apps/nest/src:/app/apps/nest/src
+      - ./packages/config:/app/packages/config:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: development
+    working_dir: /app/apps/vue3
+    command: [pnpm, dev, --host, 0.0.0.0]
+    init: true
+    environment:
+      VITE_API_BASE_URL: http://localhost:3000/api
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./apps/vue3/src:/app/apps/vue3/src
+      - ./apps/vue3/public:/app/apps/vue3/public
+      - ./apps/vue3/index.html:/app/apps/vue3/index.html:ro
+      - ./apps/vue3/vite.config.ts:/app/apps/vue3/vite.config.ts:ro
+      - ./packages/config:/app/packages/config:ro
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  postgres:

@@ -16,6 +16,10 @@ class EnvironmentVariables {
   NODE_ENV?: string;
 
   @IsOptional()
+  @IsIn(['0', '1', '2'])
+  TRUST_PROXY_HOPS?: string;
+
+  @IsOptional()
   @IsPort()
   PORT?: string;
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
-import { Traces1790850000000 } from '../database/migrations/1790850000000-traces';
+import { Baseline1793577600000 } from '../database/migrations/1793577600000-baseline';
 import { Group } from '../groups/entities/group.entity';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
@@ -32,7 +32,7 @@ postgres('PostgreSQL traces integration', () => {
       type: 'postgres',
       url: databaseUrl,
       schema,
-      extra: { options: `-c search_path=${schema}` },
+      extra: { options: `-c search_path=${schema},public` },
       entities: [
         MonitoringSpanEntity,
         TraceIngestBatch,
@@ -41,20 +41,29 @@ postgres('PostgreSQL traces integration', () => {
         User,
       ],
       synchronize: false,
+      installExtensions: false,
     }).initialize();
-    await dataSource.query(
-      'CREATE TABLE monitoring_projects (id uuid PRIMARY KEY)',
-    );
-    await dataSource.query(
-      'INSERT INTO monitoring_projects(id) VALUES ($1), ($2)',
-      [projectId, otherProjectId],
-    );
     const runner = dataSource.createQueryRunner();
     try {
-      await new Traces1790850000000().up(runner);
+      await new Baseline1793577600000().up(runner);
     } finally {
       await runner.release();
     }
+    const userId = randomUUID();
+    const groupId = randomUUID();
+    await dataSource.query(
+      `INSERT INTO users(id, email, password_hash, name) VALUES ($1, 'traces@test.local', 'test', 'test')`,
+      [userId],
+    );
+    await dataSource.query(
+      `INSERT INTO groups(id, owner_id, name, slug) VALUES ($1, $2, 'test', 'test')`,
+      [groupId, userId],
+    );
+    await dataSource.query(
+      `INSERT INTO monitoring_projects(id, group_id, name, slug, platform, public_key)
+       VALUES ($1, $3, 'first', 'first', 'vue', 'first'), ($2, $3, 'second', 'second', 'vue', 'second')`,
+      [projectId, otherProjectId, groupId],
+    );
     const projects = {
       findForIngestion: (id: string) =>
         Promise.resolve({ id, tracingEnabled: true }),
