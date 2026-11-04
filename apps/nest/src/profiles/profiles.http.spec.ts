@@ -142,6 +142,33 @@ describe('Profiles HTTP boundaries', () => {
       lastSeenAt: null,
     };
   });
+  it('protects overview with authentication, ownership and query validation', async () => {
+    await request(app.getHttpServer())
+      .post(`${path}/overview`)
+      .send(profileQuery())
+      .expect(401);
+    await request(app.getHttpServer())
+      .post(`${path}/overview`)
+      .set('Authorization', 'Bearer intruder')
+      .send(profileQuery())
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`${path}/overview`)
+      .set('Authorization', 'Bearer owner')
+      .send({ ...profileQuery(), unknown: true })
+      .expect(400);
+    const response = await request(app.getHttpServer())
+      .post(`${path}/overview`)
+      .set('Authorization', 'Bearer owner')
+      .send(profileQuery())
+      .expect(201);
+    expect(response.body).toMatchObject({
+      profileCount: 0,
+      functions: [],
+      transactions: [],
+      flamegraph: [],
+    });
+  });
   it('defaults to disabled, requires SDK key, and rejects forbidden origins and malformed data', async () => {
     await request(app.getHttpServer())
       .post(sdk)

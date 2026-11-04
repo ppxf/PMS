@@ -49,6 +49,11 @@ function createTestRouter() {
         name: 'project-metrics-setup',
         component: EmptyView,
       },
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/setup/profiles',
+        name: 'project-profiles-setup',
+        component: EmptyView,
+      },
       { path: '/users', name: 'users', component: EmptyView },
       {
         path: '/groups/:groupSlug/projects/:projectSlug/traces',
@@ -91,6 +96,13 @@ async function mountAt(path: string) {
 }
 
 describe('AppLayout navigation', () => {
+  it('links and highlights Profiles setup for the current project', async () => {
+    const wrapper = await mountAt('/groups/acme/projects/frontend/setup/profiles')
+    const link = wrapper.get('a[href="/groups/acme/projects/frontend/setup/profiles"]')
+    expect(link.text()).toBe('Profiles setup')
+    expect(link.classes()).toContain('bg-muted')
+    wrapper.unmount()
+  })
   it('keeps Profiles highlighted on profile detail pages', async () => {
     const wrapper = await mountAt('/groups/acme/projects/frontend/profiles/profile-1')
     const link = wrapper.get('a[href="/groups/acme/projects/frontend/profiles"]')

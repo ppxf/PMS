@@ -4,8 +4,15 @@ import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
-import ProfilesSetupGuide from '../components/ProfilesSetupGuide.vue'
-import { profilesConfig, queryProfiles, updateProfiles } from '../api/profiles.api'
+import { AppError } from '@/services/http'
+import {
+  profilesConfig,
+  profilesOverview,
+  queryProfiles,
+  updateProfiles,
+} from '../api/profiles.api'
+import ProfilesExplorer from '../components/ProfilesExplorer.vue'
+import type { ProfileOverview } from '../model/profiles-overview'
 import type { ProfileSummary } from '../model/profiles'
 const route = useRoute()
 const group = computed(() => String(route.params.groupSlug))
@@ -34,6 +41,10 @@ const error = ref('')
 const configError = ref('')
 const config = ref<{ enabled: boolean; dsn: string } | null>(null)
 const saving = ref(false)
+const overview = ref<ProfileOverview | null>(null)
+const overviewLoading = ref(false)
+const overviewError = ref('')
+let overviewGeneration = 0
 let generation = 0
 let context = 0
 let applied = {
@@ -64,6 +75,25 @@ async function load() {
     if (generation === current) loading.value = false
   }
 }
+async function loadOverview() {
+  const current = ++overviewGeneration
+  overviewLoading.value = true
+  overview.value = null
+  overviewError.value = ''
+  try {
+    const result = await profilesOverview(group.value, project.value, { ...applied })
+    if (current === overviewGeneration) overview.value = result
+  } catch (cause) {
+    if (current === overviewGeneration) {
+      overviewError.value =
+        cause instanceof AppError && cause.status === 400
+          ? cause.message
+          : 'Unable to load profile statistics. Try a shorter time range or retry.'
+    }
+  } finally {
+    if (current === overviewGeneration) overviewLoading.value = false
+  }
+}
 function apply() {
   const now = Date.now()
   applied = {
@@ -75,6 +105,11 @@ function apply() {
   }
   page.value = 1
   void load()
+  void loadOverview()
+}
+function inspectTransaction(name: string) {
+  search.value = name
+  apply()
 }
 function changePage(offset: number) {
   page.value += offset
@@ -120,6 +155,7 @@ watch(
 )
 onBeforeUnmount(() => {
   generation++
+  overviewGeneration++
   context++
 })
 </script>
@@ -144,11 +180,19 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <p v-if="configError" role="alert" class="text-sm text-destructive">{{ configError }}</p>
-    <ProfilesSetupGuide :dsn="config?.dsn ?? ''" />
     <form
+      id="profiles-filters"
       class="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4"
       @submit.prevent="apply"
     >
+      <div class="space-y-1 text-xs text-muted-foreground">
+        <span>Current project</span>
+        <div
+          class="flex h-9 items-center rounded-md border px-3 text-sm font-medium text-foreground"
+        >
+          {{ project }}
+        </div>
+      </div>
       <label class="w-44 space-y-1 text-xs text-muted-foreground"
         >Time range<FormSelect v-model="timeRange" aria-label="Time range" :options="ranges"
       /></label>
@@ -158,69 +202,99 @@ onBeforeUnmount(() => {
           aria-label="Environment"
           placeholder="All environments"
       /></label>
-      <label class="min-w-44 flex-1 space-y-1 text-xs text-muted-foreground"
-        >Search<Input v-model="search" aria-label="Search profiles" placeholder="Profile name"
-      /></label>
       <label class="w-44 space-y-1 text-xs text-muted-foreground"
         >Trace ID<Input v-model="traceId" aria-label="Trace ID" placeholder="Any trace"
       /></label>
       <Button type="submit">Apply filters</Button>
     </form>
-    <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
-    <div class="overflow-x-auto rounded-lg border bg-background" :aria-busy="loading">
-      <table class="w-full text-left text-sm">
-        <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
-          <tr>
-            <th class="p-3">Profile</th>
-            <th class="p-3">Started</th>
-            <th class="p-3">Duration</th>
-            <th class="p-3">Samples</th>
-            <th class="p-3">Environment</th>
-            <th class="p-3">Release</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in items" :key="item.profileId" class="border-b last:border-0">
-            <td class="max-w-80 break-all p-3">
-              <RouterLink
-                class="font-medium hover:underline"
-                :to="{
-                  name: 'project-profile-detail',
-                  params: { groupSlug: group, projectSlug: project, profileId: item.profileId },
-                }"
-                >{{ item.name }}</RouterLink
-              ><span v-if="item.truncated" class="ml-2 text-xs text-amber-700">Truncated</span>
-            </td>
-            <td class="whitespace-nowrap p-3">{{ new Date(item.startedAt).toLocaleString() }}</td>
-            <td class="p-3">{{ item.durationMs.toFixed(2) }} ms</td>
-            <td class="p-3">{{ item.sampleCount }}</td>
-            <td class="p-3">{{ item.environment ?? '—' }}</td>
-            <td class="max-w-48 break-all p-3">{{ item.release ?? '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="loading" role="status" class="p-12 text-center text-sm text-muted-foreground">
-        Loading profiles…
-      </p>
-      <p v-else-if="!error && !items.length" class="p-12 text-center text-sm text-muted-foreground">
-        No profiles found. Adjust your filters or follow the SDK setup instructions.
-      </p>
-    </div>
-    <nav class="flex items-center justify-end gap-3 text-sm" aria-label="Profiles pagination">
-      <span>{{ total }} profiles · Page {{ page }} of {{ Math.max(1, Math.ceil(total / 20)) }}</span
-      ><Button
-        aria-label="Previous page"
-        variant="outline"
-        :disabled="loading || page <= 1"
-        @click="changePage(-1)"
-        >Previous</Button
-      ><Button
-        aria-label="Next page"
-        variant="outline"
-        :disabled="loading || page * 20 >= total"
-        @click="changePage(1)"
-        >Next</Button
+    <ProfilesExplorer
+      :overview="overview"
+      :loading="overviewLoading"
+      :error="overviewError"
+      :group="group"
+      :project="project"
+      @retry="loadOverview"
+      @inspect="inspectTransaction"
+    >
+      <template #search
+        ><div class="flex items-center gap-2">
+          <Input
+            v-model="search"
+            form="profiles-filters"
+            aria-label="Search profiles"
+            placeholder="Search transactions and profile names…"
+            class="bg-background"
+          /><Button type="submit" form="profiles-filters" variant="outline">Search</Button>
+        </div></template
       >
-    </nav>
+      <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+      <div class="overflow-x-auto rounded-lg border bg-background" :aria-busy="loading">
+        <table class="w-full text-left text-sm">
+          <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
+            <tr>
+              <th class="p-3">Profile</th>
+              <th class="p-3">Started</th>
+              <th class="p-3">Duration</th>
+              <th class="p-3">Samples</th>
+              <th class="p-3">Environment</th>
+              <th class="p-3">Release</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in items" :key="item.profileId" class="border-b last:border-0">
+              <td class="max-w-80 break-all p-3">
+                <RouterLink
+                  class="font-medium hover:underline"
+                  :to="{
+                    name: 'project-profile-detail',
+                    params: { groupSlug: group, projectSlug: project, profileId: item.profileId },
+                  }"
+                  >{{ item.name }}</RouterLink
+                ><span v-if="item.truncated" class="ml-2 text-xs text-amber-700">Truncated</span>
+              </td>
+              <td class="whitespace-nowrap p-3">{{ new Date(item.startedAt).toLocaleString() }}</td>
+              <td class="p-3">{{ item.durationMs.toFixed(2) }} ms</td>
+              <td class="p-3">{{ item.sampleCount }}</td>
+              <td class="p-3">{{ item.environment ?? '—' }}</td>
+              <td class="max-w-48 break-all p-3">{{ item.release ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="loading" role="status" class="p-12 text-center text-sm text-muted-foreground">
+          Loading profiles…
+        </p>
+        <p
+          v-else-if="!error && !items.length"
+          class="p-12 text-center text-sm text-muted-foreground"
+        >
+          No profiles found. Adjust your filters or follow the
+          <RouterLink
+            class="underline"
+            :to="{
+              name: 'project-profiles-setup',
+              params: { groupSlug: group, projectSlug: project },
+            }"
+            >Profiles setup instructions</RouterLink
+          >.
+        </p>
+      </div>
+      <nav class="flex items-center justify-end gap-3 text-sm" aria-label="Profiles pagination">
+        <span
+          >{{ total }} profiles · Page {{ page }} of {{ Math.max(1, Math.ceil(total / 20)) }}</span
+        ><Button
+          aria-label="Previous page"
+          variant="outline"
+          :disabled="loading || page <= 1"
+          @click="changePage(-1)"
+          >Previous</Button
+        ><Button
+          aria-label="Next page"
+          variant="outline"
+          :disabled="loading || page * 20 >= total"
+          @click="changePage(1)"
+          >Next</Button
+        >
+      </nav>
+    </ProfilesExplorer>
   </section>
 </template>

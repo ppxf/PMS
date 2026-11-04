@@ -27,6 +27,15 @@ export class ProfilesController {
   ) {
     return this.profiles.query(req.user.id, group, project, query);
   }
+  @Post('overview')
+  overview(
+    @Req() req: Request & { user: AuthUser },
+    @Param('groupSlug') group: string,
+    @Param('projectSlug') project: string,
+    @Body(new ProfileQueryPipe()) query: ProfileQuery,
+  ) {
+    return this.profiles.overview(req.user.id, group, project, query);
+  }
   @Get(':profileId')
   detail(
     @Req() req: Request & { user: AuthUser },

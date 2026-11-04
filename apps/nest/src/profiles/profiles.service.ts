@@ -9,6 +9,7 @@ import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { contentHash } from '../traces/traces.service';
 import { ProfileEntity } from './profile.entity';
+import { buildProfileOverview } from './profiles-overview';
 import type {
   MonitoringProfile,
   ProfileEnvelope,
@@ -102,6 +103,65 @@ export class ProfilesService {
         total: Number(counts[0].total),
         page: q.page,
         pageSize: q.pageSize,
+      };
+    });
+  }
+  async overview(
+    user: string,
+    group: string,
+    slug: string,
+    input: ProfileQuery,
+  ) {
+    const q = new ProfileQueryPipe().transform(input);
+    const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const start = Date.parse(q.start);
+    const previousStart = new Date(
+      start - (Date.parse(q.end) - start),
+    ).toISOString();
+    const params: unknown[] = [project.id, previousStart, q.end];
+    const bind = (value: unknown) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
+    let where =
+      'project_id = $1 AND started_at >= $2::timestamptz AND started_at < $3::timestamptz';
+    if (q.environment) where += ` AND environment = ${bind(q.environment)}`;
+    if (q.search)
+      where += ` AND strpos(lower(name), lower(${bind(q.search)}::text)) > 0`;
+    if (q.traceId) where += ` AND trace_id = ${bind(q.traceId)}`;
+    return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
+      await manager.query("SET LOCAL statement_timeout = '5000ms'");
+      const [size] = await manager.query<
+        { count: string; samples: string; bytes: string }[]
+      >(
+        `SELECT count(*)::text AS count, coalesce(sum(sample_count), 0)::text AS samples, coalesce(sum(octet_length(profile::text)), 0)::text AS bytes FROM monitoring_profiles WHERE ${where}`,
+        params,
+      );
+      const message =
+        'Too much profiling data to aggregate. Please narrow the time range or filters (maximum 2000 profiles, 2 million samples, 32 MB including comparison period).';
+      if (
+        Number(size?.count) > 2000 ||
+        Number(size?.samples) > 2000000 ||
+        Number(size?.bytes) > 32 * 1024 * 1024
+      )
+        throw new BadRequestException(message);
+      const rows = await manager.query<
+        { profile: MonitoringProfile; sampleCount: number }[]
+      >(
+        `SELECT profile, sample_count AS "sampleCount" FROM monitoring_profiles WHERE ${where} ORDER BY started_at DESC, profile_id DESC LIMIT 2001`,
+        params,
+      );
+      if (rows.length > 2000) throw new BadRequestException(message);
+      const current: MonitoringProfile[] = [],
+        previous: MonitoringProfile[] = [];
+      for (const row of rows)
+        (Date.parse(row.profile.startedAt) >= start ? current : previous).push(
+          row.profile,
+        );
+      return {
+        ...buildProfileOverview(current, previous),
+        comparisonStart: previousStart,
+        comparisonEnd: q.start,
       };
     });
   }

@@ -84,11 +84,17 @@ const projectNavigation: ProjectNavigationItem[] = [
   {
     label: 'SDK setup',
     routeName: 'project-setup',
-    activeRouteNames: ['project-setup', 'project-traces-setup', 'project-metrics-setup'],
+    activeRouteNames: [
+      'project-setup',
+      'project-traces-setup',
+      'project-metrics-setup',
+      'project-profiles-setup',
+    ],
     children: [
       { label: 'Basic setup', routeName: 'project-setup' },
       { label: 'Traces setup', routeName: 'project-traces-setup' },
       { label: 'Metrics setup', routeName: 'project-metrics-setup' },
+      { label: 'Profiles setup', routeName: 'project-profiles-setup' },
     ],
     icon: Plug,
   },
