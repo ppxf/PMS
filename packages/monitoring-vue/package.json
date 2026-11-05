@@ -1,9 +1,10 @@
 {
   "name": "@pms/monitoring-vue",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "files": [
-    "dist", "README.md"
+    "dist",
+    "README.md"
   ],
   "types": "./dist/index.d.ts",
   "exports": {
