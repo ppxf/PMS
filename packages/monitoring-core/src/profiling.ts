@@ -2,6 +2,7 @@ import type { MonitoringInitOptions, Transport } from './types.js'
 import type {
   MonitoringProfile,
   ProfileEnvelope,
+  ProfileDiagnosticEnvelope,
   ProfileStartOptions,
 } from './profiling-types.js'
 import type { SpanHandle } from './tracing-types.js'
@@ -62,6 +63,8 @@ export function createProfiling() {
   let recording: Recording | undefined
   let stopping: Promise<void> | undefined
   let requested: StartRequest | undefined
+  let startFailed = false
+  let diagnostic: Promise<void> | undefined
   const roots = new Set<SpanHandle>()
   const queue = new Set<Pending>()
 
@@ -217,7 +220,7 @@ export function createProfiling() {
     options: ProfileStartOptions = {},
     lifecycle: StartRequest['lifecycle'] = 'manual',
   ): void {
-    if (!enabled || !sampled || recording) return
+    if (!enabled || !sampled || recording || startFailed) return
     if (stopping) {
       requested ??= { options: { ...options }, lifecycle }
       return
@@ -252,8 +255,19 @@ export function createProfiling() {
       profiler.addEventListener?.('samplebufferfull', () => {
         if (recording === active) void stop(true)
       })
-    } catch {
-      /* Unsupported permissions and Document-Policy must not affect the app. */
+    } catch (error) {
+      startFailed = true
+      const name = typeof error === 'object' && error !== null && 'name' in error ? error.name : undefined
+      const envelope: ProfileDiagnosticEnvelope = {
+        version: 1,
+        type: 'profile_diagnostic',
+        sentAt: new Date().toISOString(),
+        reason: name === 'NotAllowedError' || name === 'SecurityError' ? 'permission_denied' : 'start_failed',
+      }
+      const sender = transport
+      const current = generation
+      // Report once per SDK lifecycle. Diagnostic errors must not break the app or retry forever.
+      diagnostic = Promise.resolve().then(() => current === generation ? sender?.send(envelope) : undefined).catch(() => undefined)
     }
   }
   function stop(truncated = false): Promise<void> {
@@ -326,6 +340,7 @@ export function createProfiling() {
     if (roots.delete(span) && roots.size === 0) void stop()
   }
   async function flush(): Promise<void> {
+    await diagnostic
     await stopping
     await Promise.all([...queue].map((item) => item.sending ?? send(item)))
   }
@@ -346,6 +361,8 @@ export function createProfiling() {
     roots.clear()
     enabled = false
     sampled = false
+    startFailed = false
+    diagnostic = undefined
     config = undefined
     transport = undefined
   }

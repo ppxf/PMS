@@ -18,9 +18,12 @@ const route = useRoute()
 const group = computed(() => String(route.params.groupSlug))
 const project = computed(() => String(route.params.projectSlug))
 const timeRange = ref('24h')
-const environment = ref('')
+const environment = ref<'development' | 'production'>('development')
+const environments = [
+  { value: 'development' as const, label: 'development' },
+  { value: 'production' as const, label: 'production' },
+]
 const search = ref('')
-const traceId = ref('')
 const ranges = [
   { value: '1h', label: 'Last hour' },
   { value: '24h', label: 'Last 24 hours' },
@@ -52,7 +55,6 @@ let applied = {
   end: '',
   environment: undefined as string | undefined,
   search: undefined as string | undefined,
-  traceId: undefined as string | undefined,
 }
 async function load() {
   const current = ++generation
@@ -99,9 +101,8 @@ function apply() {
   applied = {
     start: new Date(now - (durations[timeRange.value] ?? 86400000)).toISOString(),
     end: new Date(now).toISOString(),
-    environment: environment.value.trim() || undefined,
+    environment: environment.value,
     search: search.value.trim() || undefined,
-    traceId: traceId.value.trim() || undefined,
   }
   page.value = 1
   void load()
@@ -139,15 +140,14 @@ async function toggle() {
   }
 }
 watch(
-  () => [group.value, project.value, route.query.traceId],
+  () => [group.value, project.value],
   () => {
     const current = ++context
     config.value = null
     configError.value = ''
     saving.value = false
-    environment.value = ''
+    environment.value = 'development'
     search.value = ''
-    traceId.value = typeof route.query.traceId === 'string' ? route.query.traceId : ''
     apply()
     void loadConfig(current)
   },
@@ -197,13 +197,10 @@ onBeforeUnmount(() => {
         >Time range<FormSelect v-model="timeRange" aria-label="Time range" :options="ranges"
       /></label>
       <label class="w-40 space-y-1 text-xs text-muted-foreground"
-        >Environment<Input
+        >Environment<FormSelect
           v-model="environment"
           aria-label="Environment"
-          placeholder="All environments"
-      /></label>
-      <label class="w-44 space-y-1 text-xs text-muted-foreground"
-        >Trace ID<Input v-model="traceId" aria-label="Trace ID" placeholder="Any trace"
+          :options="environments"
       /></label>
       <Button type="submit">Apply filters</Button>
     </form>

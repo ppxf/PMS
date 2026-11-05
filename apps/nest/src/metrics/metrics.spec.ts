@@ -75,6 +75,9 @@ describe('metrics contract', () => {
       ['count', 'p95'],
       ['gauge', 'sum'],
       ['distribution', 'last'],
+      ['distribution', 'p99'],
+      ['distribution', 'p75'],
+      ['distribution', 'p90'],
     ]) {
       expect(() =>
         new MetricQueryPipe().transform({ ...queryInput(), type, aggregation }),

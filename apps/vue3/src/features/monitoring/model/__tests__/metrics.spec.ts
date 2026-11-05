@@ -54,7 +54,6 @@ describe('metric type semantics', () => {
     expect(metricAggregations('distribution')).toEqual([
       'p95',
       'p50',
-      'p99',
       'avg',
       'min',
       'max',

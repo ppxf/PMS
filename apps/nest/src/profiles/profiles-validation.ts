@@ -9,8 +9,33 @@ import type {
   MonitoringProfile,
   ProfileEnvelope,
   ProfileQuery,
+  ProfileDiagnosticEnvelope,
 } from './profiles-contract';
 
+@Injectable()
+export class ProfileDiagnosticPipe implements PipeTransform<
+  unknown,
+  ProfileDiagnosticEnvelope
+> {
+  transform(input: unknown): ProfileDiagnosticEnvelope {
+    const value = jsonObject(input, ['version', 'type', 'sentAt', 'reason']);
+    if (
+      value.version !== 1 ||
+      value.type !== 'profile_diagnostic' ||
+      (value.reason !== 'permission_denied' && value.reason !== 'start_failed')
+    )
+      reject('Invalid profile diagnostic');
+    const sentAt = isoTime(value.sentAt);
+    if (sentAt < Date.now() - 86400000 || sentAt > Date.now() + 300000)
+      reject('Profile diagnostic outside retry window');
+    return {
+      version: 1,
+      type: 'profile_diagnostic',
+      sentAt: new Date(sentAt).toISOString(),
+      reason: value.reason,
+    };
+  }
+}
 export function validProfileId(value: unknown): value is string {
   return (
     typeof value === 'string' &&

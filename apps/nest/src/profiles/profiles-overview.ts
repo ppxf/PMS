@@ -3,9 +3,7 @@ import type { MonitoringProfile } from './profiles-contract';
 export interface Distribution {
   avg: number;
   p50: number;
-  p75: number;
   p95: number;
-  p99: number;
 }
 export interface FunctionOverview {
   key: string;
@@ -17,7 +15,7 @@ export interface FunctionOverview {
   count: number;
   self: Distribution;
   total: Distribution;
-  baselineSelfP75: number | null;
+  baselineSelfP95: number | null;
   changePercent: number | null;
 }
 export interface ProfileOverview {
@@ -54,15 +52,13 @@ function distribution(values: number[]): Distribution {
   return {
     avg: values.reduce((sum, n) => sum + n, 0) / values.length,
     p50: quantile(0.5),
-    p75: quantile(0.75),
     p95: quantile(0.95),
-    p99: quantile(0.99),
   };
 }
 interface FunctionSamples {
   info: Omit<
     FunctionOverview,
-    'count' | 'self' | 'total' | 'baselineSelfP75' | 'changePercent'
+    'count' | 'self' | 'total' | 'baselineSelfP95' | 'changePercent'
   >;
   self: number[];
   total: number[];
@@ -187,16 +183,16 @@ export function buildProfileOverview(
     ([key, value]): FunctionOverview => {
       const self = distribution(value.self);
       const old = baseline.get(key);
-      const baselineSelfP75 = old ? distribution(old.self).p75 : null;
+      const baselineSelfP95 = old ? distribution(old.self).p95 : null;
       return {
         ...value.info,
         count: value.self.length,
         self,
         total: distribution(value.total),
-        baselineSelfP75,
+        baselineSelfP95,
         changePercent:
-          baselineSelfP75 != null && baselineSelfP75 > 0
-            ? ((self.p75 - baselineSelfP75) / baselineSelfP75) * 100
+          baselineSelfP95 != null && baselineSelfP95 > 0
+            ? ((self.p95 - baselineSelfP95) / baselineSelfP95) * 100
             : null,
       };
     },

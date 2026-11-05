@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import ProfileFunctionCard from './ProfileFunctionCard.vue'
 import ProfileFlameChart from './ProfileFlameChart.vue'
 import type { ProfileOverview } from '../model/profiles-overview'
+import { PROFILE_DURATION_AGGREGATIONS } from '../model/profiles-overview'
 
 const props = defineProps<{
   overview: ProfileOverview | null
@@ -39,7 +40,7 @@ function navigateTabs(event: KeyboardEvent, index: number) {
   buttons?.[next]?.focus()
 }
 const page = ref(1)
-const sort = ref<'name' | 'p50' | 'p75' | 'p95' | 'p99' | 'count'>('count')
+const sort = ref<'name' | 'avg' | 'p50' | 'p95' | 'count'>('count')
 const descending = ref(true)
 const transactions = computed(() =>
   [...(props.overview?.transactions ?? [])].sort((a, b) => {
@@ -52,10 +53,7 @@ const rows = computed(() => transactions.value.slice((page.value - 1) * 20, page
 const pages = computed(() => Math.max(1, Math.ceil(transactions.value.length / 20)))
 const columns = [
   { key: 'name', label: 'Transaction' },
-  { key: 'p50', label: 'P50' },
-  { key: 'p75', label: 'P75' },
-  { key: 'p95', label: 'P95' },
-  { key: 'p99', label: 'P99' },
+  ...PROFILE_DURATION_AGGREGATIONS.map((key) => ({ key, label: key.toUpperCase() })),
   { key: 'count', label: 'Count' },
 ] as const
 function order(key: typeof sort.value) {
@@ -88,7 +86,7 @@ function inspect(name: string) {
   <div class="space-y-5">
     <div class="grid gap-4 xl:grid-cols-2">
       <ProfileFunctionCard
-        v-for="mode in ['p75', 'regressed']"
+        v-for="mode in ['p95', 'regressed']"
         :key="mode"
         :functions="overview?.functions ?? []"
         :initial-mode="mode"
@@ -188,7 +186,7 @@ function inspect(name: string) {
                 </button>
               </td>
               <td
-                v-for="key in ['p50', 'p75', 'p95', 'p99'] as const"
+                v-for="key in PROFILE_DURATION_AGGREGATIONS"
                 :key="key"
                 class="whitespace-nowrap px-4 py-4 font-mono text-xs"
               >

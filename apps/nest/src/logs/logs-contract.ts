@@ -21,10 +21,7 @@ export const LOG_AGGREGATES = [
   'sum',
   'avg',
   'p50',
-  'p75',
-  'p90',
   'p95',
-  'p99',
   'max',
   'min',
 ] as const;

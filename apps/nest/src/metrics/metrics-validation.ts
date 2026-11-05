@@ -154,17 +154,9 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
     )
       reject('spanId requires a valid traceId');
     if (
-      ![
-        'sum',
-        'avg',
-        'min',
-        'max',
-        'count',
-        'p50',
-        'p95',
-        'p99',
-        'last',
-      ].includes(String(q.aggregation))
+      !['sum', 'avg', 'min', 'max', 'count', 'p50', 'p95', 'last'].includes(
+        String(q.aggregation),
+      )
     )
       reject('Invalid metric aggregation');
     if (

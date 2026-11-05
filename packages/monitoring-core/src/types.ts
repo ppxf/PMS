@@ -1,7 +1,7 @@
 import type { LogsEnvelope, LogEntry } from './logs-types.js'
 import type { TransactionEnvelope } from './tracing-types.js'
 import type { MetricsEnvelope } from './metrics-types.js'
-import type { ProfileEnvelope } from './profiling-types.js'
+import type { ProfileEnvelope, ProfileDiagnosticEnvelope } from './profiling-types.js'
 export type MonitoringEventType = 'error'
 export type MonitoringLevel = 'error'
 export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual'
@@ -91,7 +91,7 @@ export interface EventEnvelope {
   event: MonitoringEvent
 }
 
-export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope | LogsEnvelope | ProfileEnvelope
+export type MonitoringEnvelope = ClientReportEnvelope | EventEnvelope | TransactionEnvelope | MetricsEnvelope | LogsEnvelope | ProfileEnvelope | ProfileDiagnosticEnvelope
 
 export interface Transport {
   send(envelope: MonitoringEnvelope): Promise<void>

@@ -104,7 +104,7 @@ await startSpan({ name: 'load-orders', op: 'task' }, async (span) => {
 
 后端提供 `GET /groups/:groupSlug/projects/:projectSlug/metrics/traces/:traceId`，支持 `page`、`pageSize`（最大 100）、`search` 和 `spanId`。原 `POST .../metrics/query` 也支持 `traceId` 和 `spanId` 筛选，`spanId` 必须与 `traceId` 一起传入。两种查询均校验项目所有者权限。
 
-指标菜单按项目最近 7 天实际保留的数据生成，名称、类型和单位不会预设。`count` 在菜单中标记为 `counter`，默认 `sum`（上报增量的累计事件数），也支持 `count`（样本条数）；`gauge` 默认 `last`，支持 `avg/min/max/count`；`distribution` 默认 `p95`，支持 `p50/p99/avg/min/max/sum/count`。例如两次 `metrics.count('orders', 3)` 与 `metrics.count('orders', 2)` 的 `sum` 是 5、样本 `count` 是 2。数值样本的 `count` 没有毫秒等数值单位。
+指标菜单按项目最近 7 天实际保留的数据生成，名称、类型和单位不会预设。`count` 在菜单中标记为 `counter`，默认 `sum`（上报增量的累计事件数），也支持 `count`（样本条数）；`gauge` 默认 `last`，支持 `avg/min/max/count`；`distribution` 默认 `p95`，支持 `p50/avg/min/max/sum/count`。项目中的分位数聚合统一为 `p50/p95`。例如两次 `metrics.count('orders', 3)` 与 `metrics.count('orders', 2)` 的 `sum` 是 5、样本 `count` 是 2。数值样本的 `count` 没有毫秒等数值单位。
 
 Group by 支持最多 5 个字段组合，包括 `client.address`、`project`、`sdk.name`、`sdk.version`、`user_agent.original`、`value`、`browser.name`、`browser.version`，以及实际上报的自定义属性。字段标注 string/number/boolean/mixed，组合结果保留数值和布尔类型；缺失维度显示“无属性”。`project` 在当前单项目查询中为项目 slug；`value` 按实际样本数值分组，自定义同名属性可使用 `attributes.value`。
 

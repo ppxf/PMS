@@ -68,7 +68,7 @@ export function aggregateSql(
   if (v.aggregate === 'count') return `count(${field})::float8`;
   if (v.aggregate === 'count_unique') return `count(DISTINCT ${field})::float8`;
   const numeric = `CASE WHEN jsonb_typeof(${field}) = 'number' THEN (${field} #>> '{}')::float8 END`;
-  if (v.aggregate.startsWith('p'))
-    return `percentile_cont(${Number(v.aggregate.slice(1)) / 100}) WITHIN GROUP (ORDER BY ${numeric})`;
+  if (v.aggregate === 'p50' || v.aggregate === 'p95')
+    return `percentile_cont(${v.aggregate === 'p50' ? '0.5' : '0.95'}) WITHIN GROUP (ORDER BY ${numeric})`;
   return `${v.aggregate}(${numeric})::float8`;
 }

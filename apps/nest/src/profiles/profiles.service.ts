@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
@@ -15,10 +16,12 @@ import type {
   ProfileEnvelope,
   ProfileQuery,
   ProfileSummary,
+  ProfileDiagnosticEnvelope,
 } from './profiles-contract';
 import {
   ProfileEnvelopePipe,
   ProfileQueryPipe,
+  ProfileDiagnosticPipe,
   validProfileId,
 } from './profiles-validation';
 
@@ -64,6 +67,24 @@ export class ProfilesService {
         contentHash: hash,
         receivedAt: new Date(),
       });
+    });
+  }
+  async diagnostic(
+    projectId: string,
+    key: string | undefined,
+    input: ProfileDiagnosticEnvelope,
+  ): Promise<void> {
+    const diagnostic = new ProfileDiagnosticPipe().transform(input);
+    const project = await this.projects.findForIngestion(projectId, key);
+    if (!project.profilesEnabled)
+      throw new ForbiddenException('Profiles is disabled for this project');
+    const denied = diagnostic.reason === 'permission_denied';
+    throw new UnprocessableEntityException({
+      statusCode: 422,
+      error: denied ? 'PROFILE_PERMISSION_DENIED' : 'PROFILE_START_FAILED',
+      message: denied
+        ? 'Browser denied profiling permission. Ensure the monitored application HTML response allows profiling with Document-Policy: js-profiling, then reload the page. This diagnostic is based on the SDK failure; the server cannot inspect the document response header.'
+        : 'Browser profiler failed to start. This does not confirm a missing Document-Policy header. Check browser support and profiler initialization.',
     });
   }
   async config(user: string, group: string, slug: string) {

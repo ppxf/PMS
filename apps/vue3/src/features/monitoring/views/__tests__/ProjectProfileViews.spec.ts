@@ -76,15 +76,13 @@ beforeEach(() => {
         name: 'root',
         profileId: 'p',
         count: 2,
-        self: { avg: 20, p50: 20, p75: 25, p95: 29, p99: 29.8 },
-        total: { avg: 30, p50: 30, p75: 30, p95: 30, p99: 30 },
-        baselineSelfP75: 10,
+        self: { avg: 20, p50: 20, p95: 25 },
+        total: { avg: 30, p50: 30, p95: 30 },
+        baselineSelfP95: 10,
         changePercent: 150,
       },
     ],
-    transactions: [
-      { name: 'Checkout', profileId: 'p', count: 2, avg: 30, p50: 30, p75: 30, p95: 30, p99: 30 },
-    ],
+    transactions: [{ name: 'Checkout', profileId: 'p', count: 2, avg: 30, p50: 30, p95: 30 }],
     flamegraph: [{ name: 'root', frameId: 0, stackId: 0, start: 0, end: 60, depth: 0 }],
   })
   api.profilesConfig.mockResolvedValue({ enabled: false, dsn: 'https://key@host/sdk/p' })
@@ -100,15 +98,15 @@ describe('Profiles views', () => {
       key: 'fast',
       name: 'improved',
       profileId: 'p2',
-      self: { avg: 2, p50: 2, p75: 2, p95: 2, p99: 2 },
-      total: { avg: 50, p50: 50, p75: 50, p95: 50, p99: 50 },
+      self: { avg: 2, p50: 2, p95: 2 },
+      total: { avg: 50, p50: 50, p95: 50 },
       changePercent: -50,
     })
     const view = mount(ProfileFunctionCard, {
       ...options,
       props: {
         functions: data.functions,
-        initialMode: 'p75',
+        initialMode: 'p95',
         group: 'team',
         project: 'web',
         loading: false,
@@ -118,12 +116,12 @@ describe('Profiles views', () => {
     expect(view.findAll('li')[0]!.text()).toContain('root')
     await selectValue(view, 'Function time metric', 'total')
     expect(view.findAll('li')[0]!.text()).toContain('improved')
-    await selectValue(view, 'p75 function ranking', 'avg')
+    await selectValue(view, 'p95 function ranking', 'avg')
     expect(view.findAll('li')[0]!.text()).toContain('50.00 ms')
-    await selectValue(view, 'p75 function ranking', 'improved')
+    await selectValue(view, 'p95 function ranking', 'improved')
     expect(view.findAll('li')).toHaveLength(1)
     expect(view.text()).toContain('-50.0%')
-    await selectValue(view, 'p75 function ranking', 'regressed')
+    await selectValue(view, 'p95 function ranking', 'regressed')
     expect(view.findAll('li')[0]!.text()).toContain('root')
   })
   it('reports backend aggregation limits, retries statistics and keeps raw profiles available', async () => {
@@ -174,7 +172,10 @@ describe('Profiles views', () => {
     expect(view.text()).toContain('150.0%')
     expect(view.get('[role="tab"][aria-selected="true"]').text()).toContain('Transactions')
     expect(view.text()).toContain('Checkout')
-    expect(view.text()).toContain('P99')
+    expect(view.text()).toContain('AVG')
+    expect(view.text()).toContain('P95')
+    expect(view.text()).not.toContain('P75')
+    expect(view.text()).not.toContain('P99')
     await view.get('[data-testid="aggregate-tab"]').trigger('click')
     expect(view.getComponent(ProfileFlameChart).props('durationMs')).toBe(60)
     await view.get('[data-testid="profiles-tab"]').trigger('click')
@@ -216,7 +217,11 @@ describe('Profiles views', () => {
     await view.get('button[aria-label="Next page"]').trigger('click')
     await flushPromises()
     expect(api.queryProfiles.mock.lastCall![2].page).toBe(2)
-    await view.get('input[aria-label="Environment"]').setValue('production')
+    expect(q.environment).toBe('development')
+    expect(q).not.toHaveProperty('traceId')
+    expect(view.find('input[aria-label="Trace ID"]').exists()).toBe(false)
+    expect(view.find('input[aria-label="Environment"]').exists()).toBe(false)
+    await selectValue(view, 'Environment', 'production')
     await view.get('input[aria-label="Search profiles"]').setValue('Home')
     await view.get('form').trigger('submit')
     await flushPromises()
@@ -250,6 +255,8 @@ describe('Profiles views', () => {
     expect(view.text()).toContain('Chromium')
     expect(view.text()).toContain('uiProfiler')
     expect(view.text()).toContain('browserTracingIntegration')
+    expect(view.text()).not.toContain('Verify profiling permission')
+    expect(view.text()).not.toContain('checkProfiling()')
   })
   it('shows errors and empty states', async () => {
     api.queryProfiles.mockRejectedValueOnce(new Error('offline'))

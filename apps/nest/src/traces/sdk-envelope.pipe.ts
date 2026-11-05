@@ -7,8 +7,14 @@ import { MetricsEnvelope } from '../metrics/metrics-contract';
 import { MetricsEnvelopePipe } from '../metrics/metrics-validation';
 import type { LogsEnvelope } from '../logs/logs-contract';
 import { LogsEnvelopePipe } from '../logs/logs-validation';
-import type { ProfileEnvelope } from '../profiles/profiles-contract';
-import { ProfileEnvelopePipe } from '../profiles/profiles-validation';
+import type {
+  ProfileEnvelope,
+  ProfileDiagnosticEnvelope,
+} from '../profiles/profiles-contract';
+import {
+  ProfileEnvelopePipe,
+  ProfileDiagnosticPipe,
+} from '../profiles/profiles-validation';
 
 @Injectable()
 export class SdkEnvelopePipe implements PipeTransform<
@@ -18,6 +24,7 @@ export class SdkEnvelopePipe implements PipeTransform<
   | MetricsEnvelope
   | LogsEnvelope
   | ProfileEnvelope
+  | ProfileDiagnosticEnvelope
 > {
   transform(
     input: unknown,
@@ -26,7 +33,10 @@ export class SdkEnvelopePipe implements PipeTransform<
     | TransactionEnvelope
     | MetricsEnvelope
     | LogsEnvelope
-    | ProfileEnvelope {
+    | ProfileEnvelope
+    | ProfileDiagnosticEnvelope {
+    if (jsonObject(input).type === 'profile_diagnostic')
+      return new ProfileDiagnosticPipe().transform(input);
     if (jsonObject(input).type === 'profile')
       return new ProfileEnvelopePipe().transform(input);
     if (jsonObject(input).type === 'logs')

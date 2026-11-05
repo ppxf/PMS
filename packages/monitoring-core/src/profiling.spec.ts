@@ -84,6 +84,27 @@ afterEach(() => {
 })
 
 describe('browser profiles', () => {
+  it('reports denied profiling permission once without throwing or producing a profile', async () => {
+    const { client, envelopes, profiles } = setup()
+    vi.stubGlobal('Profiler', class { constructor() { throw new DOMException('Blocked', 'NotAllowedError') } })
+    for (let i = 0; i < 3; i++) client.uiProfiler.startProfiler()
+    await client.flush()
+    expect(profiles()).toHaveLength(0)
+    const diagnostics = envelopes.filter(e => (e.type as string) === 'profile_diagnostic')
+    expect(diagnostics).toHaveLength(1)
+    expect(diagnostics[0]).toMatchObject({ version: 1, type: 'profile_diagnostic', reason: 'permission_denied' })
+  })
+  it('distinguishes constructor errors from missing policy and consumes rejected diagnostic responses', async () => {
+    const send = vi.fn().mockRejectedValue({ status: 422 })
+    const { client } = setup({ transport: { send } })
+    send.mockClear()
+    vi.stubGlobal('Profiler', class { constructor() { throw new RangeError('Invalid option') } })
+    expect(() => client.uiProfiler.startProfiler()).not.toThrow()
+    await expect(client.flush()).resolves.toBeUndefined()
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'profile_diagnostic', reason: 'start_failed' }))
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).toHaveBeenCalledTimes(1)
+  })
   it('includes samples produced by the synchronous native stop without marking a normal recording truncated', async () => {
     const { client, profiles } = setup()
     client.uiProfiler.startProfiler()

@@ -33,22 +33,6 @@ export default defineConfig({
 })`
 const productionHeaders = `# nginx.conf: inside the server block serving your application's HTML
 add_header Document-Policy "js-profiling" always;`
-const verifyPolicy = `// Run in the browser console on the application page.
-// This only checks profiling permission; it does not upload a profile.
-async function checkProfiling() {
-  if (typeof window.Profiler !== 'function') {
-    console.info('JS Self-Profiling API unavailable in this browser/context')
-    return
-  }
-  try {
-    const profiler = new window.Profiler({ sampleInterval: 10, maxBufferSize: 100 })
-    await profiler.stop()
-    console.info('JS profiling is allowed on this page')
-  } catch (error) {
-    console.error('Unable to start profiling; check the HTML response policy', error)
-  }
-}
-checkProfiling()`
 </script>
 <template>
   <div class="rounded-lg border bg-background p-4">
@@ -93,41 +77,6 @@ checkProfiling()`
       <pre class="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{{
         productionHeaders
       }}</pre>
-      <h3 class="font-medium">Verify profiling permission</h3>
-      <ol class="list-decimal space-y-2 pl-5">
-        <li>
-          Open the monitored application in a browser that supports the JS Self-Profiling API. In
-          DevTools, open Network, disable cache and reload the page.
-        </li>
-        <li>
-          Select the main document request (type Document), then check Headers → Response Headers
-          for <code>Document-Policy: js-profiling</code>. Verify the final HTML response after any
-          redirects, rather than a JavaScript asset or SDK ingestion response.
-        </li>
-        <li>
-          Run the console check below to confirm that a profiler can start and stop. Then enable
-          Profiles for the project, initialize the SDK, and trigger a sampled trace or manual
-          capture. If the API is unavailable or permission is denied, the SDK safely skips
-          collection.
-        </li>
-      </ol>
-      <pre class="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{{
-        verifyPolicy
-      }}</pre>
-      <p class="text-muted-foreground">
-        PMS already configures this header in its own Vite development/preview servers and Docker
-        Nginx deployment. Each application integrating the SDK needs its own HTML response policy.
-        This release displays original browser function names and does not apply Source Maps. See
-        the
-        <a
-          class="underline"
-          href="https://github.com/WICG/js-self-profiling#api-overview"
-          target="_blank"
-          rel="noopener noreferrer"
-          >JS Self-Profiling API specification</a
-        >
-        for the document policy requirement.
-      </p>
     </div>
   </div>
 </template>

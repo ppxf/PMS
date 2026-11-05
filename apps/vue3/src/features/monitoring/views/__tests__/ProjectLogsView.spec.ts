@@ -1,7 +1,7 @@
 import { selectValue } from '@/test/select'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOMWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
-import { logsCsv } from '../../model/logs'
+import { logsCsv, LOG_AGGREGATES } from '../../model/logs'
 enableAutoUnmount(afterEach)
 const api = vi.hoisted(() => ({ logFields: vi.fn(), logQuery: vi.fn() }))
 vi.mock('../../api/logs.api', () => api)
@@ -75,7 +75,8 @@ describe('Logs explorer', () => {
       'log_source',
     ]
     expect(keys('Log filters field')).toEqual(expected)
-    for (const aggregate of ['sum', 'avg', 'p50', 'p75', 'p90', 'p95', 'p99', 'max', 'min']) {
+    for (const removed of ['p75', 'p90', 'p99']) expect(LOG_AGGREGATES).not.toContain(removed)
+    for (const aggregate of ['sum', 'avg', 'p50', 'p95', 'max', 'min']) {
       await selectValue(view, 'Aggregate 1', aggregate)
       expect(keys('Chart field 1')).toEqual(['payload_size'])
       expect(api.logQuery.mock.lastCall![2].visualizations[0].field).toBe('payload_size')

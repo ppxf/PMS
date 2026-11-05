@@ -28,6 +28,17 @@ const queryInput = () => ({
   end: new Date().toISOString(),
 });
 describe('logs validation', () => {
+  it.each(['p75', 'p90', 'p99'])(
+    'rejects removed percentile %s',
+    (aggregate) => {
+      expect(() =>
+        new LogQueryPipe().transform({
+          ...queryInput(),
+          visualizations: [{ aggregate, field: 'payload_size' }],
+        }),
+      ).toThrow(BadRequestException);
+    },
+  );
   it('accepts structured logs and rejects the whole malformed batch', () => {
     expect(new LogsEnvelopePipe().transform(envelope()).logs[0].level).toBe(
       'info',

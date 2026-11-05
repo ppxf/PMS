@@ -200,6 +200,54 @@ describe('Profiles HTTP boundaries', () => {
       .expect(400);
     expect(records.size).toBe(0);
   });
+  it('returns an authenticated policy diagnostic with a precise cause without storing a profile', async () => {
+    const diagnostic = {
+      version: 1,
+      type: 'profile_diagnostic',
+      sentAt: new Date().toISOString(),
+      reason: 'permission_denied',
+    };
+    project.profilesEnabled = true;
+    await request(app.getHttpServer()).post(sdk).send(diagnostic).expect(404);
+    await request(app.getHttpServer())
+      .post(sdk)
+      .set('X-PMS-Key', 'key')
+      .set('Origin', 'https://denied.test')
+      .send(diagnostic)
+      .expect(403);
+    const response = await request(app.getHttpServer())
+      .post(sdk)
+      .set('X-PMS-Key', 'key')
+      .set('Origin', 'https://allowed.test')
+      .send(diagnostic)
+      .expect(422);
+    expect(response.body.message).toContain('Document-Policy: js-profiling');
+    expect(response.body.error).toBe('PROFILE_PERMISSION_DENIED');
+    const failure = await request(app.getHttpServer())
+      .post(sdk)
+      .set('X-PMS-Key', 'key')
+      .send({ ...diagnostic, reason: 'start_failed' })
+      .expect(422);
+    expect(failure.body.error).toBe('PROFILE_START_FAILED');
+    expect(failure.body.message).toContain('does not confirm');
+    expect(records.size).toBe(0);
+    await request(app.getHttpServer())
+      .post(sdk)
+      .set('X-PMS-Key', 'key')
+      .send({ ...diagnostic, reason: 'unknown' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post(sdk)
+      .set('X-PMS-Key', 'key')
+      .send({ ...diagnostic, sentAt: 'bad' })
+      .expect(400);
+    project.profilesEnabled = false;
+    await request(app.getHttpServer())
+      .post(sdk)
+      .set('X-PMS-Key', 'key')
+      .send(diagnostic)
+      .expect(403);
+  });
   it('accepts retries and returns 409 for reused profile IDs with changed content', async () => {
     project.profilesEnabled = true;
     const input = profileEnvelope();

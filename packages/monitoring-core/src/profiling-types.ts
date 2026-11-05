@@ -34,6 +34,12 @@ export interface ProfileEnvelope {
   sentAt: string
   profile: MonitoringProfile
 }
+export interface ProfileDiagnosticEnvelope {
+  version: 1
+  type: 'profile_diagnostic'
+  sentAt: string
+  reason: 'permission_denied' | 'start_failed'
+}
 export interface ProfileStartOptions {
   name?: string
   traceId?: string

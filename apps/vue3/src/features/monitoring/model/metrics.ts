@@ -1,10 +1,9 @@
 export type MetricType = 'count' | 'gauge' | 'distribution'
-export type MetricAggregation =
-  'sum' | 'avg' | 'min' | 'max' | 'count' | 'p50' | 'p95' | 'p99' | 'last'
+export type MetricAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'p50' | 'p95' | 'last'
 const aggregations: Record<MetricType, MetricAggregation[]> = {
   count: ['sum', 'count'],
   gauge: ['last', 'avg', 'min', 'max', 'count'],
-  distribution: ['p95', 'p50', 'p99', 'avg', 'min', 'max', 'sum', 'count'],
+  distribution: ['p95', 'p50', 'avg', 'min', 'max', 'sum', 'count'],
 }
 export const metricAggregations = (type: MetricType): readonly MetricAggregation[] =>
   aggregations[type]

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Search } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import type { ProfileDistribution, ProfileFunctionOverview } from '../model/profiles-overview'
+import { PROFILE_DURATION_AGGREGATIONS } from '../model/profiles-overview'
 
 const props = defineProps<{
   functions: ProfileFunctionOverview[]
@@ -18,7 +19,7 @@ const mode = ref(props.initialMode)
 const metric = ref<'self' | 'total'>('self')
 const page = ref(0)
 const modes = [
-  ...(['avg', 'p50', 'p75', 'p95', 'p99'] as const).map((value) => ({
+  ...PROFILE_DURATION_AGGREGATIONS.map((value) => ({
     value,
     label: `Slowest Functions (breakdown by ${value.toUpperCase()})`,
   })),
@@ -97,7 +98,7 @@ watch([mode, metric, () => props.functions], () => {
           />
         </div>
         <p v-else class="mt-2 text-xs text-muted-foreground">
-          P75 self time compared with the previous equal time period.
+          P95 self time compared with the previous equal time period.
         </p>
       </div>
       <div class="flex shrink-0">
@@ -143,7 +144,7 @@ watch([mode, metric, () => props.functions], () => {
         v-if="comparison && !loading && !failed && !visible.length"
         class="max-w-xs text-xs text-muted-foreground"
       >
-        Changes require a matching function with non-zero P75 self time in the comparison period.
+        Changes require a matching function with non-zero P95 self time in the comparison period.
       </p>
     </div>
     <ol v-else class="mt-5 divide-y">
