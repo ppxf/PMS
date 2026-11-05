@@ -50,6 +50,9 @@ vi.mock('vue-router', async (importOriginal) => {
   }
 })
 
+const updateProfiles = vi.hoisted(() => vi.fn())
+vi.mock('../../api/profiles.api', () => ({ updateProfiles }))
+
 import CreateProjectView from '../CreateProjectView.vue'
 import ProjectDetailView from '../ProjectDetailView.vue'
 import ProjectSetupView from '../ProjectSetupView.vue'
@@ -64,6 +67,7 @@ const project = {
   loggingEnabled: false,
   tracingEnabled: false,
   metricsEnabled: false,
+  profilesEnabled: false,
   dsn: 'http://abc123@localhost:3001/api/sdk/550e8400-e29b-41d4-a716-446655440000',
   connected: false,
   lastSeenAt: null,
@@ -106,6 +110,7 @@ describe('project views', () => {
     ['Logging', 'loggingEnabled', updateProjectLogging],
     ['Tracing', 'tracingEnabled', updateProjectTracing],
     ['Application Metrics', 'metricsEnabled', updateProjectMetrics],
+    ['Profiles', 'profilesEnabled', updateProfiles],
   ] as const)('toggles %s directly from its feature status', async (label, key, update) => {
     getProject.mockResolvedValue({ ...project, [key]: false })
     update
@@ -123,9 +128,9 @@ describe('project views', () => {
     await flushPromises()
     expect(update).toHaveBeenLastCalledWith('acme', 'frontend', false)
     expect(status().attributes('aria-checked')).toBe('false')
-    expect(view.findAll('[role="switch"]')).toHaveLength(4)
+    expect(view.findAll('[role="switch"]')).toHaveLength(5)
     expect(view.findAll('input[type="checkbox"]')).toHaveLength(0)
-    expect(view.findAll('button')).toHaveLength(4)
+    expect(view.findAll('button')).toHaveLength(5)
     view.unmount()
   })
   it('keeps controls available after a failed save and disables all toggles while saving', async () => {

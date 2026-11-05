@@ -8,5 +8,10 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "resolvePackageJsonExports": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-dev"
+  ]
 }

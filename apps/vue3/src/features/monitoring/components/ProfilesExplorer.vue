@@ -94,6 +94,8 @@ function inspect(name: string) {
         :project="project"
         :loading="loading"
         :failed="!!error"
+        :comparison-start="overview?.comparisonStart"
+        :comparison-end="overview?.comparisonEnd"
       />
     </div>
     <p class="text-xs text-muted-foreground">
@@ -176,9 +178,9 @@ function inspect(name: string) {
               :key="row.name"
               class="border-b last:border-0 hover:bg-muted/20"
             >
-              <td class="max-w-96 px-4 py-4">
+              <td class="max-w-96 px-4 py-2.5">
                 <button
-                  class="block max-w-full truncate text-left font-medium hover:underline"
+                  class="block max-w-full truncate text-left font-medium text-violet-600 hover:underline"
                   :title="row.name"
                   @click="inspect(row.name)"
                 >
@@ -188,13 +190,13 @@ function inspect(name: string) {
               <td
                 v-for="key in PROFILE_DURATION_AGGREGATIONS"
                 :key="key"
-                class="whitespace-nowrap px-4 py-4 font-mono text-xs"
+                class="whitespace-nowrap px-4 py-2.5 font-mono text-xs"
               >
                 {{ row[key].toFixed(2) }}
               </td>
-              <td class="px-4 py-4 tabular-nums">{{ row.count }}</td>
-              <td class="px-4 py-4 text-muted-foreground">{{ project }}</td>
-              <td class="px-4 py-4">
+              <td class="px-4 py-2.5 tabular-nums">{{ row.count }}</td>
+              <td class="px-4 py-2.5 text-muted-foreground">{{ project }}</td>
+              <td class="px-4 py-2.5">
                 <RouterLink
                   class="whitespace-nowrap text-xs text-violet-600 hover:underline"
                   :to="{

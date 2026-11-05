@@ -6,6 +6,66 @@ import { ProfilesService } from './profiles.service';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 
 describe('Profiles overview statistics', () => {
+  it('ignores Vite timestamps in function and flamegraph identity while retaining raw sources', () => {
+    const base = profileEnvelope().profile;
+    const capture = (t: string, durationMs: number) => ({
+      ...base,
+      durationMs,
+      resources: [`http://localhost:3002/src/App.vue?t=${t}&vue&type=script`],
+      frames: [{ name: 'testFunc', resourceId: 0, line: 10, column: 18 }],
+      stacks: [{ frameId: 0 }],
+      samples: [{ timestamp: 0, stackId: 0 }],
+    });
+    const current = capture('1793870267659', 40),
+      old = capture('1793870362303', 20);
+    const result = buildProfileOverview([current, old], [old]);
+    expect(result.functions).toHaveLength(1);
+    expect(result.functions[0]).toMatchObject({
+      count: 2,
+      baselineSelfP95: 20,
+      resource: current.resources[0],
+    });
+    expect(result.flamegraph).toHaveLength(1);
+    expect(current.resources[0]).toContain('t=1793870267659');
+  });
+  it('preserves semantic query parameters, distinct locations and non-Vite timestamps', () => {
+    const base = profileEnvelope().profile;
+    const capture = (resource: string, line = 10) => ({
+      ...base,
+      resources: [resource],
+      frames: [{ name: 'testFunc', resourceId: 0, line, column: 18 }],
+      stacks: [{ frameId: 0 }],
+      samples: [{ timestamp: 0, stackId: 0 }],
+    });
+    const result = buildProfileOverview(
+      [
+        capture('/src/App.vue?t=1793870267659&type=script'),
+        capture('/src/App.vue?t=1793870362303&type=template'),
+        capture('/src/App.vue?t=1793870267659&type=script', 11),
+        capture('/src/App.vue?t=business'),
+        capture('/src/App.vue?t=other'),
+      ],
+      [],
+    );
+    expect(result.functions).toHaveLength(5);
+  });
+  it('retains dated current and baseline observations for real function trends', () => {
+    const base = profileEnvelope().profile;
+    const capture = (startedAt: string, durationMs: number) => ({
+      ...base,
+      startedAt,
+      durationMs,
+      samples: [{ timestamp: 0, stackId: 0 }],
+    });
+    const result = buildProfileOverview(
+      [capture('2026-11-05T12:00:00Z', 40)],
+      [capture('2026-11-04T12:00:00Z', 20)],
+    );
+    expect(result.functions[0].series).toEqual([
+      { at: '2026-11-04T12:00:00Z', self: 20, total: 20 },
+      { at: '2026-11-05T12:00:00Z', self: 40, total: 40 },
+    ]);
+  });
   it('uses P95 for regression comparison and only returns the shared duration aggregations', () => {
     const base = profileEnvelope().profile;
     const capture = (durationMs: number) => ({

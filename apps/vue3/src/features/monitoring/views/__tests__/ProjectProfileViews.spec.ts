@@ -91,6 +91,40 @@ beforeEach(() => {
   api.profileDetail.mockResolvedValue(profile)
 })
 describe('Profiles views', () => {
+  it('defaults to application functions and restores SDK and framework rows without changing input', async () => {
+    const data = await api.profilesOverview()
+    const base = data.functions[0]
+    const functions = [
+      { ...base, key: 'business', name: 'startProfiler', resource: '/src/business.ts' },
+      {
+        ...base,
+        key: 'sdk',
+        name: 'sdkInternal',
+        resource: '/node_modules/.vite/deps/@pms_monitoring-vue.js',
+      },
+      { ...base, key: 'vue', name: 'patchDOMProp', resource: '/node_modules/vue/runtime.js' },
+      { ...base, key: 'unknown', name: 'unknownFrame' },
+    ]
+    const view = mount(ProfileFunctionCard, {
+      ...options,
+      props: {
+        functions,
+        initialMode: 'p95',
+        group: 'team',
+        project: 'web',
+        loading: false,
+        failed: false,
+      },
+    })
+    const names = () => view.findAll('ol a').map((a) => a.text())
+    expect(names()).toEqual(['startProfiler', 'unknownFrame'])
+    await selectValue(view, 'p95 function scope', 'all')
+    expect(names()).toContain('sdkInternal')
+    expect(names()).toContain('patchDOMProp')
+    await selectValue(view, 'p95 function scope', 'application')
+    expect(names()).toEqual(['startProfiler', 'unknownFrame'])
+    expect(functions).toHaveLength(4)
+  })
   it('switches function percentiles, time metrics and improvement rankings independently', async () => {
     const data = await api.profilesOverview()
     data.functions.push({
@@ -236,13 +270,11 @@ describe('Profiles views', () => {
     const month = api.queryProfiles.mock.lastCall![2]
     expect(Date.parse(month.end) - Date.parse(month.start)).toBe(31 * 86400000)
   })
-  it('enables collection and keeps the setup guide off the list page', async () => {
+  it('keeps collection settings and the setup guide off the list page', async () => {
     const view = mount(ProjectProfilesView, options)
     await flushPromises()
-    await view.get('button[aria-label="Enable profiles"]').trigger('click')
-    await flushPromises()
-    expect(api.updateProfiles).toHaveBeenCalledWith('team', 'web', true)
-    expect(view.text()).toContain('Profiles enabled')
+    expect(view.find('button[aria-label="Enable profiles"]').exists()).toBe(false)
+    expect(api.profilesConfig).not.toHaveBeenCalled()
     expect(view.text()).not.toContain('Document-Policy')
   })
   it('shows the project-specific guide on the Profiles setup page', async () => {
@@ -268,27 +300,20 @@ describe('Profiles views', () => {
     await flushPromises()
     expect(view.text()).toContain('No profiles found')
   })
-  it('ignores stale list and config responses after project navigation', async () => {
+  it('ignores stale list responses after project navigation', async () => {
     let finish!: (value: unknown) => void
-    let config!: (value: unknown) => void
     api.queryProfiles.mockReturnValueOnce(
       new Promise((resolve) => {
         finish = resolve
-      }),
-    )
-    api.profilesConfig.mockReturnValueOnce(
-      new Promise((resolve) => {
-        config = resolve
       }),
     )
     const view = mount(ProjectProfilesView, options)
     state.route!.params.projectSlug = 'next'
     await flushPromises()
     finish({ items: [{ ...profile, name: 'stale' }], total: 1, page: 1, pageSize: 20 })
-    config({ enabled: true, dsn: 'stale-dsn' })
     await flushPromises()
     expect(view.text()).not.toContain('stale')
-    expect(view.find('button[aria-label="Enable profiles"]').exists()).toBe(true)
+    expect(view.find('button[aria-label="Enable profiles"]').exists()).toBe(false)
   })
   it('loads detail, links trace with span, ranks functions and focuses flame chart', async () => {
     const view = mount(ProjectProfileDetailView, options)

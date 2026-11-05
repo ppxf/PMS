@@ -10,6 +10,7 @@ import {
   updateProjectLogging,
   updateProjectErrorMonitoring,
 } from '../api/monitoring.api'
+import { updateProfiles } from '../api/profiles.api'
 import type { MonitoringProject } from '../model/types'
 
 const route = useRoute()
@@ -17,7 +18,12 @@ const groupSlug = computed(() => String(route.params.groupSlug))
 const projectSlug = computed(() => String(route.params.projectSlug))
 const project = ref<MonitoringProject | null>(null)
 const error = ref('')
-type FeatureKey = 'errorMonitoringEnabled' | 'loggingEnabled' | 'tracingEnabled' | 'metricsEnabled'
+type FeatureKey =
+  | 'errorMonitoringEnabled'
+  | 'loggingEnabled'
+  | 'tracingEnabled'
+  | 'metricsEnabled'
+  | 'profilesEnabled'
 const saving = ref<FeatureKey | null>(null)
 let generation = 0
 const updates = {
@@ -25,6 +31,7 @@ const updates = {
   loggingEnabled: updateProjectLogging,
   tracingEnabled: updateProjectTracing,
   metricsEnabled: updateProjectMetrics,
+  profilesEnabled: updateProfiles,
 }
 async function toggleFeature(key: FeatureKey, label: string) {
   if (!project.value || saving.value) return
@@ -47,6 +54,7 @@ const featureLabels = [
   ['loggingEnabled', 'Logging'],
   ['tracingEnabled', 'Tracing'],
   ['metricsEnabled', 'Application Metrics'],
+  ['profilesEnabled', 'Profiles'],
 ] as const
 
 watch(

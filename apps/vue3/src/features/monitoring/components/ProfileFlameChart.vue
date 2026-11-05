@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { Button } from '@/components/ui/button'
 import type { ProfileSegment } from '../model/profiles'
 const props = defineProps<{ segments: ProfileSegment[]; durationMs: number }>()
+const search = ref('')
+const selected = ref<ProfileSegment | null>(null)
 const canvas = ref<HTMLCanvasElement>()
 const focus = ref<ProfileSegment | null>(null)
 const hover = ref('')
@@ -17,7 +19,7 @@ const visible = computed(() =>
 const height = computed(() =>
   Math.max(
     80,
-    (visible.value.reduce((max, s) => Math.max(max, s.depth - depth.value), 0) + 1) * 28,
+    (visible.value.reduce((max, s) => Math.max(max, s.depth - depth.value), 0) + 1) * 20,
   ),
 )
 // Canvas keeps the DOM bounded even for 10,000 distinct samples and deep stacks.
@@ -46,17 +48,21 @@ function draw() {
     const x = ((Math.max(start.value, segment.start) - start.value) / duration) * width
     const w =
       ((Math.min(end.value, segment.end) - Math.max(start.value, segment.start)) / duration) * width
-    const y = (segment.depth - depth.value) * 28
+    const y = (segment.depth - depth.value) * 20
     context.fillStyle =
-      segment.frameId == null ? '#cbd5e1' : `hsl(${((segment.frameId + 1) * 47) % 360} 55% 72%)`
-    context.fillRect(x, y, Math.max(w - 1, 0.5), 26)
+      search.value && !segment.name.toLowerCase().includes(search.value.toLowerCase())
+        ? '#e4e4e7'
+        : segment.frameId == null
+          ? '#f2d5d5'
+          : '#d3cff3'
+    context.fillRect(x, y, Math.max(w - 1, 0.5), 18)
     if (w > 30) {
       context.save()
       context.beginPath()
-      context.rect(x + 3, y, Math.max(0, w - 6), 26)
+      context.rect(x + 3, y, Math.max(0, w - 6), 18)
       context.clip()
       context.fillStyle = '#172033'
-      context.fillText(segment.name, x + 5, y + 17)
+      context.fillText(segment.name, x + 5, y + 13)
       context.restore()
     }
   }
@@ -66,12 +72,15 @@ function hit(event: MouseEvent) {
   if (!el) return
   const rect = el.getBoundingClientRect()
   const time = start.value + ((event.clientX - rect.left) / rect.width) * (end.value - start.value)
-  const row = Math.floor((event.clientY - rect.top) / 28) + depth.value
+  const row = Math.floor((event.clientY - rect.top) / 20) + depth.value
   return visible.value.find((s) => s.depth === row && s.start <= time && s.end > time)
 }
 function select(event: MouseEvent) {
   const segment = hit(event)
-  if (segment) focus.value = segment
+  if (segment) {
+    selected.value = segment
+    focus.value = segment
+  }
 }
 function inspect(event: MouseEvent) {
   const s = hit(event)
@@ -84,9 +93,10 @@ watch(
   () => {
     focus.value = null
     hover.value = ''
+    selected.value = null
   },
 )
-watch([visible, height], () => {
+watch([visible, height, search], () => {
   void nextTick(draw)
 })
 onMounted(() => {
@@ -101,7 +111,15 @@ onBeforeUnmount(() => observer?.disconnect())
 <template>
   <section class="space-y-3 rounded-lg border bg-background p-4" aria-label="Profile flame chart">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="font-semibold">Flame chart</h2>
+      <div class="flex flex-1 flex-wrap items-center gap-2">
+        <h2 class="rounded border bg-muted/40 px-2 py-1 text-xs font-medium">Flame chart</h2>
+        <input
+          v-model="search"
+          aria-label="Find frames"
+          placeholder="Find frames…"
+          class="h-8 min-w-32 flex-1 rounded border bg-background px-3 text-xs"
+        />
+      </div>
       <Button
         aria-label="Reset flame chart"
         variant="outline"
@@ -124,17 +142,44 @@ onBeforeUnmount(() => observer?.disconnect())
     <p v-if="!segments.length" class="py-8 text-center text-sm text-muted-foreground">
       No samples recorded
     </p>
-    <div v-else class="max-h-[480px] overflow-y-auto">
-      <canvas
-        ref="canvas"
-        class="w-full cursor-pointer"
-        :style="{ height: `${height}px` }"
-        role="img"
-        aria-label="Sampled call stacks over time. Use focus function buttons below for keyboard navigation."
-        @click="select"
-        @mousemove="inspect"
-        @mouseleave="hover = ''"
-      />
+    <div v-else class="grid overflow-hidden rounded border lg:grid-cols-[minmax(0,1fr)_240px]">
+      <div class="max-h-[480px] min-w-0 overflow-y-auto">
+        <canvas
+          ref="canvas"
+          class="w-full cursor-pointer"
+          :style="{ height: `${height}px` }"
+          role="img"
+          aria-label="Sampled call stacks over time. Use focus function buttons below for keyboard navigation."
+          @click="select"
+          @mousemove="inspect"
+          @mouseleave="hover = ''"
+        />
+      </div>
+      <aside
+        class="space-y-4 border-t bg-muted/10 p-4 text-xs lg:border-l lg:border-t-0"
+        aria-label="Selected function"
+      >
+        <h3 class="font-semibold">Function</h3>
+        <template v-if="selected">
+          <dl class="space-y-3">
+            <div>
+              <dt class="text-muted-foreground">Name</dt>
+              <dd class="mt-1 break-all font-mono">{{ selected.name }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Source</dt>
+              <dd class="mt-1 break-all">{{ selected.resource ?? 'Unknown resource' }}</dd>
+            </div>
+            <div>
+              <dt class="text-muted-foreground">Sampled time</dt>
+              <dd class="mt-1">{{ (selected.end - selected.start).toFixed(2) }} ms</dd>
+            </div>
+          </dl>
+        </template>
+        <p v-else class="text-muted-foreground">
+          Select a frame to inspect its function and source.
+        </p>
+      </aside>
     </div>
     <p class="min-h-4 break-all text-xs text-muted-foreground" role="status">{{ hover }}</p>
     <details v-if="choices.length">

@@ -48,6 +48,7 @@ export interface ProfileFunction {
   totalMs: number
 }
 export interface ProfileSegment {
+  resource?: string
   frameId?: number
   stackId?: number
   name: string
@@ -108,6 +109,7 @@ export function analyzeProfile(profile: Profile): {
           frameId,
           stackId: id,
           name: frame?.name ?? 'Unsampled',
+          resource: frame?.resourceId == null ? undefined : profile.resources[frame.resourceId],
           start,
           end,
           depth,

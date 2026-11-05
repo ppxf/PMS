@@ -1,3 +1,4 @@
+import { normalizeProfileResource } from './profile-function-identity';
 import type { MonitoringProfile } from './profiles-contract';
 
 export interface Distribution {
@@ -13,6 +14,7 @@ export interface FunctionOverview {
   column?: number;
   profileId: string;
   count: number;
+  series: { at: string; self: number; total: number }[];
   self: Distribution;
   total: Distribution;
   baselineSelfP95: number | null;
@@ -58,10 +60,11 @@ function distribution(values: number[]): Distribution {
 interface FunctionSamples {
   info: Omit<
     FunctionOverview,
-    'count' | 'self' | 'total' | 'baselineSelfP95' | 'changePercent'
+    'series' | 'count' | 'self' | 'total' | 'baselineSelfP95' | 'changePercent'
   >;
   self: number[];
   total: number[];
+  series: { at: string; self: number; total: number }[];
 }
 interface FlameNode {
   name: string;
@@ -88,7 +91,7 @@ export function buildProfileOverview(
             : profile.resources[frame.resourceId];
         const key = JSON.stringify([
           frame.name,
-          resource ?? null,
+          normalizeProfileResource(resource),
           frame.line ?? null,
           frame.column ?? null,
         ]);
@@ -170,7 +173,13 @@ export function buildProfileOverview(
           info: value.frame,
           self: [],
           total: [],
+          series: [],
         };
+        entry.series.push({
+          at: profile.startedAt,
+          self: value.self,
+          total: value.total,
+        });
         entry.self.push(value.self);
         entry.total.push(value.total);
         functions.set(key, entry);
@@ -187,6 +196,9 @@ export function buildProfileOverview(
       return {
         ...value.info,
         count: value.self.length,
+        series: [...(old?.series ?? []), ...value.series].sort((a, b) =>
+          a.at.localeCompare(b.at),
+        ),
         self,
         total: distribution(value.total),
         baselineSelfP95,

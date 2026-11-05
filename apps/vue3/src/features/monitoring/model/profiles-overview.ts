@@ -14,6 +14,7 @@ export interface ProfileFunctionOverview {
   column?: number
   profileId: string
   count: number
+  series?: { at: string; self: number; total: number }[]
   self: ProfileDistribution
   total: ProfileDistribution
   baselineSelfP95: number | null

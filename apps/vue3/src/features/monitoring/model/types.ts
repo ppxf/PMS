@@ -16,6 +16,7 @@ export interface MonitoringProject {
   errorMonitoringEnabled: boolean
   loggingEnabled: boolean
   tracingEnabled: boolean
+  profilesEnabled?: boolean
   metricsEnabled: boolean
   dsn: string
   allowedOrigins?: string[]

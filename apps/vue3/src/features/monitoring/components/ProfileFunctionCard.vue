@@ -3,8 +3,10 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ChevronLeft, ChevronRight, Search } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import ProfileTrendChart from './ProfileTrendChart.vue'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import type { ProfileDistribution, ProfileFunctionOverview } from '../model/profiles-overview'
+import { profileFunctionKind } from '../model/profile-function-scope'
 import { PROFILE_DURATION_AGGREGATIONS } from '../model/profiles-overview'
 
 const props = defineProps<{
@@ -13,8 +15,20 @@ const props = defineProps<{
   group: string
   project: string
   loading: boolean
+  comparisonStart?: string
+  comparisonEnd?: string
   failed: boolean
 }>()
+const scope = ref('application')
+const filtered = computed(() =>
+  props.functions.filter((fn) => {
+    if (scope.value === 'all') return true
+    const kind = profileFunctionKind(fn.resource)
+    return kind === 'application' || kind === 'unknown'
+  }),
+)
+const hiddenCount = computed(() => props.functions.length - filtered.value.length)
+const expanded = ref<string | null>(null)
 const mode = ref(props.initialMode)
 const metric = ref<'self' | 'total'>('self')
 const page = ref(0)
@@ -28,7 +42,7 @@ const modes = [
 ]
 const comparison = computed(() => mode.value === 'regressed' || mode.value === 'improved')
 const ranked = computed(() => {
-  const rows = [...props.functions]
+  const rows = [...filtered.value]
   if (comparison.value)
     return rows
       .filter(
@@ -48,30 +62,19 @@ const ranked = computed(() => {
   )
 })
 const visible = computed(() => ranked.value.slice(page.value * 5, page.value * 5 + 5))
-const maxValue = computed(() =>
-  ranked.value.reduce(
-    (max, f) =>
-      Math.max(
-        max,
-        comparison.value
-          ? Math.abs(f.changePercent!)
-          : f[metric.value][mode.value as keyof ProfileDistribution],
-      ),
-    1,
-  ),
-)
 const value = (f: ProfileFunctionOverview) =>
   comparison.value
     ? Math.abs(f.changePercent!)
     : f[metric.value][mode.value as keyof ProfileDistribution]
-watch([mode, metric, () => props.functions], () => {
+watch([mode, metric, scope, () => props.functions], () => {
   page.value = 0
+  expanded.value = null
 })
 </script>
 
 <template>
   <article
-    class="flex min-h-[340px] min-w-0 flex-col rounded-lg border bg-background p-4"
+    class="flex min-h-[310px] min-w-0 flex-col rounded-lg border bg-background p-4"
     :aria-busy="loading"
   >
     <div class="flex items-start justify-between gap-3">
@@ -122,6 +125,27 @@ watch([mode, metric, () => props.functions], () => {
         /></Button>
       </div>
     </div>
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs">
+      <FormSelect
+        v-model="scope"
+        :aria-label="`${initialMode} function scope`"
+        :options="[
+          { value: 'application', label: 'Application functions' },
+          { value: 'all', label: 'All functions' },
+        ]"
+        class="h-8 w-44 text-xs"
+      />
+      <span v-if="hiddenCount" class="text-muted-foreground"
+        >{{ hiddenCount }} SDK / dependency functions hidden</span
+      >
+    </div>
+    <p class="mt-2 text-xs text-muted-foreground">
+      {{
+        scope === 'application'
+          ? 'Unknown-source frames remain visible. View All functions to inspect SDK and framework overhead.'
+          : 'Includes application, SDK and framework functions.'
+      }}
+    </p>
     <div
       v-if="loading || failed || !visible.length"
       class="flex flex-1 flex-col items-center justify-center gap-4 py-14 text-center"
@@ -147,10 +171,21 @@ watch([mode, metric, () => props.functions], () => {
         Changes require a matching function with non-zero P95 self time in the comparison period.
       </p>
     </div>
-    <ol v-else class="mt-5 divide-y">
-      <li v-for="fn in visible" :key="fn.key" class="py-3">
-        <div class="flex items-start justify-between gap-3 text-sm">
-          <div class="min-w-0">
+    <ol v-else class="mt-3 divide-y border-y">
+      <li v-for="fn in visible" :key="fn.key" class="py-4">
+        <div class="grid grid-cols-[20px_minmax(0,1fr)_auto] items-start gap-x-3 text-xs">
+          <button
+            class="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+            :aria-label="`Toggle trend for ${fn.name}`"
+            :aria-expanded="expanded === fn.key || (expanded === null && fn === visible[0])"
+            @click="
+              expanded =
+                expanded === fn.key || (expanded === null && fn === visible[0]) ? '' : fn.key
+            "
+          >
+            {{ expanded === fn.key || (expanded === null && fn === visible[0]) ? '⌄' : '›' }}
+          </button>
+          <div class="min-w-0 pt-0.5">
             <RouterLink
               class="block truncate font-medium hover:underline"
               :title="fn.name"
@@ -166,7 +201,7 @@ watch([mode, metric, () => props.functions], () => {
             </p>
           </div>
           <span
-            class="shrink-0 font-mono text-xs"
+            class="min-w-20 pt-0.5 text-right font-mono text-xs tabular-nums"
             :class="comparison ? (fn.changePercent! > 0 ? 'text-red-600' : 'text-emerald-600') : ''"
             >{{
               comparison
@@ -175,19 +210,20 @@ watch([mode, metric, () => props.functions], () => {
             }}</span
           >
         </div>
-        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-          <div
-            class="h-full rounded-full"
-            :class="
-              comparison
-                ? mode === 'regressed'
-                  ? 'bg-red-400'
-                  : 'bg-emerald-400'
-                : 'bg-violet-400'
-            "
-            :style="{ width: `${Math.min(100, (value(fn) / maxValue) * 100)}%` }"
-          />
-        </div>
+        <ProfileTrendChart
+          class="ml-8 mt-6 mb-2"
+          v-if="
+            (expanded === fn.key || (expanded === null && fn === visible[0])) &&
+            comparisonStart &&
+            comparisonEnd
+          "
+          :series="fn.series ?? []"
+          :metric="comparison ? 'self' : metric"
+          :aggregation="comparison ? 'p95' : mode"
+          :comparison="comparison"
+          :comparison-start="comparisonStart"
+          :comparison-end="comparisonEnd"
+        />
       </li>
     </ol>
     <p v-if="visible.length" class="mt-auto pt-3 text-right text-xs text-muted-foreground">

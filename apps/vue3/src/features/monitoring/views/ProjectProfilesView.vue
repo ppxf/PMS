@@ -5,12 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import { AppError } from '@/services/http'
-import {
-  profilesConfig,
-  profilesOverview,
-  queryProfiles,
-  updateProfiles,
-} from '../api/profiles.api'
+import { profilesOverview, queryProfiles } from '../api/profiles.api'
 import ProfilesExplorer from '../components/ProfilesExplorer.vue'
 import type { ProfileOverview } from '../model/profiles-overview'
 import type { ProfileSummary } from '../model/profiles'
@@ -41,15 +36,11 @@ const total = ref(0)
 const page = ref(1)
 const loading = ref(false)
 const error = ref('')
-const configError = ref('')
-const config = ref<{ enabled: boolean; dsn: string } | null>(null)
-const saving = ref(false)
 const overview = ref<ProfileOverview | null>(null)
 const overviewLoading = ref(false)
 const overviewError = ref('')
 let overviewGeneration = 0
 let generation = 0
-let context = 0
 let applied = {
   start: '',
   end: '',
@@ -116,47 +107,18 @@ function changePage(offset: number) {
   page.value += offset
   void load()
 }
-async function loadConfig(current: number) {
-  try {
-    const value = await profilesConfig(group.value, project.value)
-    if (current === context) config.value = value
-  } catch {
-    if (current === context) configError.value = 'Unable to load Profiles configuration.'
-  }
-}
-async function toggle() {
-  if (!config.value || saving.value) return
-  const current = context
-  const enabled = !config.value.enabled
-  saving.value = true
-  configError.value = ''
-  try {
-    const result = await updateProfiles(group.value, project.value, enabled)
-    if (context === current && config.value) config.value.enabled = result.profilesEnabled
-  } catch {
-    if (current === context) configError.value = 'Unable to update Profiles configuration.'
-  } finally {
-    if (current === context) saving.value = false
-  }
-}
 watch(
   () => [group.value, project.value],
   () => {
-    const current = ++context
-    config.value = null
-    configError.value = ''
-    saving.value = false
     environment.value = 'development'
     search.value = ''
     apply()
-    void loadConfig(current)
   },
   { immediate: true },
 )
 onBeforeUnmount(() => {
   generation++
   overviewGeneration++
-  context++
 })
 </script>
 <template>
@@ -168,18 +130,7 @@ onBeforeUnmount(() => {
           Find expensive browser functions from sampled call stacks.
         </p>
       </div>
-      <div v-if="config" class="flex items-center gap-3">
-        <span class="text-sm">Profiles {{ config.enabled ? 'enabled' : 'disabled' }}</span
-        ><Button
-          variant="outline"
-          :aria-label="config.enabled ? 'Disable profiles' : 'Enable profiles'"
-          :disabled="saving"
-          @click="toggle"
-          >{{ saving ? 'Saving…' : config.enabled ? 'Disable' : 'Enable' }}</Button
-        >
-      </div>
     </header>
-    <p v-if="configError" role="alert" class="text-sm text-destructive">{{ configError }}</p>
     <form
       id="profiles-filters"
       class="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4"

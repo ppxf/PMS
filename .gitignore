@@ -18,3 +18,5 @@ docs/
 hooks/
 AGENTS.md
 .tmp/
+
+dist-dev/
