@@ -1,6 +1,7 @@
 import { TransactionEnvelopePipe, SpanQueryPipe } from './traces-validation';
 
 import { transactionFixture } from './traces-test.fixture';
+import { SPAN_FIELD_MAP } from './traces-contract';
 
 describe('tracing ingestion boundary', () => {
   const pipe = new TransactionEnvelopePipe();
@@ -41,6 +42,24 @@ describe('tracing ingestion boundary', () => {
 });
 
 describe('span query registry validation', () => {
+  it('accepts canonical vitals p75 and scopes projections to the owning pageload span', () => {
+    const query = new SpanQueryPipe().transform({
+      start: '2026-10-01T00:00:00Z',
+      end: '2026-10-02T00:00:00Z',
+      filters: [],
+      groupBy: [],
+      metrics: [{ function: 'p75', field: 'browser.web_vital.cls.value' }],
+    });
+    expect(query.metrics[0].function).toBe('p75');
+    const field = SPAN_FIELD_MAP.get('browser.web_vital.cls.value')!;
+    expect(field.unit).toBe('none');
+    expect(field.sql).toContain('p.project_id=monitoring_spans.project_id');
+    expect(field.sql).toContain(
+      "p.dimensions->>'spanId'=monitoring_spans.span_id",
+    );
+    expect(field.sql).toContain("monitoring_spans.op='pageload'");
+    expect(field.sql).toContain('monitoring_spans.is_transaction');
+  });
   const input = () => ({
     start: '2026-10-01T00:00:00Z',
     end: '2026-10-02T00:00:00Z',

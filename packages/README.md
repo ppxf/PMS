@@ -1,6 +1,7 @@
 # SDK 开发与发布
 
 SDK、主应用与 `packages/config` 共用根目录 workspace 和 `pnpm-lock.yaml`。
+Basic setup 默认自动采集 Web Vitals；无需额外 setup 页面或开启自定义 Metrics/Traces。发布包含该能力的 SDK 前先部署服务端 Web Vitals 迁移与接收入口。
 根目录 Turbo 任务包含 SDK，Docker 按主应用依赖范围安装并排除 SDK 源码。
 锁文件记录 SDK 的开发依赖，不会使外部使用方安装 SDK 的开发工具。
 

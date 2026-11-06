@@ -252,7 +252,7 @@ export class TracesService {
           expression =
             metric.function === 'avg'
               ? `avg(${field.sql}) FILTER (WHERE ${eligibility})`
-              : `percentile_cont(${metric.function === 'p50' ? '0.5' : '0.95'}) WITHIN GROUP (ORDER BY ${field.sql}) FILTER (WHERE ${eligibility})`;
+              : `percentile_cont(${metric.function === 'p50' ? '0.5' : metric.function === 'p75' ? '0.75' : '0.95'}) WITHIN GROUP (ORDER BY ${field.sql}) FILTER (WHERE ${eligibility})`;
           count = `count(*) FILTER (WHERE ${eligibility})`;
         }
         return `${expression} AS m${index}, ${count} AS n${index}`;

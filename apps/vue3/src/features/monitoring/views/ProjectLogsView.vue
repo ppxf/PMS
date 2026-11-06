@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { querySuggestions } from '../model/query-suggestions'
 import {
   ChevronLeft,
   ChevronRight,
@@ -310,6 +311,7 @@ onBeforeUnmount(() => {
       <LogConditionBuilder
         v-model="conditions"
         :fields="availableFields"
+        :suggestions="querySuggestions(availableFields, result?.items ?? [])"
         label="Log filters"
         @change="load()"
       />
@@ -365,6 +367,7 @@ onBeforeUnmount(() => {
                   v-model="v.conditions"
                   compact
                   :fields="availableFields"
+                  :suggestions="querySuggestions(availableFields, result?.items ?? [])"
                   :label="`Series ${index + 1}`"
                   @change="load()"
                 />

@@ -184,7 +184,7 @@ watch(
                 ? 'Set up custom application measurements.'
                 : isTracesSetup
                   ? 'Set up browser page and HTTP performance tracing.'
-                  : 'Set up Vue and browser error monitoring.'
+                  : 'Set up Vue, browser errors, and automatic Web Vitals monitoring.'
             }}
           </p>
         </div>
@@ -245,7 +245,9 @@ watch(
             >
             <template v-else
               >Initialize in your application's main.ts. Initialization sends a connection report
-              and automatically captures Vue, window.error, and unhandledrejection errors. Use
+              and automatically captures Vue, window.error, and unhandledrejection errors, plus LCP,
+              INP, CLS, FCP, and TTFB. Web Vitals work without enabling Traces or custom Metrics.
+              INP requires a real interaction; some measurements arrive when the page is hidden. Use
               captureException for manual verification or reporting.</template
             >
           </CardDescription>

@@ -1,3 +1,4 @@
+import { addQuery, queryBar } from '@/test/query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { openSelect, selectValue } from '@/test/select'
@@ -36,6 +37,28 @@ const result = {
   series: [],
 }
 describe('Metrics explorer', () => {
+  it('queries canonical Web Vitals with p75 while custom metric ingestion is disabled', async () => {
+    api.metricCatalog.mockResolvedValue({
+      items: [
+        {
+          name: 'browser.web_vital.lcp.value',
+          type: 'distribution',
+          unit: 'ms',
+          source: 'web_vitals',
+        },
+      ],
+      attributes: [],
+      enabled: false,
+    })
+    api.metricQuery.mockResolvedValue({ ...result, samples: [] })
+    const view = mount(ProjectMetricsView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(api.metricQuery.mock.lastCall?.[2]).toMatchObject({
+      source: 'web_vitals',
+      aggregation: 'p75',
+    })
+    expect(view.text()).toContain('Automatic Web Vitals remain available')
+  })
   it('links a metric sample to its trace and exact span', async () => {
     api.metricCatalog.mockResolvedValue({
       items: [{ name: 'orders', type: 'count', unit: 'none' }],
@@ -85,9 +108,7 @@ describe('Metrics explorer', () => {
     expect(view.find('[aria-label="Environment"]').exists()).toBe(false)
     expect(view.find('[aria-label="Filter attribute"]').exists()).toBe(false)
     expect(view.find('[aria-label="Filter value type"]').exists()).toBe(false)
-    await selectValue(view, 'Filter field', 'attributes.route')
-    await view.get('[aria-label="Filter value"]').setValue('/checkout')
-    await view.get('form').trigger('submit')
+    await addQuery(view, 'attributes.route', 'eq', '/checkout')
     await flushPromises()
     expect(api.metricQuery.mock.lastCall![2]).toMatchObject({
       page: 1,
@@ -109,34 +130,26 @@ describe('Metrics explorer', () => {
       global: { stubs: { RouterLink: true } },
     })
     await flushPromises()
-    const fieldMenu = await openSelect(view, 'Filter field')
-    const names = fieldMenu.findAll('[role="option"]').map((o) => o.attributes('data-value'))
-    await fieldMenu.trigger('keydown', { key: 'Escape' })
-    await flushPromises()
+    const names = queryBar(view)
+      .props('fields')
+      .map((f) => f.key)
     expect(names).toEqual(
       expect.arrayContaining(['environment', 'value', 'browser.name', 'sdk.name']),
     )
     expect(names).not.toContain('span.op')
-    await selectValue(view, 'Filter field', 'environment')
-    await selectValue(view, 'Filter operator', 'in')
-    await view.get('[aria-label="Filter value"]').setValue('production, staging')
-    await view.get('form').trigger('submit')
-    await flushPromises()
+    await addQuery(view, 'environment', 'in', 'production, staging')
     expect(api.metricQuery.mock.lastCall![2].filters).toContainEqual({
       field: 'environment',
       operator: 'in',
       value: ['production', 'staging'],
     })
     expect(api.metricQuery.mock.lastCall![2]).not.toHaveProperty('environment')
-    await selectValue(view, 'Filter field', 'value')
-    const operatorMenu = await openSelect(view, 'Filter operator')
-    expect(operatorMenu.find('[data-value="contains"]').exists()).toBe(false)
-    await operatorMenu.trigger('keydown', { key: 'Escape' })
-    await flushPromises()
-    await selectValue(view, 'Filter operator', 'gte')
-    await view.get('[aria-label="Filter value"]').setValue('200')
-    await view.get('form').trigger('submit')
-    await flushPromises()
+    expect(
+      queryBar(view)
+        .props('fields')
+        .find((f) => f.key === 'value')?.operators,
+    ).not.toContain('contains')
+    await addQuery(view, 'value', 'gte', '200')
     expect(api.metricQuery.mock.lastCall![2].filters).toContainEqual({
       field: 'value',
       operator: 'gte',
@@ -148,8 +161,7 @@ describe('Metrics explorer', () => {
       { field: 'value', operator: 'gte', value: 200 },
     ])
     const calls = api.metricQuery.mock.calls.length
-    await view.get('[aria-label="Filter value"]').setValue('not-a-number')
-    await view.get('form').trigger('submit')
+    await addQuery(view, 'value', 'gte', 'not-a-number')
     await flushPromises()
     expect(view.get('[role="alert"]').text()).toContain('number')
     expect(api.metricQuery).toHaveBeenCalledTimes(calls)
@@ -215,7 +227,7 @@ describe('Metrics explorer', () => {
     api.metricQuery.mockRejectedValue(new Error('query failed'))
     const view = mount(ProjectMetricsView)
     await flushPromises()
-    expect(view.get('[role="alert"]').text()).toBe('query failed')
+    expect(view.get('[role="alert"]').text()).toContain('query failed')
     expect(view.findAll('tbody tr')).toHaveLength(0)
   })
   it('exports escaped CSV cells', () => {

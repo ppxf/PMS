@@ -127,6 +127,7 @@ export class MetricsEnvelopePipe implements PipeTransform<
 export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
   transform(input: unknown): MetricQuery {
     const q = jsonObject(input, [
+      'source',
       'traceId',
       'spanId',
       'start',
@@ -146,6 +147,21 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
     if (start >= end || end - start > 7 * 86400000)
       reject('Metric range must be between 0 and 7 days');
     metricIdentity(q);
+    if (
+      q.source !== undefined &&
+      (typeof q.source !== 'string' ||
+        !['custom', 'web_vitals'].includes(q.source))
+    )
+      reject('Invalid metric source');
+    if (
+      q.source === 'web_vitals' &&
+      (q.type !== 'distribution' ||
+        !/^browser\.web_vital\.(lcp|inp|cls|fcp|ttfb)\.value$/.test(
+          String(q.name),
+        ) ||
+        q.unit !== (q.name === 'browser.web_vital.cls.value' ? 'none' : 'ms'))
+    )
+      reject('Invalid Web Vitals identity');
     if (q.traceId !== undefined && !validId(q.traceId, 32))
       reject('Invalid traceId');
     if (
@@ -154,9 +170,17 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
     )
       reject('spanId requires a valid traceId');
     if (
-      !['sum', 'avg', 'min', 'max', 'count', 'p50', 'p95', 'last'].includes(
-        String(q.aggregation),
-      )
+      ![
+        'sum',
+        'avg',
+        'min',
+        'max',
+        'count',
+        'p50',
+        'p75',
+        'p95',
+        'last',
+      ].includes(String(q.aggregation))
     )
       reject('Invalid metric aggregation');
     if (

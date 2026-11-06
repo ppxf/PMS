@@ -11,6 +11,7 @@ export interface MonitoringIntegrationClient {
 }
 
 export interface MonitoringRouter {
+  currentRoute?: { readonly value: { matched: { path: string }[]; path: string } }
   beforeEach(callback: (to: { matched: { path: string }[]; path: string }) => void): unknown
   afterEach(callback: (_to: unknown, _from: unknown, failure?: unknown) => void): unknown
 }

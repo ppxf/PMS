@@ -1,3 +1,4 @@
+import { WebVitals1793923200000 } from './migrations/1793923200000-web-vitals';
 import 'reflect-metadata';
 import { resolve } from 'node:path';
 import { ConfigModule } from '@nestjs/config';
@@ -24,7 +25,7 @@ export default new DataSource({
   password: database.password,
   database: database.name,
   entities: [resolve(__dirname, '../**/*.entity{.ts,.js}')],
-  migrations: [Baseline1793577600000],
+  migrations: [Baseline1793577600000, WebVitals1793923200000],
   migrationsTableName: 'pms_migrations',
   migrationsTransactionMode: 'all',
   synchronize: false,

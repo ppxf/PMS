@@ -8,7 +8,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "dev": "nest start --path tsconfig.dev.json --watch --preserveWatchOutput",
+    "dev": "nest start --path tsconfig.dev.json --watch --preserveWatchOutput --no-shell",
     "start": "nest start",
     "start:dev": "nest start --path tsconfig.dev.json --watch",
     "start:debug": "nest start --path tsconfig.dev.json --debug --watch",

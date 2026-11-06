@@ -1,9 +1,10 @@
 export type MetricType = 'count' | 'gauge' | 'distribution'
-export type MetricAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'p50' | 'p95' | 'last'
+export type MetricAggregation =
+  'sum' | 'avg' | 'min' | 'max' | 'count' | 'p50' | 'p75' | 'p95' | 'last'
 const aggregations: Record<MetricType, MetricAggregation[]> = {
   count: ['sum', 'count'],
   gauge: ['last', 'avg', 'min', 'max', 'count'],
-  distribution: ['p95', 'p50', 'avg', 'min', 'max', 'sum', 'count'],
+  distribution: ['p95', 'p75', 'p50', 'avg', 'min', 'max', 'sum', 'count'],
 }
 export const metricAggregations = (type: MetricType): readonly MetricAggregation[] =>
   aggregations[type]
@@ -52,12 +53,13 @@ export const catalogGroupFields = (catalog: MetricCatalog | null): MetricGroupFi
       })),
   ]
 export interface MetricIdentity {
+  source?: 'custom' | 'web_vitals'
   name: string
   type: MetricType
   unit: string
 }
 export interface MetricCatalog {
-  items: (MetricIdentity & { sampleCount: number; lastSeen: string })[]
+  items: (MetricIdentity & { sampleCount: number; lastSeen: string | null })[]
   attributes: string[]
   groupFields?: MetricGroupField[]
   filterFields?: MetricFilterField[]

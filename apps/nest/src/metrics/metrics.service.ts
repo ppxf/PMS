@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { contentHash } from '../traces/traces.service';
 import { MetricBatchEntity, MetricEntity } from './metric.entity';
+import { WEB_VITALS_METRIC_SOURCE } from './web-vitals-source';
 import {
   MetricQuery,
   MetricsEnvelope,
@@ -103,20 +104,77 @@ export class MetricsService {
           type: string;
           unit: string;
           sampleCount: number;
-          lastSeen: string;
+          lastSeen: string | null;
+          source?: 'custom' | 'web_vitals';
         }[]
       >(
-        `SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen" FROM monitoring_metrics WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit ORDER BY name, type, unit LIMIT 201`,
+        `SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen", 'custom' AS source FROM monitoring_metrics WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit UNION ALL SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen", 'web_vitals' AS source FROM ${WEB_VITALS_METRIC_SOURCE} WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit ORDER BY name, type, unit LIMIT 201`,
         [project.id],
       );
       const attributes = await manager.query<
         { key: string; types: string[] }[]
       >(
-        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types FROM monitoring_metrics CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
+        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types FROM (SELECT project_id,timestamp,attributes FROM monitoring_metrics UNION ALL SELECT project_id,timestamp,attributes FROM ${WEB_VITALS_METRIC_SOURCE}) source CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
         [project.id],
       );
+      for (const name of ['lcp', 'inp', 'cls', 'fcp', 'ttfb']) {
+        const key = `browser.web_vital.${name}.value`;
+        if (
+          !items.some(
+            (item) => item.source === 'web_vitals' && item.name === key,
+          )
+        )
+          items.push({
+            name: key,
+            type: 'distribution',
+            unit: name === 'cls' ? 'none' : 'ms',
+            source: 'web_vitals',
+            sampleCount: 0,
+            lastSeen: null,
+          });
+      }
+      const vitalAttributes: Record<string, 'string' | 'number'> = {
+        'page.route': 'string',
+        device: 'string',
+        'navigation.type': 'string',
+        'browser.name': 'string',
+        target: 'string',
+        element: 'string',
+        interactionTarget: 'string',
+        interactionType: 'string',
+        url: 'string',
+        inputDelay: 'number',
+        processingDuration: 'number',
+        presentationDelay: 'number',
+        timeToFirstByte: 'number',
+        resourceLoadDelay: 'number',
+        resourceLoadDuration: 'number',
+        elementRenderDelay: 'number',
+        loadTime: 'number',
+        renderTime: 'number',
+        size: 'number',
+        largestShiftTime: 'number',
+        largestShiftValue: 'number',
+      };
+      for (const [key, type] of Object.entries(vitalAttributes))
+        if (!attributes.some((attribute) => attribute.key === key))
+          attributes.unshift({ key, types: [type] });
+      if (items.some((item) => item.source === 'web_vitals')) {
+        for (const key of [
+          'page.route',
+          'device',
+          'navigation.type',
+          'browser.name',
+        ]) {
+          if (!attributes.some((attribute) => attribute.key === key))
+            attributes.push({ key, types: ['string'] });
+        }
+      }
       return {
-        items: items.slice(0, 200),
+        items: [
+          ...items.filter((item) => item.source === 'web_vitals'),
+          ...items.filter((item) => item.source !== 'web_vitals'),
+        ].slice(0, 200),
         truncated: items.length > 200,
         attributes: attributes.slice(0, 100).map((row) => row.key),
         groupFields: [
@@ -213,6 +271,10 @@ export class MetricsService {
   async query(user: string, group: string, slug: string, input: MetricQuery) {
     const q = new MetricQueryPipe().transform(input);
     const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const source =
+      q.source === 'web_vitals'
+        ? WEB_VITALS_METRIC_SOURCE
+        : 'monitoring_metrics';
     const params: unknown[] = [
       project.id,
       q.start,
@@ -271,6 +333,7 @@ export class MetricsService {
       max: 'max(value)',
       count: 'count(*)::double precision',
       p50: 'percentile_cont(0.5) WITHIN GROUP (ORDER BY value)',
+      p75: 'percentile_cont(0.75) WITHIN GROUP (ORDER BY value)',
       p95: 'percentile_cont(0.95) WITHIN GROUP (ORDER BY value)',
       last: '(array_agg(value ORDER BY timestamp DESC, event_id DESC, sample_index DESC))[1]',
     };
@@ -278,7 +341,7 @@ export class MetricsService {
     return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       const bounded = await manager.query<{ total: number }[]>(
-        `SELECT count(*)::int AS total FROM (SELECT 1 FROM monitoring_metrics WHERE ${where} LIMIT 100001) bounded`,
+        `SELECT count(*)::int AS total FROM (SELECT 1 FROM ${source} WHERE ${where} LIMIT 100001) bounded`,
         scopeParams,
       );
       const total = bounded[0].total;
@@ -289,7 +352,7 @@ export class MetricsService {
       const rows = await manager.query<
         { groupValue: unknown; value: number; sampleCount: number }[]
       >(
-        `SELECT ${groupSql} AS "groupValue", ${aggregate} AS value, count(*)::int AS "sampleCount" FROM monitoring_metrics WHERE ${where} GROUP BY 1 ORDER BY "sampleCount" DESC, "groupValue" LIMIT 21`,
+        `SELECT ${groupSql} AS "groupValue", ${aggregate} AS value, count(*)::int AS "sampleCount" FROM ${source} WHERE ${where} GROUP BY 1 ORDER BY "sampleCount" DESC, "groupValue" LIMIT 21`,
         params,
       );
       const groups = rows.slice(0, 20);
@@ -308,7 +371,7 @@ export class MetricsService {
               sampleCount: number;
             }[]
           >(
-            `SELECT ${bucket} AS bucket, ${groupSql} AS "groupValue", ${aggregate} AS value, count(*)::int AS "sampleCount" FROM monitoring_metrics WHERE ${where} AND coalesce(${groupSql}, 'null'::jsonb) = ANY($${seriesParams.length}::jsonb[]) GROUP BY 1, 2 ORDER BY 1`,
+            `SELECT ${bucket} AS bucket, ${groupSql} AS "groupValue", ${aggregate} AS value, count(*)::int AS "sampleCount" FROM ${source} WHERE ${where} AND coalesce(${groupSql}, 'null'::jsonb) = ANY($${seriesParams.length}::jsonb[]) GROUP BY 1, 2 ORDER BY 1`,
             seriesParams,
           )
         : [];
@@ -319,7 +382,7 @@ export class MetricsService {
         ]),
       );
       const samples = await manager.query<Record<string, unknown>[]>(
-        `SELECT ${sampleColumns} FROM monitoring_metrics WHERE ${where} ORDER BY timestamp DESC, event_id DESC, sample_index DESC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
+        `SELECT ${sampleColumns} FROM ${source} WHERE ${where} ORDER BY timestamp DESC, event_id DESC, sample_index DESC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
         scopeParams,
       );
       return {

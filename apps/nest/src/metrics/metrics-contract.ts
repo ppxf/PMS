@@ -1,13 +1,13 @@
 export type MetricType = 'count' | 'gauge' | 'distribution';
 export type MetricAggregation =
-  'sum' | 'avg' | 'min' | 'max' | 'count' | 'p50' | 'p95' | 'last';
+  'sum' | 'avg' | 'min' | 'max' | 'count' | 'p50' | 'p75' | 'p95' | 'last';
 export const METRIC_AGGREGATIONS: Record<
   MetricType,
   readonly MetricAggregation[]
 > = {
   count: ['sum', 'count'],
   gauge: ['last', 'avg', 'min', 'max', 'count'],
-  distribution: ['p95', 'p50', 'avg', 'min', 'max', 'sum', 'count'],
+  distribution: ['p95', 'p75', 'p50', 'avg', 'min', 'max', 'sum', 'count'],
 };
 export const METRIC_GROUP_FIELDS = [
   { key: 'client.address', label: 'client.address', type: 'string' },
@@ -39,6 +39,7 @@ export interface MetricsEnvelope {
   samples: MetricSample[];
 }
 export interface MetricQuery {
+  source?: 'custom' | 'web_vitals';
   traceId?: string;
   spanId?: string;
   start: string;

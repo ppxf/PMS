@@ -13,6 +13,16 @@ function createTestRouter() {
     history: createMemoryHistory(),
     routes: [
       {
+        path: '/groups/:groupSlug/projects/:projectSlug/web-vitals',
+        name: 'project-web-vitals',
+        component: EmptyView,
+      },
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/web-vitals/page',
+        name: 'project-web-vitals-detail',
+        component: EmptyView,
+      },
+      {
         path: '/groups/:groupSlug/projects/:projectSlug/logs',
         name: 'project-logs',
         component: EmptyView,
@@ -96,6 +106,12 @@ async function mountAt(path: string) {
 }
 
 describe('AppLayout navigation', () => {
+  it('keeps Web Vitals highlighted on page detail without adding a setup entry', async () => {
+    const wrapper = await mountAt('/groups/acme/projects/frontend/web-vitals/page')
+    const link = wrapper.get('a[href="/groups/acme/projects/frontend/web-vitals"]')
+    expect(link.classes()).toContain('bg-muted')
+    expect(wrapper.text()).not.toContain('Web Vitals setup')
+  })
   it('links and highlights Profiles setup for the current project', async () => {
     const wrapper = await mountAt('/groups/acme/projects/frontend/setup/profiles')
     const link = wrapper.get('a[href="/groups/acme/projects/frontend/setup/profiles"]')

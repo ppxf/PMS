@@ -32,7 +32,8 @@ export interface TransactionEnvelope {
   transaction: { eventId: string; spans: MonitoringSpan[] };
 }
 
-export type AggregateFunction = 'count' | 'avg' | 'p50' | 'p95' | 'errorRate';
+export type AggregateFunction =
+  'count' | 'avg' | 'p50' | 'p75' | 'p95' | 'errorRate';
 export type FilterOperator =
   'eq' | 'in' | 'not_in' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'exists';
 export interface SpanQuery {
@@ -53,7 +54,7 @@ export interface SpanQuery {
 export interface SpanField {
   name: string;
   type: 'string' | 'number' | 'boolean';
-  unit?: 'ms' | 'byte';
+  unit?: 'ms' | 'byte' | 'none';
   groupable: boolean;
   operators: FilterOperator[];
   aggregations: AggregateFunction[];
@@ -91,15 +92,15 @@ function dimension(
     aggregations: [],
   });
 }
-function measurement(name: string, sql: string, unit: 'ms' | 'byte') {
+function measurement(name: string, sql: string, unit: 'ms' | 'byte' | 'none') {
   fields.push({
     name,
     sql,
     unit,
     type: 'number',
-    groupable: false,
+    groupable: name.startsWith('browser.web_vital.'),
     operators: numberOps,
-    aggregations: ['avg', 'p50', 'p95'],
+    aggregations: ['avg', 'p50', 'p75', 'p95'],
   });
 }
 dimension('span.op', 'op');
@@ -119,6 +120,76 @@ dimension('span.status', 'status');
 dimension('span.truncated', 'truncated', 'boolean');
 dimension('page.route', 'page_route');
 measurement('span.duration', 'duration_ms', 'ms');
+function vitalProjection(name: string, expression: string): string {
+  return `(SELECT ${expression} FROM monitoring_web_vitals v JOIN monitoring_page_views p ON p.project_id=v.project_id AND p.id=v.page_view_id WHERE p.project_id=monitoring_spans.project_id AND p.dimensions->>'traceId'=monitoring_spans.trace_id AND p.dimensions->>'spanId'=monitoring_spans.span_id AND monitoring_spans.is_transaction AND monitoring_spans.op='pageload' AND v.name='${name}' ORDER BY p.started_at,p.id LIMIT 1)`;
+}
+for (const name of ['LCP', 'INP', 'CLS', 'FCP', 'TTFB']) {
+  measurement(
+    `browser.web_vital.${name.toLowerCase()}.value`,
+    vitalProjection(name, 'v.value'),
+    name === 'CLS' ? 'none' : 'ms',
+  );
+}
+for (const key of [
+  'timeToFirstByte',
+  'resourceLoadDelay',
+  'resourceLoadDuration',
+  'elementRenderDelay',
+]) {
+  measurement(
+    `browser.web_vital.lcp.${key}`,
+    vitalProjection(
+      'LCP',
+      `CASE WHEN jsonb_typeof(v.attribution->'${key}')='number' THEN (v.attribution->>'${key}')::double precision END`,
+    ),
+    'ms',
+  );
+}
+dimension(
+  'browser.web_vital.lcp.element',
+  vitalProjection(
+    'LCP',
+    "COALESCE(v.attribution->>'target',v.attribution->>'element')",
+  ),
+);
+dimension(
+  'browser.web_vital.inp.interactionTarget',
+  vitalProjection(
+    'INP',
+    "COALESCE(v.attribution->>'interactionTarget',v.attribution->>'target')",
+  ),
+);
+for (const [name, metric, key, unit] of [
+  ['lcp.load_time', 'LCP', 'loadTime', 'ms'],
+  ['lcp.render_time', 'LCP', 'renderTime', 'ms'],
+  ['lcp.size', 'LCP', 'size', 'none'],
+  ['inp.input_delay', 'INP', 'inputDelay', 'ms'],
+  ['inp.processing_duration', 'INP', 'processingDuration', 'ms'],
+  ['inp.presentation_delay', 'INP', 'presentationDelay', 'ms'],
+] as const)
+  measurement(
+    `browser.web_vital.${name}`,
+    vitalProjection(
+      metric,
+      `CASE WHEN jsonb_typeof(v.attribution->'${key}')='number' THEN (v.attribution->>'${key}')::double precision END`,
+    ),
+    unit,
+  );
+dimension(
+  'browser.web_vital.lcp.url',
+  vitalProjection('LCP', "v.attribution->>'url'"),
+);
+dimension(
+  'browser.web_vital.inp.target',
+  vitalProjection(
+    'INP',
+    "COALESCE(v.attribution->>'target',v.attribution->>'interactionTarget')",
+  ),
+);
+dimension(
+  'browser.web_vital.inp.interaction_type',
+  vitalProjection('INP', "v.attribution->>'interactionType'"),
+);
 measurement('http.request.time_to_first_byte', 'ttfb_ms', 'ms');
 measurement('http.response_transfer_size', 'transfer_size', 'byte');
 measurement('http.response_content_length', 'encoded_body_size', 'byte');

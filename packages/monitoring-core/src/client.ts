@@ -4,12 +4,14 @@ import { HttpTransport, TransportError } from './http-transport.js'
 import { createTracing } from './tracing.js'
 import { createMetrics } from './metrics.js'
 import { createLogs } from './logs.js'
+import { createWebVitals } from './web-vitals.js'
 import { createProfiling } from './profiling.js'
 import { normalizePropagationTargets } from './propagation.js'
 import type { CaptureExceptionContext, ClientState, MonitoringEnvelope, MonitoringInitOptions, Transport } from './types.js'
 
 export function createMonitoringClient() {
   const tracing = createTracing()
+  const webVitals = createWebVitals(tracing.getActiveTraceContext)
   const profiling = createProfiling()
   tracing.setRootSpanObserver(profiling)
   let activeProfileRate = 0
@@ -124,6 +126,7 @@ export function createMonitoringClient() {
     activeLogs = options.enableLogs ?? false
     activeBeforeSendLog = options.beforeSendLog
     logs.configure({ ...options }, activeTransport)
+    webVitals.configure(options, activeTransport)
     void sendEnvelope(report)
     return state
   }
@@ -149,6 +152,7 @@ export function createMonitoringClient() {
   /** @internal Test isolation; not exported from the package public entrypoint. */
   function resetClientForTests(): void {
     tracing.reset()
+    webVitals.reset()
     profiling.reset()
     activeProfileRate = 0
     activeProfileLifecycle = 'manual'
@@ -171,10 +175,11 @@ export function createMonitoringClient() {
   return { init, captureException, getClientState, getTransport, getPropagationTargets, resetClientForTests,
     enableProfiling: profiling.enable, uiProfiler: profiling.uiProfiler,
     setPageSpan: tracing.setPageSpan,
+    setWebVitalsRouteResolver: webVitals.setRouteResolver,
     metrics: metricRecorder.metrics, getMetricStats: metricRecorder.getMetricStats,
     logger: logs.logger, getLogStats: logs.getLogStats, captureConsoleLogs: logs.captureConsoleLogs,
     startSpan: tracing.startSpan, startInactiveSpan: tracing.startInactiveSpan,
-    flush: async () => { await Promise.all([tracing.flush(), metricRecorder.flush(), logs.flush(), profiling.flush()]) }, getTraceStats: tracing.getTraceStats }
+    flush: async () => { await Promise.all([tracing.flush(), metricRecorder.flush(), logs.flush(), profiling.flush(), webVitals.flush()]) }, getTraceStats: tracing.getTraceStats }
 }
 
 const defaultClient = createMonitoringClient()

@@ -79,6 +79,7 @@ export function init(options: VueMonitoringInitOptions): ClientState {
     sdk: { name: '@pms/monitoring-vue', version: '0.1.0' },
   })
   configuredIntegrations = [...integrations]
+  if (options.router) client.setWebVitalsRouteResolver(() => options.router?.currentRoute?.value.matched.at(-1)?.path)
   configuredRouter = options.router
   const existing = appStates.get(app)
   if (existing) return existing

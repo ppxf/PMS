@@ -133,6 +133,18 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'Metrics', requiresAuth: true },
       },
       {
+        path: 'groups/:groupSlug/projects/:projectSlug/web-vitals',
+        name: 'project-web-vitals',
+        component: () => import('@/features/monitoring/views/ProjectWebVitalsView.vue'),
+        meta: { title: 'Web Vitals', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/web-vitals/page',
+        name: 'project-web-vitals-detail',
+        component: () => import('@/features/monitoring/views/ProjectWebVitalsView.vue'),
+        meta: { title: 'Page Web Vitals', requiresAuth: true },
+      },
+      {
         path: 'groups/:groupSlug/projects/:projectSlug/profiles',
         name: 'project-profiles',
         component: () => import('@/features/monitoring/views/ProjectProfilesView.vue'),

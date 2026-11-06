@@ -1,6 +1,14 @@
 # PMS Vue Traces 接入指引
 
-monitoring-vue 统一提供错误监控、链路、指标和日志能力；通过同一包导出的 browserTracingIntegration() 启用自动浏览器链路。只需安装一个包并调用一次 init，所有能力共用同一个客户端。
+monitoring-vue 统一提供错误监控、Web Vitals、链路、指标和日志能力；通过同一包导出的 browserTracingIntegration() 启用自动浏览器链路。只需安装一个包并调用一次 init，所有能力共用同一个客户端。
+
+## Basic setup 自动采集 Web Vitals
+
+完成基本 `init({ app, dsn })` 后即自动采集 LCP、INP、CLS、FCP、TTFB，无需单独 integration、`enableMetrics` 或 Traces 开关。在项目侧边栏 Web Vitals 查看页面体验、p75、覆盖率、页面排行和归因。浏览器不支持或没有产生相应体验时保持缺失；没有真实交互的页面不会产生 INP，部分指标在页面隐藏时上报。
+
+统计按文档生命周期记录，普通 SPA 路由切换不会伪造新的 LCP；BFCache 恢复作为新的页面体验。SDK 对同一指标使用递增 revision 更新，重试不会增加页面加载量。Trace 存在时关联初始页面事务，Trace 未保留不影响指标采集。页面 URL 不包含 query/hash，归因不采集输入值或 DOM 文本。
+
+升级 SDK 后，服务器需先运行包含 Web Vitals 的数据库迁移；历史 SDK 不会补采过去的数据。Basic setup 的 Connected 表示 SDK 已连接，指标是否到达请查看 Web Vitals 面板最近接收时间。
 
 ## 1. 准备项目
 

@@ -66,6 +66,7 @@ describe('metrics contract', () => {
       ['count', 'sum'],
       ['gauge', 'last'],
       ['distribution', 'p95'],
+      ['distribution', 'p75'],
     ]) {
       expect(
         new MetricQueryPipe().transform({ ...queryInput(), type, aggregation }),
@@ -76,7 +77,6 @@ describe('metrics contract', () => {
       ['gauge', 'sum'],
       ['distribution', 'last'],
       ['distribution', 'p99'],
-      ['distribution', 'p75'],
       ['distribution', 'p90'],
     ]) {
       expect(() =>
@@ -238,7 +238,11 @@ describe('metrics ingestion and authorization', () => {
         { key: 'project', types: ['string'] },
       ] as never);
     const catalog = await f.service.catalog('user', 'team', 'web');
-    expect(catalog.items.map((item) => item.name)).toEqual(['inventory.stock']);
+    expect(
+      catalog.items
+        .filter((item) => item.source !== 'web_vitals')
+        .map((item) => item.name),
+    ).toEqual(['inventory.stock']);
     expect(catalog.groupFields).toEqual(
       expect.arrayContaining([
         { key: 'value', label: 'value', type: 'number' },

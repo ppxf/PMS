@@ -1,3 +1,4 @@
+import { WebVitalsModule } from '../web-vitals/web-vitals.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MonitoringProjectsModule } from '../monitoring-projects/monitoring-projects.module';
@@ -25,6 +26,7 @@ import { ProfilesModule } from '../profiles/profiles.module';
     MetricsModule,
     LogsModule,
     ProfilesModule,
+    WebVitalsModule,
   ],
   controllers: [SdkEnvelopeController, MonitoringIssuesController],
   providers: [MonitoringEventsService, IssueAutoResolutionService],

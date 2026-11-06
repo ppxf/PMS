@@ -1,3 +1,4 @@
+import { addQuery, queryBar } from '@/test/query'
 import { openSelect, selectValue } from '@/test/select'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
@@ -50,6 +51,33 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
+  it('uses backend Web Vitals fields in metric and group selectors', async () => {
+    const vital = 'browser.web_vital.lcp.value'
+    api.traceFields.mockResolvedValueOnce([
+      {
+        name: 'span.duration',
+        type: 'number',
+        unit: 'ms',
+        groupable: false,
+        operators: ['gt'],
+        aggregations: ['avg', 'p95'],
+      },
+      {
+        name: vital,
+        type: 'number',
+        unit: 'ms',
+        groupable: true,
+        operators: ['gt', 'exists'],
+        aggregations: ['avg', 'p75', 'p95'],
+      },
+    ])
+    const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    await selectValue(view, 'Metric field 1', vital)
+    await selectValue(view, 'Group by 1', vital)
+    expect(view.get('[aria-label="Metric field 1"]').text()).toContain(vital)
+    expect(view.get('[aria-label="Group by 1"]').text()).toContain(vital)
+  })
   it('sorts samples from table headers, toggles direction and resets pagination', async () => {
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
@@ -147,18 +175,13 @@ describe('Traces views', () => {
     api.traceFields.mockRejectedValueOnce(new Error('offline'))
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
-    const options = (await openSelect(view, 'Filter field'))
-      .findAll('[role="option"]')
-      .map((o) => o.text())
+    const options = queryBar(view)
+      .props('fields')
+      .map((f) => f.key)
     expect(options).toEqual(expect.arrayContaining(['span.status', 'span.truncated', 'page.route']))
     expect(options).not.toContain('status')
     expect(options).not.toContain('truncated')
-    await selectValue(view, 'Filter field', 'span.truncated')
-    await view.get('input[aria-label="Filter value"]').setValue('true')
-    await view
-      .findAll('button')
-      .find((b) => b.text() === 'Add condition')!
-      .trigger('click')
+    await addQuery(view, 'span.truncated', 'eq', 'true')
     await view
       .findAll('button')
       .find((b) => b.text() === 'Update chart')!
@@ -227,11 +250,10 @@ describe('Traces views', () => {
     expect(view.get('nav button[aria-pressed="true"]').text()).toBe(
       total ? 'Application Metrics' : 'Waterfall',
     )
-    if (total) {
-      expect(view.text()).toContain('orders')
-      await view.get('button[aria-label="View span child"]').trigger('click')
-      expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Waterfall')
-    }
+    if (!total) return
+    expect(view.text()).toContain('orders')
+    await view.get('button[aria-label="View span child"]').trigger('click')
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Waterfall')
   })
   it('locates the linked span across cursor pages and changes selection when the query changes', async () => {
     state.query.spanId = 'child'

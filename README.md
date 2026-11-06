@@ -30,11 +30,25 @@ pnpm clean
 SDK 与主应用共用根目录 workspace 和锁文件，根目录构建、测试也覆盖 SDK。
 SDK 开发请执行 `pnpm sdk:install`、`pnpm sdk:build`、`pnpm sdk:test`；完整命令及迁移说明见 [SDK 工作区](packages/README.md)。
 
+根目录数据库迁移入口（不会随 `docker:dev` 自动执行）：
+
+| 环境 | 查看状态 | 执行待运行迁移 | 回滚最后一份迁移 |
+| --- | --- | --- | --- |
+| 本地，使用 API 环境变量 | `pnpm migration:show` | `pnpm migration:run` | `pnpm migration:revert` |
+| 开发容器，数据库已启动 | `pnpm docker:dev:migration:show` | `pnpm docker:dev:migration:run` | `pnpm docker:dev:migration:revert` |
+| 生产容器 | `pnpm docker:production:migration:show` | `pnpm docker:production:migration:run` | `pnpm docker:production:migration:revert` |
+
+生产命令使用 `docker/.env.production` 和已构建的 API 镜像；数据库须先启动，迁移成功后再启动应用。开发和生产默认关闭自动同步。开发迁移使用一次性 API 容器，不需要 API 服务预先启动；先构建镜像，再启动数据库，执行迁移，最后启动应用。已经自动建表的旧数据库不能直接套用空库基线；应核对结构后接管，或选择新的空数据库，保留旧库。`revert` 会执行迁移的 down，可能删除表和数据，不能当作无损撤销。
+
+开发首次使用空库：`docker compose -f compose.dev.yaml build api web` → `docker compose -f compose.dev.yaml up -d db` → `pnpm docker:dev:migration:run` → `docker compose -f compose.dev.yaml up -d api web`。
+
+从自动同步切换且保留旧数据时，可以新建独立数据库：先启动 db，再执行 `docker compose -f compose.dev.yaml exec db createdb -U pms pms_migration_dev`；PowerShell 设置 `$env:DB_NAME='pms_migration_dev'`（Git Bash 使用 `export DB_NAME=pms_migration_dev`），再执行迁移和启动应用。新库不会复制旧库数据；后续启动也必须使用相同 DB_NAME，建议写入根目录 `.env`。已有同名库时不要重复 createdb。不要通过删除数据卷解决基线冲突。
+
 ## 本地登录
 
 1. 创建 PostgreSQL 数据库 `pms`。
 2. 将 `apps/nest/.env.example` 复制为 `apps/nest/.env`，确认 `DB_ENABLED=true` 与数据库连接信息正确。
-3. 开发环境可保留 `DB_SYNCHRONIZE=true`，首次启动会创建数据表。
+3. 保持 `DB_SYNCHRONIZE=false`，先执行 `pnpm migration:run` 创建数据库结构，再启动 API。
 4. 将 `apps/vue3/.env.example` 复制为 `apps/vue3/.env.local`。
 5. 启动后访问 `/register` 自助注册，并通过 SMTP 邮件完成邮箱验证后登录。
 
@@ -55,7 +69,7 @@ docker compose -f compose.dev.yaml down
 - 前端：<http://localhost:5173>；API：<http://localhost:3000/api>；Swagger：<http://localhost:3000/api/docs>。
 - PostgreSQL：`localhost:5432`，用户名 `pms`，数据库 `pms`，默认密码 `pms-development`，可通过 `DB_PASSWORD` 覆盖。
 - 前后端源码挂载并启用轮询监听，支持 Windows Docker Desktop 热更新。依赖存放在镜像内，不挂载宿主机 `node_modules`；修改依赖、环境变量或未挂载的配置后重新执行 `up --build -d`。
-- 开发环境启用 `DB_SYNCHRONIZE=true`，只用于开发数据库。
+- 开发环境关闭 `DB_SYNCHRONIZE`，通过迁移创建和更新数据库结构。
 - 不包含邮件服务。注册验证、密码重置需要自行提供 SMTP。默认连接宿主机 `host.docker.internal:1025`；可创建 `docker/.env.dev` 设置 `SMTP_HOST`、`SMTP_PORT`、`SMTP_SECURE`、`SMTP_USER`、`SMTP_PASSWORD`、`SMTP_FROM`，启动时添加 `--env-file docker/.env.dev`。尚未配置 SMTP 时，邮件相关操作会失败。
 - 容器不会读取宿主机已有的 `apps/*/.env.local`；开发前端固定请求 `http://localhost:3000/api`，适用于本机浏览器访问。
 

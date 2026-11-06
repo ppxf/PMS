@@ -6,7 +6,12 @@ export async function openSelect(view: VueWrapper, label: string) {
     await trigger.trigger('keydown', { key: 'Enter' })
     await flushPromises()
   }
-  return new DOMWrapper(document.querySelector<HTMLElement>('[role="listbox"]'))
+  const menuId = trigger.attributes('aria-controls')
+  return new DOMWrapper(
+    menuId
+      ? document.getElementById(menuId)
+      : document.querySelector<HTMLElement>('[role="listbox"]'),
+  )
 }
 export async function selectValue(view: VueWrapper, label: string, value: string | number) {
   const menu = await openSelect(view, label)

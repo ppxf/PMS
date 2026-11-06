@@ -1,3 +1,7 @@
+import {
+  WebVitalsEnvelope,
+  WebVitalsEnvelopePipe,
+} from '../web-vitals/web-vitals-contract';
 import { Injectable, PipeTransform } from '@nestjs/common';
 import { IngestEnvelopeDto } from '../monitoring-events/dto/ingest-envelope.dto';
 import { IngestEnvelopePipe } from '../monitoring-events/ingest-envelope.pipe';
@@ -19,6 +23,7 @@ import {
 @Injectable()
 export class SdkEnvelopePipe implements PipeTransform<
   unknown,
+  | WebVitalsEnvelope
   | IngestEnvelopeDto
   | TransactionEnvelope
   | MetricsEnvelope
@@ -29,12 +34,15 @@ export class SdkEnvelopePipe implements PipeTransform<
   transform(
     input: unknown,
   ):
+    | WebVitalsEnvelope
     | IngestEnvelopeDto
     | TransactionEnvelope
     | MetricsEnvelope
     | LogsEnvelope
     | ProfileEnvelope
     | ProfileDiagnosticEnvelope {
+    if (jsonObject(input).type === 'web_vitals')
+      return new WebVitalsEnvelopePipe().transform(input);
     if (jsonObject(input).type === 'profile_diagnostic')
       return new ProfileDiagnosticPipe().transform(input);
     if (jsonObject(input).type === 'profile')

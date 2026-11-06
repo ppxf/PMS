@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { querySuggestions } from '../model/query-suggestions'
+import QuerySearchBar from '../components/QuerySearchBar.vue'
 import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { use } from 'echarts/core'
 import { LineChart, BarChart } from 'echarts/charts'
@@ -13,7 +15,6 @@ import {
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import {
   spanSamples,
@@ -221,6 +222,13 @@ function applyPreset() {
   primaryMetric.value = 0
   apply()
 }
+async function applyCondition(condition: { field: string; operator: string; value: string }) {
+  filterField.value = condition.field
+  await nextTick()
+  filterOperator.value = condition.operator as TraceFilter['operator']
+  filterValue.value = condition.value
+  addFilter()
+}
 function addFilter() {
   const field = fields.value.find((f) => f.name === filterField.value)
   const parse = (v: string): unknown =>
@@ -384,38 +392,38 @@ onMounted(async () => {
         >Add HTTP filter</Button
       >
     </div>
-    <div class="filter-panel rounded-xl border p-5 space-y-4">
-      <div class="flex flex-wrap gap-2">
-        <FormSelect
-          v-model="filterField"
-          aria-label="Filter field"
-          class="control"
-          :options="availableFilters.map((value) => ({ value, label: value }))"
-        /><FormSelect
-          v-model="filterOperator"
-          aria-label="Filter operator"
-          class="control"
-          :options="filterOperators.map((value) => ({ value, label: value }))"
-        /><Input
-          v-if="filterOperator !== 'exists'"
-          v-model="filterValue"
-          class="control"
-          aria-label="Filter value"
-          placeholder="Value / comma-separated values"
-        /><Button variant="outline" @click="addFilter">Add condition</Button>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="(f, i) in filters"
-          :key="i"
-          class="filter-chip rounded-md border px-3 py-1.5 text-sm"
-          :aria-label="`Remove condition ${f.field}`"
-          @click="filters.splice(i, 1)"
-        >
-          {{ f.field }} {{ f.operator }} {{ f.value }} ×
-        </button>
-      </div>
-    </div>
+    <QuerySearchBar
+      :fields="
+        availableFilters.map((key) => ({
+          key,
+          type: fields.find((field) => field.name === key)?.type,
+          operators: fields.find((field) => field.name === key)?.operators ?? filterOperators,
+        }))
+      "
+      :active-field="filterField"
+      :suggestions="
+        querySuggestions(
+          availableFilters.map((key) => ({ key })),
+          spans,
+        )
+      "
+      @select="filterField = $event"
+      @condition="applyCondition"
+    >
+      <template #conditions>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="(f, i) in filters"
+            :key="i"
+            class="filter-chip rounded-md border px-3 py-1.5 text-sm"
+            :aria-label="`Remove condition ${f.field}`"
+            @click="filters.splice(i, 1)"
+          >
+            {{ f.field }} {{ f.operator }} {{ f.value }} ×
+          </button>
+        </div>
+      </template>
+    </QuerySearchBar>
     <div class="grid items-stretch gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
       <aside class="visualize-panel space-y-5 rounded-xl border p-5">
         <h3 class="font-semibold">Visualize</h3>
@@ -430,7 +438,7 @@ onMounted(async () => {
             class="control w-full"
             @change="changeFunction(metric)"
             :options="
-              (['count', 'avg', 'p50', 'p95', 'errorRate'] as const).map((value) => ({
+              (['count', 'avg', 'p50', 'p75', 'p95', 'errorRate'] as const).map((value) => ({
                 value,
                 label: value,
               }))
@@ -444,7 +452,11 @@ onMounted(async () => {
             :options="
               (metric.function === 'count' || metric.function === 'errorRate'
                 ? ['spans']
-                : metricFields
+                : fields.length
+                  ? fields
+                      .filter((field) => field.aggregations.includes(metric.function))
+                      .map((field) => field.name)
+                  : metricFields
               ).map((value) => ({ value, label: value }))
             "
           />

@@ -7,6 +7,7 @@ import { traceDetail } from '../api/traces.api'
 import { waterfallRows, matchesSpanFilters } from '../model/traces'
 import type { Span, TraceFilter } from '../model/traces'
 import TraceMetricsPanel from '../components/TraceMetricsPanel.vue'
+import TraceWebVitalsPanel from '../components/TraceWebVitalsPanel.vue'
 const route = useRoute(),
   spans = ref<Span[]>([]),
   selected = ref<Span | null>(null),
@@ -219,6 +220,11 @@ onBeforeUnmount(() => {
           : 'The target span is not retained. It may not have been collected or may have expired.'
       }}
     </p>
+    <TraceWebVitalsPanel
+      :group="String(route.params.groupSlug)"
+      :project="String(route.params.projectSlug)"
+      :trace-id="String(route.params.traceId)"
+    />
     <TraceMetricsPanel
       v-if="tab === 'metrics'"
       :group="String(route.params.groupSlug)"

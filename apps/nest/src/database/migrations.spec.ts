@@ -1,3 +1,4 @@
+import { WebVitals1793923200000 } from './migrations/1793923200000-web-vitals';
 import { DataSource, QueryRunner } from 'typeorm';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -22,7 +23,7 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
       schema,
       extra: { options: `-c search_path=${schema},public` },
       entities: [resolve(__dirname, '../**/*.entity.ts')],
-      migrations: [Baseline1793577600000],
+      migrations: [Baseline1793577600000, WebVitals1793923200000],
       migrationsTableName: 'pms_migrations',
       synchronize: false,
       installExtensions: false,
@@ -54,19 +55,20 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
   });
 
   it('creates every entity without schema drift, tracks execution and supports down/up', async () => {
-    expect(await source.runMigrations()).toHaveLength(1);
-    expect(source.entityMetadatas).toHaveLength(14);
+    expect(await source.runMigrations()).toHaveLength(2);
+    expect(source.entityMetadatas).toHaveLength(16);
     expect((await source.driver.createSchemaBuilder().log()).upQueries).toEqual(
       [],
     );
     expect(await source.runMigrations()).toHaveLength(0);
+    await source.undoLastMigration();
     await source.undoLastMigration();
     const tables: { table_name: string }[] = await source.query(
       'SELECT table_name FROM information_schema.tables WHERE table_schema = $1',
       [schema],
     );
     expect(tables.map((row) => row.table_name)).toEqual(['pms_migrations']);
-    expect(await source.runMigrations()).toHaveLength(1);
+    expect(await source.runMigrations()).toHaveLength(2);
     expect((await source.driver.createSchemaBuilder().log()).upQueries).toEqual(
       [],
     );

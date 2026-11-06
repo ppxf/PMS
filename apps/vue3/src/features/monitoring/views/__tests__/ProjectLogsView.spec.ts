@@ -1,3 +1,4 @@
+import { addQuery, queryBar } from '@/test/query'
 import { selectValue } from '@/test/select'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOMWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
@@ -74,7 +75,11 @@ describe('Logs explorer', () => {
       'browser.version',
       'log_source',
     ]
-    expect(keys('Log filters field')).toEqual(expected)
+    expect(
+      queryBar(view, 'Log filters search')
+        .props('fields')
+        .map((f) => f.key),
+    ).toEqual(expected)
     for (const removed of ['p75', 'p90', 'p99']) expect(LOG_AGGREGATES).not.toContain(removed)
     for (const aggregate of ['sum', 'avg', 'p50', 'p95', 'max', 'min']) {
       await selectValue(view, 'Aggregate 1', aggregate)
@@ -104,8 +109,7 @@ describe('Logs explorer', () => {
       start: window.start,
       end: window.end,
     })
-    await view.get('[aria-label="Log filters value"]').setValue('checkout')
-    await view.get('form[aria-label="Log filters"]').trigger('submit')
+    await addQuery(view, 'message', 'contains', 'checkout', 'Log filters search')
     await flushPromises()
     expect(api.logQuery.mock.lastCall![2]).toMatchObject({
       page: 1,
@@ -124,8 +128,7 @@ describe('Logs explorer', () => {
       aggregate: 'avg',
       field: 'payload_size',
     })
-    await view.get('[aria-label="Series 1 value"]').setValue('retry')
-    await view.get('form[aria-label="Series 1"]').trigger('submit')
+    await addQuery(view, 'message', 'contains', 'retry', 'Series 1 search')
     await flushPromises()
     expect(api.logQuery.mock.lastCall![2]).toMatchObject({
       conditions: [],

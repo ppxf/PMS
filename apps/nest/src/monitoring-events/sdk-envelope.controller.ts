@@ -1,3 +1,5 @@
+import { WebVitalsService } from '../web-vitals/web-vitals.service';
+import type { WebVitalsEnvelope } from '../web-vitals/web-vitals-contract';
 import {
   Body,
   Controller,
@@ -42,6 +44,7 @@ export class SdkEnvelopeController {
     @Optional() private readonly metrics?: MetricsService,
     @Optional() private readonly logs?: LogsService,
     @Optional() private readonly profiles?: ProfilesService,
+    @Optional() private readonly webVitals?: WebVitalsService,
   ) {}
 
   @Post(':projectId/envelope')
@@ -65,6 +68,15 @@ export class SdkEnvelopeController {
         )))
     )
       throw new ForbiddenException('SDK Origin is not allowed');
+    if ((envelope as { type?: string }).type === 'web_vitals') {
+      if (!this.webVitals)
+        throw new ServiceUnavailableException('Web Vitals service unavailable');
+      return this.webVitals.ingest(
+        projectId,
+        publicKey,
+        envelope as WebVitalsEnvelope,
+      );
+    }
     if ((envelope as { type?: string }).type === 'profile_diagnostic') {
       if (!this.profiles)
         throw new ServiceUnavailableException('Profiles service unavailable');

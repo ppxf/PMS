@@ -53,6 +53,7 @@ describe('metric type semantics', () => {
     expect(metricAggregations('gauge')).toEqual(['last', 'avg', 'min', 'max', 'count'])
     expect(metricAggregations('distribution')).toEqual([
       'p95',
+      'p75',
       'p50',
       'avg',
       'min',

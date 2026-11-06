@@ -18,6 +18,7 @@ export class HttpTransport implements Transport {
   ) {}
 
   async send(envelope: MonitoringEnvelope): Promise<void> {
+    const body = JSON.stringify(envelope)
     let response: Response
     try {
       response = await this.fetcher.call(globalThis, `${this.endpoint}/envelope`, {
@@ -27,7 +28,8 @@ export class HttpTransport implements Transport {
           'Content-Type': 'application/json',
           'X-PMS-Key': this.publicKey,
         },
-        body: JSON.stringify(envelope),
+        body,
+        ...(envelope.type === 'web_vitals' && new TextEncoder().encode(body).byteLength <= 60_000 ? { keepalive: true } : {}),
       })
     } catch (cause) {
       throw new TransportError('PMS telemetry network request failed', { cause })
