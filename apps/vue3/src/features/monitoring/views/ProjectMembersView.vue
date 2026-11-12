@@ -4,7 +4,8 @@ import { useRoute } from 'vue-router'
 import { http } from '@/services/http'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Users, Mail, ShieldCheck, UserPlus, Send } from '@lucide/vue'
+import { toast } from '@/components/ui/toast'
+import { Users, Mail, ShieldCheck, UserPlus, Send, LoaderCircle } from '@lucide/vue'
 import { projectModules } from '../model/project-access.store'
 interface Member {
   role: 'owner' | 'member'
@@ -30,6 +31,7 @@ const email = ref('')
 const permissions = ref<string[]>([])
 const error = ref('')
 const busy = ref(false)
+const sending = ref(false)
 const options = [
   ...projectModules.map((module) => ({
     label: {
@@ -63,10 +65,62 @@ async function action(operation: () => Promise<unknown>) {
   }
 }
 async function invite() {
-  await action(() =>
-    http.post(`${base}/invitations`, { email: email.value, permissions: permissions.value }),
-  )
-  if (!error.value) email.value = ''
+  if (busy.value) return
+  const recipient = email.value.trim()
+  if (!recipient) {
+    toast.error('Enter a valid email address.')
+    return
+  }
+  if (!permissions.value.length) {
+    toast.error('Select at least one page to grant access.')
+    return
+  }
+  busy.value = true
+  error.value = ''
+  try {
+    sending.value = true
+    const invitation = await http.post<Invitation>(`${base}/invitations`, {
+      email: recipient,
+      permissions: permissions.value,
+    })
+    let refreshFailed = false
+    try {
+      await load()
+    } catch {
+      refreshFailed = true
+      error.value = 'The invitation was created, but the invitation list could not refresh.'
+    }
+    if (invitation.deliveryStatus === 'failed') {
+      toast.error(
+        'Email delivery failed',
+        'The invitation was created, but its email could not be sent. Use Resend in invitation history to try again.',
+      )
+      return
+    }
+    email.value = ''
+    if (refreshFailed) {
+      toast.warning(
+        'Invitation created',
+        'The invitation list could not refresh. Refresh this page to see its delivery status.',
+      )
+    } else if (invitation.deliveryStatus === 'sent') {
+      toast.success('Invitation sent', `An invitation email was sent to ${recipient}.`)
+    } else {
+      toast.success(
+        'Invitation queued',
+        `The invitation to ${recipient} is queued for email delivery.`,
+      )
+    }
+  } catch (failure) {
+    error.value = failure instanceof Error ? failure.message : 'Please try again.'
+    toast.error('Unable to send invitation', error.value)
+  } finally {
+    sending.value = false
+    busy.value = false
+  }
+}
+function invalidInvitation() {
+  toast.error('Enter a valid email address.')
 }
 onMounted(() => action(async () => {}))
 </script>
@@ -93,7 +147,11 @@ onMounted(() => action(async () => {}))
       {{ error }}
     </p>
 
-    <form class="overflow-hidden rounded-xl border bg-card shadow-sm" @submit.prevent="invite">
+    <form
+      class="overflow-hidden rounded-xl border bg-card shadow-sm"
+      @submit.prevent="invite"
+      @invalid.capture="invalidInvitation"
+    >
       <div class="flex items-center gap-3 border-b bg-muted/20 px-6 py-5">
         <UserPlus class="size-5 text-primary" />
         <div>
@@ -150,8 +208,13 @@ onMounted(() => action(async () => {}))
         <p class="flex items-center gap-2 text-xs text-muted-foreground">
           <ShieldCheck class="size-4" />Only the project owner can manage access.
         </p>
-        <Button type="submit" :disabled="busy || !permissions.length"
-          ><Send class="size-4" />{{ busy ? 'Please wait…' : 'Send invitation' }}</Button
+        <Button type="submit" :disabled="busy"
+          ><LoaderCircle v-if="busy" class="size-4 animate-spin" aria-hidden="true" /><Send
+            v-else
+            class="size-4"
+          />{{
+            sending ? 'Sending invitation…' : busy ? 'Please wait…' : 'Send invitation'
+          }}</Button
         >
       </footer>
     </form>

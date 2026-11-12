@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { projectRouteIdentifier } from '../project-access/project-route-identifier';
 import { createSlug } from '../common/utils/slug';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { Group } from './entities/group.entity';
@@ -76,17 +77,33 @@ export class GroupsService {
     );
   }
   async findAccessibleBySlug(userId: string, slug: string): Promise<Group> {
-    const groups = (await this.listAccessible(userId)).filter(
-      (group) => group.slug === slug,
+    const identifier = projectRouteIdentifier(slug);
+    const accessible = await this.listAccessible(userId);
+    let groups = accessible.filter((group) =>
+      'id' in identifier ? group.id === identifier.id : group.slug === slug,
     );
+    if (!groups.length && 'id' in identifier) {
+      // An existing ID must never select a different object through a legacy slug.
+      const canonical = await this.repository.findOne({
+        where: { id: identifier.id },
+      });
+      if (canonical) throw new NotFoundException('Group not found');
+      groups = accessible.filter((group) => group.slug === slug);
+    }
     if (groups.length !== 1)
       throw new NotFoundException('Group not found or ambiguous');
     return groups[0];
   }
   async findOwnedBySlug(ownerId: string, slug: string): Promise<Group> {
-    const group = await this.repository.findOne({
-      where: { ownerId, slug },
+    const identifier = projectRouteIdentifier(slug);
+    let group = await this.repository.findOne({
+      where: { ownerId, ...identifier },
     });
+    if (!group && 'id' in identifier) {
+      if (await this.repository.findOne({ where: { id: identifier.id } }))
+        throw new NotFoundException('Group not found');
+      group = await this.repository.findOne({ where: { ownerId, slug } });
+    }
     if (!group) throw new NotFoundException('Group not found');
     return group;
   }

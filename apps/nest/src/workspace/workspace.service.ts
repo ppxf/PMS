@@ -107,7 +107,7 @@ export class WorkspaceService implements OnModuleInit, OnModuleDestroy {
     );
     const map = new Map(projects.map((p) => [p.id, p]));
     return {
-      items: rows.map((r) => {
+      items: rows.map((r): Row & { projectName: string; projectSlug: string; groupSlug: string } => {
         const p = map.get(r.projectId)!;
         return {
           ...r,
@@ -156,23 +156,25 @@ export class WorkspaceService implements OnModuleInit, OnModuleDestroy {
       ['profiles', 'profiles_enabled', 'monitoring_profiles'],
       ['web-vitals', 'true', 'monitoring_page_views'],
     ];
-    const items: Row[] = [];
-    for (const p of projects.slice(
-      (q.page - 1) * q.pageSize,
-      q.page * q.pageSize,
-    )) {
-      const visible = signals.filter(([type]) =>
-        p.permissions.includes(`project:${type}:read`),
-      );
-      const values = await Promise.all(
-        visible.map(async ([type, enabled, table]) => {
-          const [r] = await this.db.query<Row[]>(
-            `SELECT ${enabled === 'true' ? 'true' : `p.${enabled}`} AS enabled,(SELECT max(received_at) FROM ${table} WHERE project_id=p.id) AS "lastSeenAt" FROM monitoring_projects p WHERE p.id=$1`,
-            [p.id],
-          );
-          return {
+    const page = projects.slice((q.page - 1) * q.pageSize, q.page * q.pageSize);
+    const byProject = new Map(
+      page.map((p) => [p.id, [] as Record<string, unknown>[]]),
+    );
+    await Promise.all(
+      signals.map(async ([type, enabled, table]) => {
+        const ids = page
+          .filter((p) => p.permissions.includes(`project:${type}:read`))
+          .map((p) => p.id);
+        if (!ids.length) return;
+        const rows = await this.db.query<Row[]>(
+          `SELECT p.id AS "projectId",${enabled === 'true' ? 'true' : `p.${enabled}`} AS enabled,max(d.received_at) AS "lastSeenAt" FROM monitoring_projects p LEFT JOIN ${table} d ON d.project_id=p.id WHERE p.id=ANY($1::uuid[]) GROUP BY p.id`,
+          [ids],
+        );
+        for (const r of rows)
+          byProject.get(r.projectId)?.push({
             type,
-            ...r,
+            enabled: r.enabled,
+            lastSeenAt: r.lastSeenAt,
             status: !r.enabled
               ? 'disabled'
               : !r.lastSeenAt
@@ -180,11 +182,19 @@ export class WorkspaceService implements OnModuleInit, OnModuleDestroy {
                 : Date.now() - new Date(r.lastSeenAt).getTime() > 86400000
                   ? 'stale'
                   : 'active',
-          };
-        }),
-      );
-      items.push({ ...p, signals: values });
-    }
+          });
+      }),
+    );
+    const items = page.map((p) => ({
+      ...p,
+      signals: byProject
+        .get(p.id)!
+        .sort(
+          (a, b) =>
+            signals.findIndex((s) => s[0] === a.type) -
+            signals.findIndex((s) => s[0] === b.type),
+        ),
+    }));
     return {
       items,
       total: projects.length,

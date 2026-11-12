@@ -20,7 +20,7 @@ async function submit(): Promise<void> {
   try {
     const group = await createGroup({ name: name.value })
     onboarding.addGroup(group)
-    await router.push({ name: 'create-project', params: { groupSlug: group.slug } })
+    await router.push({ name: 'create-project', params: { groupSlug: group.id } })
   } catch (cause) {
     error.value =
       cause instanceof AppError

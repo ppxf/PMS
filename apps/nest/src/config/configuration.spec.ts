@@ -7,6 +7,8 @@ describe('configuration CORS settings', () => {
     process.env = { ...originalEnvironment };
     delete process.env.CORS_ORIGINS;
     delete process.env.PUBLIC_URL;
+    delete process.env.REDIS_URL;
+    delete process.env.RETENTION_ENABLED;
   });
 
   afterAll(() => {
@@ -44,5 +46,14 @@ describe('configuration CORS settings', () => {
     expect(configuration().monitoring.publicUrl).toBe(
       'https://monitor.example.com',
     );
+  });
+  it('keeps local Redis optional and enables scheduled retention only by production default', () => {
+    process.env.NODE_ENV = 'development';
+    expect(configuration().redis.url).toBe('');
+    expect(configuration().retention.enabled).toBe(false);
+    process.env.NODE_ENV = 'production';
+    expect(configuration().retention.enabled).toBe(true);
+    process.env.RETENTION_ENABLED = 'false';
+    expect(configuration().retention.enabled).toBe(false);
   });
 });

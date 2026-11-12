@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
           <h2 class="page-title">{{ project.name }}</h2>
         </div>
         <Badge :variant="project.connected ? 'default' : 'secondary'">
-          {{ project.connected ? 'Connected' : 'Awaiting connection' }}
+          {{ project.connected ? 'Previously connected' : 'Awaiting first connection' }}
         </Badge>
       </div>
 

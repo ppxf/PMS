@@ -12,6 +12,7 @@ import { AuditRecord } from './audit-record.entity';
 import { auditMetadata, requestIdentifier } from './audit-records.validation';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { PROJECT_PERMISSIONS } from '../project-access/project-permissions';
+import { legacyProjectRouteWhere } from '../project-access/project-route-identifier';
 
 @Injectable()
 export class AuditRecordsInterceptor implements NestInterceptor {
@@ -32,6 +33,7 @@ export class AuditRecordsInterceptor implements NestInterceptor {
       params: Record<string, string>;
       body?: Record<string, unknown>;
       user?: { id: string; name: string };
+      idempotencyReplayed?: boolean;
     }>();
     if (!req.user || !['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method))
       return next.handle();
@@ -70,11 +72,15 @@ export class AuditRecordsInterceptor implements NestInterceptor {
       projectId = rows[0]?.project_id;
       if (table === 'workspace_alert_rules') ruleBefore = rows[0];
     }
-    const candidates = req.params.projectSlug
+    let candidates = req.params.projectSlug
       ? await this.db.getRepository(MonitoringProject).find({
           where: {
-            slug: req.params.projectSlug,
-            group: { slug: req.params.groupSlug },
+            ...(uuid(req.params.projectSlug)
+              ? { id: req.params.projectSlug }
+              : { slug: req.params.projectSlug }),
+            group: uuid(req.params.groupSlug)
+              ? { id: req.params.groupSlug }
+              : { slug: req.params.groupSlug },
           },
           relations: { group: true },
         })
@@ -83,6 +89,23 @@ export class AuditRecordsInterceptor implements NestInterceptor {
             .getRepository(MonitoringProject)
             .find({ where: { id: projectId }, relations: { group: true } })
         : [];
+    if (
+      !candidates.length &&
+      req.params.projectSlug &&
+      (uuid(req.params.projectSlug) || uuid(req.params.groupSlug))
+    ) {
+      const repository = this.db.getRepository(MonitoringProject);
+      const legacyWhere = await legacyProjectRouteWhere(
+        repository,
+        req.params.groupSlug,
+        req.params.projectSlug,
+      );
+      if (legacyWhere)
+        candidates = await repository.find({
+          where: legacyWhere,
+          relations: { group: true },
+        });
+    }
     const accessible = await Promise.all(
       candidates.map(async (project) => ({
         project,
@@ -228,6 +251,7 @@ export class AuditRecordsInterceptor implements NestInterceptor {
       statusCode: number,
       response?: unknown,
     ) => {
+      if (req.idempotencyReplayed) return;
       const created =
         response && typeof response === 'object'
           ? (response as Record<string, unknown>)
@@ -265,8 +289,12 @@ export class AuditRecordsInterceptor implements NestInterceptor {
       ) {
         const accepted = await this.db.getRepository(MonitoringProject).find({
           where: {
-            slug: created.projectSlug,
-            group: { slug: created.groupSlug },
+            ...(uuid(created.projectId)
+              ? { id: created.projectId }
+              : { slug: created.projectSlug }),
+            group: uuid(created.groupId)
+              ? { id: created.groupId }
+              : { slug: created.groupSlug },
           },
           relations: { group: true },
         });

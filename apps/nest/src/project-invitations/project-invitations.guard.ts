@@ -5,12 +5,12 @@ import { SdkRateLimitService } from '../common/http/sdk-rate-limit.service';
 @Injectable()
 export class ProjectInvitationRateLimitGuard implements CanActivate {
   constructor(private readonly limiter: SdkRateLimitService) {}
-  canActivate(context: ExecutionContext) {
+  async canActivate(context: ExecutionContext) {
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: { id: string } }>();
     const response = context.switchToHttp().getResponse<Response>();
-    this.limiter.consume(
+    await this.limiter.consume(
       `project-invitations:${request.user?.id ?? request.ip ?? request.socket.remoteAddress ?? 'unknown'}`,
       (seconds) => response.setHeader('Retry-After', String(seconds)),
     );

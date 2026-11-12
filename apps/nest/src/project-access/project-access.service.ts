@@ -4,10 +4,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import {
+  legacyProjectRouteWhere,
+  projectRouteIdentifier,
+} from './project-route-identifier';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { ProjectMember } from './project-member.entity';
 import { PROJECT_PERMISSIONS, ProjectPermission } from './project-permissions';
+interface AccessResult {
+  project: MonitoringProject;
+  role: 'owner' | 'member';
+  permissions: string[];
+}
 @Injectable()
 export class ProjectAccessService {
   constructor(
@@ -17,40 +26,72 @@ export class ProjectAccessService {
     private readonly members: Repository<ProjectMember>,
   ) {}
   async requireAccess(userId: string, groupSlug: string, projectSlug: string) {
-    const candidates = await this.projects.find({
-      where: { slug: projectSlug, group: { slug: groupSlug } },
+    const projectIdentifier = projectRouteIdentifier(projectSlug);
+    const groupIdentifier = projectRouteIdentifier(groupSlug);
+    let candidates = await this.projects.find({
+      where: {
+        ...projectIdentifier,
+        group: groupIdentifier,
+      },
       relations: { group: true },
       order: { id: 'ASC' },
     });
-    const accessible: {
-      project: MonitoringProject;
-      role: 'owner' | 'member';
-      permissions: string[];
-    }[] = [];
-    for (const project of candidates) {
-      if (project.ownerId === userId)
-        accessible.push({
-          project,
-          role: 'owner',
-          permissions: [...PROJECT_PERMISSIONS],
+    if (
+      !candidates.length &&
+      ('id' in projectIdentifier || 'id' in groupIdentifier)
+    ) {
+      const legacyWhere = await legacyProjectRouteWhere(
+        this.projects,
+        groupSlug,
+        projectSlug,
+      );
+      if (legacyWhere)
+        candidates = await this.projects.find({
+          where: legacyWhere,
+          relations: { group: true },
+          order: { id: 'ASC' },
         });
-      else {
-        const member = await this.members.findOne({
-          where: { projectId: project.id, userId },
-        });
-        if (member)
-          accessible.push({
-            project,
-            role: 'member',
-            permissions: member.permissions.filter((p) =>
-              (PROJECT_PERMISSIONS as readonly string[]).includes(p),
-            ),
-          });
-      }
     }
+    const accessible = await this.listAccess(userId, candidates);
     if (accessible.length !== 1)
       throw new NotFoundException('Monitoring project not found or ambiguous');
     return accessible[0];
+  }
+  async listAccess(
+    userId: string,
+    projects: MonitoringProject[],
+  ): Promise<AccessResult[]> {
+    const otherIds = projects
+      .filter((project) => project.ownerId !== userId)
+      .map((project) => project.id);
+    const memberships = otherIds.length
+      ? await this.members.find({ where: { userId, projectId: In(otherIds) } })
+      : [];
+    const byProject = new Map(
+      memberships.map((member) => [member.projectId, member]),
+    );
+    return projects.flatMap<AccessResult>((project) => {
+      if (project.ownerId === userId)
+        return [
+          {
+            project,
+            role: 'owner' as const,
+            permissions: [...PROJECT_PERMISSIONS] as string[],
+          },
+        ];
+      const member = byProject.get(project.id);
+      return member
+        ? [
+            {
+              project,
+              role: 'member' as const,
+              permissions: member.permissions.filter((permission) =>
+                (PROJECT_PERMISSIONS as readonly string[]).includes(permission),
+              ),
+            },
+          ]
+        : [];
+    });
   }
   async requirePermission(
     userId: string,

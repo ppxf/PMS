@@ -24,7 +24,9 @@
     "migration:revert:prod": "node node_modules/typeorm/cli.js migration:revert -d dist/database/data-source.js",
     "traces:migrate": "pnpm migration:run",
     "traces:migrate:revert": "pnpm migration:revert",
-    "traces:retention": "ts-node src/database/traces-retention.ts",
+    "traces:retention": "ts-node src/database/monitoring-retention.ts --traces-only",
+    "retention:cleanup": "ts-node src/database/monitoring-retention.ts",
+    "retention:cleanup:prod": "node dist/database/monitoring-retention.js",
     "clean": "node -e \"const fs=require('node:fs');fs.rmSync('dist',{recursive:true,force:true});fs.rmSync('coverage',{recursive:true,force:true})\"",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -46,6 +48,7 @@
     "helmet": "^8.3.0",
     "nodemailer": "^10.0.10",
     "pg": "^8.23.0",
+    "redis": "^5.12.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "^1.1.0"

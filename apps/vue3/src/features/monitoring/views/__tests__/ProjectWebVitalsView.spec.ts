@@ -1,3 +1,10 @@
+import { beforeEach as beforeProjectAccessTest } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useProjectAccessStore } from '../../model/project-access.store'
+beforeProjectAccessTest(() => {
+  setActivePinia(createPinia())
+  useProjectAccessStore().access = { projectId: 'test-project', role: 'owner', permissions: [] }
+})
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { reactive } from 'vue'

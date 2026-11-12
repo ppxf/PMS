@@ -94,3 +94,26 @@ describe('HTTP authentication', () => {
     await vi.waitFor(() => expect(rejection).toBeInstanceOf(AppError))
   })
 })
+
+describe('management request idempotency', () => {
+  it('generates independent management keys and preserves a retried Axios config', async () => {
+    const requests: import('axios').InternalAxiosRequestConfig[] = []
+    axiosInstance.defaults.adapter = (config) => {
+      requests.push(config)
+      return Promise.resolve({ config, data: {}, headers: {}, status: 200, statusText: 'OK' })
+    }
+    await http.post('/groups', { name: 'Team' })
+    await http.patch('/workspace/alert-rules/r', { enabled: false })
+    const first = requests[0]!
+    const key = first.headers.get('Idempotency-Key')
+    expect(key).toMatch(/^[A-Za-z0-9_.:-]{8,128}$/)
+    expect(requests[1]!.headers.get('Idempotency-Key')).not.toBe(key)
+    await axiosInstance.request(first)
+    expect(requests[2]!.headers.get('Idempotency-Key')).toBe(key)
+    await http.delete('/groups/g/projects/p', { headers: { 'Idempotency-Key': 'caller-key-123' } })
+    expect(requests[3]!.headers.get('Idempotency-Key')).toBe('caller-key-123')
+    for (const url of ['/auth/login', '/sdk/p', '/project-invitations/accept']) await http.post(url)
+    await http.get('/groups')
+    expect(requests.slice(4).every((config) => !config.headers.has('Idempotency-Key'))).toBe(true)
+  })
+})

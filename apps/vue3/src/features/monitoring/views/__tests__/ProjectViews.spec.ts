@@ -265,7 +265,7 @@ describe('project views', () => {
     })
     expect(push).toHaveBeenCalledWith({
       name: 'project-setup',
-      params: { groupSlug: 'acme', projectSlug: 'frontend' },
+      params: { groupSlug: project.groupId, projectSlug: project.id },
     })
   })
 
@@ -301,7 +301,7 @@ describe('project views', () => {
 
     await wrapper.get('[data-testid="refresh-connection"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('Connected')
+    expect(wrapper.text()).toContain('Previously connected')
   })
 
   it('copies direct init without binding and defaults to any origin', async () => {
@@ -426,7 +426,7 @@ describe('project views', () => {
 
     expect(wrapper.text()).toContain('Frontend')
     expect(wrapper.text()).toContain('Error Monitoring')
-    expect(wrapper.text()).toContain('Awaiting connection')
+    expect(wrapper.text()).toContain('Awaiting first connection')
     expect(wrapper.text()).not.toContain('Replay')
     expect(wrapper.text()).not.toContain('View errors')
     expect(wrapper.text()).not.toContain('View SDK setup instructions')

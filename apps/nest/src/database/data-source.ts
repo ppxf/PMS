@@ -8,6 +8,8 @@ import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import configuration from '../config/configuration';
 import { Baseline1793577600000 } from './migrations/1793577600000-baseline';
+import { ProductionHardening1794528000000 } from './migrations/1794528000000-production-hardening';
+import { InvitationOutbox1794528000001 } from './migrations/1794528000001-invitation-outbox';
 
 // Resolve env files relative to the API package, even when called from the repo root.
 const packageRoot = resolve(__dirname, '../..');
@@ -34,6 +36,8 @@ export default new DataSource({
     ProjectAccess1794355200000,
     AuditRecords1794441600000,
     WorkspaceAlerts1794441600001,
+    ProductionHardening1794528000000,
+    InvitationOutbox1794528000001,
   ],
   migrationsTableName: 'pms_migrations',
   migrationsTransactionMode: 'all',

@@ -201,7 +201,7 @@ watch(
           </p>
         </div>
         <Badge :variant="project.connected ? 'default' : 'secondary'">
-          {{ project.connected ? 'Connected' : 'Awaiting connection' }}
+          {{ project.connected ? 'Previously connected' : 'Awaiting first connection' }}
         </Badge>
       </div>
 
@@ -296,7 +296,7 @@ watch(
             Copied {{ copied }}
           </p>
           <p v-if="project.lastSeenAt" class="text-sm text-muted-foreground">
-            Last connected:
+            Last connection activity:
             {{
               new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(
                 new Date(project.lastSeenAt),

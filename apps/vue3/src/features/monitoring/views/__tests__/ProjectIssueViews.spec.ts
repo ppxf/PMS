@@ -1,3 +1,10 @@
+import { beforeEach as beforeProjectAccessTest } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useProjectAccessStore } from '../../model/project-access.store'
+beforeProjectAccessTest(() => {
+  setActivePinia(createPinia())
+  useProjectAccessStore().access = { projectId: 'test-project', role: 'owner', permissions: [] }
+})
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
@@ -488,5 +495,23 @@ describe('project issue views', () => {
     expect(wrapper.text()).toContain('No latest event')
     expect(wrapper.find('pre').exists()).toBe(false)
     expect(wrapper.text()).toContain('No recent events')
+  })
+  it('renders granted issue details for a member without owner write controls', async () => {
+    useProjectAccessStore().access = {
+      projectId: 'test-project',
+      role: 'member',
+      permissions: ['project:issues:read'],
+    }
+    getProjectIssue.mockResolvedValue({ ...issue, latestEvent: event, recentEvents: [] })
+    const wrapper = mount(ProjectIssueDetailView)
+    await flushPromises()
+    expect(wrapper.text()).toContain('Render failed')
+    expect(wrapper.find('[data-testid="issue-status-action"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="archive-issue"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="delete-issue"]').exists()).toBe(false)
+    expect(updateProjectIssueStatus).not.toHaveBeenCalled()
+    expect(archiveProjectIssue).not.toHaveBeenCalled()
+    expect(deleteProjectIssue).not.toHaveBeenCalled()
+    wrapper.unmount()
   })
 })

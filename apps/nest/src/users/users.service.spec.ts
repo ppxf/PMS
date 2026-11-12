@@ -56,3 +56,23 @@ describe('UsersService', () => {
     });
   });
 });
+
+describe('password reset session revocation', () => {
+  it('updates the password and increments the session version in the same statement', async () => {
+    const repository = { update: jest.fn().mockResolvedValue({ affected: 1 }) };
+
+    await new UsersService(repository as never).updatePassword(
+      'user',
+
+      'new-hash',
+    );
+
+    const [id, patch] = repository.update.mock.calls[0];
+
+    expect(id).toBe('user');
+
+    expect(patch.passwordHash).toBe('new-hash');
+
+    expect(patch.sessionVersion()).toBe('session_version + 1');
+  });
+});

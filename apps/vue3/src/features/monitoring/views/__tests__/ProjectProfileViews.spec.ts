@@ -1,3 +1,10 @@
+import { beforeEach as beforeProjectAccessTest } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useProjectAccessStore } from '../../model/project-access.store'
+beforeProjectAccessTest(() => {
+  setActivePinia(createPinia())
+  useProjectAccessStore().access = { projectId: 'test-project', role: 'owner', permissions: [] }
+})
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { selectValue } from '@/test/select'
@@ -256,7 +263,10 @@ describe('Profiles views', () => {
     expect(view.find('input[aria-label="Trace ID"]').exists()).toBe(false)
     expect(view.find('input[aria-label="Environment"]').exists()).toBe(false)
     await selectValue(view, 'Environment', 'production')
-    expect(api.queryProfiles.mock.lastCall![2]).toMatchObject({ environment: 'production', page: 1 })
+    expect(api.queryProfiles.mock.lastCall![2]).toMatchObject({
+      environment: 'production',
+      page: 1,
+    })
     expect(api.profilesOverview.mock.lastCall![2]).toMatchObject({ environment: 'production' })
     await view.get('input[aria-label="Search profiles"]').setValue('Home')
     await view.get('form').trigger('submit')

@@ -17,6 +17,7 @@ describe('AuthService', () => {
       passwordHash: await bcrypt.hash('123456', 4),
       permissions: ['user:read'],
       status: UserStatus.Active,
+      sessionVersion: 3,
       ...overrides,
     };
     const users = {
@@ -53,6 +54,7 @@ describe('AuthService', () => {
     expect(payload).toMatchObject({
       sub: 'user-1',
       email: 'admin@example.com',
+      sessionVersion: 3,
     });
     expect(result).toMatchObject({
       user: { id: 'user-1', name: '系统管理员', email: 'admin@example.com' },

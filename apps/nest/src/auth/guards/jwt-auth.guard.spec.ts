@@ -59,6 +59,31 @@ describe('JwtAuthGuard', () => {
   });
 
   it.each([
+    [0, undefined, true],
+    [1, undefined, false],
+    [2, 1, false],
+    [2, 2, true],
+  ])(
+    'checks current session version %s against JWT version %s',
+    async (current, version, allowed) => {
+      const token = await jwt.signAsync({
+        sub: 'user-1',
+        sessionVersion: version,
+      });
+      const users = {
+        findActiveById: () => Promise.resolve({
+          id: 'user-1', permissions: [], sessionVersion: current,
+        }),
+      };
+      const guard = new JwtAuthGuard(new Reflector(), jwt, users as never);
+      const result = guard.canActivate(
+        contextWith({ headers: { authorization: `Bearer ${token}` } }),
+      );
+      await expect(result.catch(() => false)).resolves.toBe(allowed);
+    },
+  );
+
+  it.each([
     ['invalid token', 'not-a-jwt', { findActiveById: jest.fn() }],
     [
       'missing user',

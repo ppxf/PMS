@@ -1,9 +1,19 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+} from 'typeorm';
 import type { Relation } from 'typeorm';
 import { MonitoringProject } from '../../monitoring-projects/entities/monitoring-project.entity';
 import { MonitoringErrorIssue } from './monitoring-error-issue.entity';
 
 @Entity({ name: 'monitoring_events' })
+@Index('monitoring_events_project_received', ['projectId', 'receivedAt'])
+@Index('monitoring_events_project_time', ['projectId', 'timestamp'])
+@Index('monitoring_events_received', ['receivedAt'])
 export class MonitoringEvent {
   @PrimaryColumn({ type: 'uuid' })
   id!: string;

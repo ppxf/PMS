@@ -20,12 +20,20 @@ import { MonitoringEventsModule } from './monitoring-events/monitoring-events.mo
 import { SdkRateLimitService } from './common/http/sdk-rate-limit.service';
 import { SdkRateLimitGuard } from './common/http/sdk-rate-limit.guard';
 import { ProjectInvitationsModule } from './project-invitations/project-invitations.module';
+import { CoordinationModule } from './coordination/coordination.module';
+import { AuthRateLimitGuard } from './coordination/auth-rate-limit.guard';
+import { IdempotencyInterceptor } from './coordination/idempotency.interceptor';
+import { ProjectAccessModule } from './project-access/project-access.module';
+import { RetentionModule } from './retention/retention.module';
 
 @Module({
   imports: [
     AppConfigModule,
+    CoordinationModule,
+    ProjectAccessModule,
     LoggerModule,
     DatabaseModule,
+    RetentionModule,
     AuditRecordsModule,
     WorkspaceModule,
     DashboardModule,
@@ -41,9 +49,14 @@ import { ProjectInvitationsModule } from './project-invitations/project-invitati
     AppService,
     SdkRateLimitService,
     { provide: APP_GUARD, useClass: SdkRateLimitGuard },
+    { provide: APP_GUARD, useClass: AuthRateLimitGuard },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: IdempotencyInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,

@@ -93,12 +93,12 @@ export class MonitoringProjectsService {
       })
       .orderBy('project.createdAt', 'DESC')
       .getMany();
-    return Promise.all(
-      projects.map((project) =>
-        this.findAccessibleBySlug(userId, groupSlug, project.slug),
-      ),
+    const access = await this.access.listAccess(userId, projects);
+    return access.map(({ project, role, permissions }) =>
+      this.toAccessibleResponse(project, role, permissions),
     );
   }
+
   async findOwnedBySlug(
     userId: string,
     groupSlug: string,
@@ -145,6 +145,13 @@ export class MonitoringProjectsService {
       groupSlug,
       projectSlug,
     );
+    return this.toAccessibleResponse(project, role, permissions);
+  }
+  private toAccessibleResponse(
+    project: MonitoringProject,
+    role: 'owner' | 'member',
+    permissions: string[],
+  ) {
     if (role === 'owner')
       return Object.assign(this.toResponse(project), {
         role,
@@ -158,7 +165,13 @@ export class MonitoringProjectsService {
       slug: project.slug,
       platform: project.platform,
       createdAt: project.createdAt,
-      errorMonitoringEnabled: project.errorMonitoringEnabled, loggingEnabled: project.loggingEnabled, tracingEnabled: project.tracingEnabled, metricsEnabled: project.metricsEnabled, profilesEnabled: project.profilesEnabled, connected: Boolean(project.lastSeenAt), lastSeenAt: project.lastSeenAt,
+      errorMonitoringEnabled: project.errorMonitoringEnabled,
+      loggingEnabled: project.loggingEnabled,
+      tracingEnabled: project.tracingEnabled,
+      metricsEnabled: project.metricsEnabled,
+      profilesEnabled: project.profilesEnabled,
+      connected: Boolean(project.lastSeenAt),
+      lastSeenAt: project.lastSeenAt,
       role,
       isOwner: false,
       permissions,
@@ -311,4 +324,3 @@ export class MonitoringProjectsService {
     return url.toString().replace(/\/$/, '');
   }
 }
-

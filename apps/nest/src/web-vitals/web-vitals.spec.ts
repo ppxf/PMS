@@ -31,11 +31,14 @@ describe('Web Vitals validation and ingestion', () => {
     e.measurements = [];
     expect(pipe.transform(e)).toEqual(e);
   });
-  it.each([0, -1, 1.2, Infinity, 2147483648])('rejects revision %s', (revision) => {
-    const e = envelope();
-    e.measurements[0].revision = revision;
-    expect(() => pipe.transform(e)).toThrow();
-  });
+  it.each([0, -1, 1.2, Infinity, 2147483648])(
+    'rejects revision %s',
+    (revision) => {
+      const e = envelope();
+      e.measurements[0].revision = revision;
+      expect(() => pipe.transform(e)).toThrow();
+    },
+  );
   it('rejects nested attribution and duplicate measurements', () => {
     const e = envelope();
     e.measurements.push(e.measurements[0]);
@@ -88,6 +91,17 @@ describe('Web Vitals validation and ingestion', () => {
       'denied',
     );
     expect(s.transaction).not.toHaveBeenCalled();
+  });
+  it('normalizes UUID casing for the shared ingestion and retention advisory lock', async () => {
+    const s = setup();
+    const input = envelope();
+    input.page.id = 'ABCDEFAB-1234-4567-89AB-ABCDEFABCDEF';
+    const projectId = 'ABCDEFAB-1234-4567-89AB-ABCDEFABCDEF';
+    await s.service.ingest(projectId, 'key', input);
+    expect(s.query).toHaveBeenCalledWith(
+      expect.stringContaining('pg_advisory_xact_lock'),
+      [`vitals:${projectId.toLowerCase()}:${input.page.id.toLowerCase()}`],
+    );
   });
   it('rejects changing immutable page dimensions', async () => {
     const s = setup([{ dimensions: { ...envelope().page, route: '/other' } }]);

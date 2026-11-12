@@ -1,3 +1,10 @@
+import { beforeEach as beforeProjectAccessTest } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useProjectAccessStore } from '../../model/project-access.store'
+beforeProjectAccessTest(() => {
+  setActivePinia(createPinia())
+  useProjectAccessStore().access = { projectId: 'test-project', role: 'owner', permissions: [] }
+})
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mount, flushPromises, enableAutoUnmount } from '@vue/test-utils'
 const api = vi.hoisted(() => ({ metricCatalog: vi.fn(), metricQuery: vi.fn() }))

@@ -20,9 +20,9 @@ export class WebVitalsService {
     await this.projects.findForIngestion(projectId, key);
     await this.db.transaction(async (m) => {
       await m.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
-        `vitals:${projectId}:${e.page.id}`,
+        `vitals:${projectId.toLowerCase()}:${e.page.id.toLowerCase()}`,
       ]);
-      const dimensions = { ...e.page };
+      const dimensions = { ...e.page, id: e.page.id.toLowerCase() };
       const rows: { dimensions: typeof dimensions }[] = await m.query(
         'SELECT dimensions FROM monitoring_page_views WHERE project_id=$1 AND id=$2',
         [projectId, e.page.id],

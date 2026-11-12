@@ -18,7 +18,7 @@ const app = createApp(App)
 PMS.init({
   app,
   router,
-  dsn: 'http://<public-key>@localhost:3001/api/sdk/<project-id>',
+  dsn: 'http://<public-key>@localhost:3000/api/sdk/<project-id>',
   environment: 'development',
   release: 'web@1.0.0',
   integrations: [
@@ -94,12 +94,13 @@ app.use((_req, res, next) => {
 
 JS Self-Profiling API 目前由 Chromium 浏览器提供，需使用满足浏览器要求的安全上下文（部署使用 HTTPS，本地可用 localhost）。缺少能力或响应头时 SDK 安全跳过采集，应用继续运行。请在 Chrome/Edge 中确认文档响应头后触发操作，等待 Span 结束或手动停止，再刷新列表。
 
-数据库使用 PostgreSQL。开发环境可通过现有 `DB_SYNCHRONIZE=true` 建表；生产环境关闭自动同步时，部署前运行 [Profiles SQL 迁移](apps/nest/sql/20261023-profiles.sql)：
+数据库使用 PostgreSQL。开发和生产均保持 `DB_SYNCHRONIZE=false`，部署前从仓库根目录执行统一迁移：
 
 ```sh
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/nest/sql/20261023-profiles.sql
+pnpm migration:show
+pnpm migration:run
 ```
 
-请使用目标数据库的连接地址。此 SQL 可重复执行；仓库旧的 `traces:migrate` 命令不包含 Profiles 迁移。启用开关默认为关闭，旧项目不会自动开始采集。
+迁移使用 API 环境文件中的目标数据库配置，覆盖 Profiles 及其他模块；旧的 `traces:migrate` 现在也是完整迁移的别名。不要再单独执行历史 Profiles SQL。已通过自动同步或旧 SQL 建表的数据库应先备份、核对结构并制定接管方案，不能直接套用空库基线。容器与生产命令见 [API 数据库结构管理](apps/nest/README.md#数据库结构管理)。启用开关默认为关闭，旧项目不会自动开始采集。
 
 首版保留浏览器提供的函数名、脚本资源和行列信息，尚未实现 Source Map 反混淆。压缩后的函数名可能仍是短名称。

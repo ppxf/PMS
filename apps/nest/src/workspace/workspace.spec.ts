@@ -2,6 +2,35 @@ import { BadRequestException } from '@nestjs/common';
 import { WorkspaceService, parseQuery } from './workspace.service';
 
 describe('workspace boundaries', () => {
+  it('aggregates ingestion once per authorized signal across the page', async () => {
+    const projects = ['one', 'two'].map((id) => ({
+      id,
+      permissions: ['project:issues:read', 'project:logs:read'],
+    }));
+    const db = {
+      query: jest.fn((sql: string) => Promise.resolve(
+        sql.includes('LEFT JOIN project_members')
+          ? projects
+          : projects.map((p) => ({
+              projectId: p.id,
+              enabled: true,
+              lastSeenAt: new Date(),
+            })),
+      )),
+    };
+    const result = await new WorkspaceService(db as never).ingestion(
+      'member',
+      {},
+    );
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0].signals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'issues', status: 'active' }),
+        expect.objectContaining({ type: 'logs', status: 'active' }),
+      ]),
+    );
+    expect(db.query).toHaveBeenCalledTimes(3);
+  });
   it.each([
     { page: '0' },
     { pageSize: '101' },

@@ -88,7 +88,7 @@ describe('DashboardView', () => {
   it('renders issue links, setup guidance, and searches projects', async () => {
     const wrapper = await render()
     expect(wrapper.text()).toContain('Checkout failed')
-    expect(wrapper.find('a[href="/project-issue-detail/acme/store/i"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/project-issue-detail/g/p1/i"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Waiting for SDK')
     await wrapper.get('input[aria-label="Search projects"]').setValue('Store')
     expect(wrapper.find('[data-project="p1"]').exists()).toBe(true)
@@ -141,4 +141,15 @@ describe('DashboardView', () => {
     expect(empty.text()).toContain('Your monitoring starts here')
     empty.unmount()
   })
+  it('distinguishes previously connected totals from activity in the last 24 hours', async () => {
+    const value = response()
+    value.projects[0]!.lastSeenAt = '2026-11-09T12:00:00Z'
+    getDashboard.mockResolvedValueOnce(value)
+    const wrapper = await render()
+    expect(wrapper.text()).toContain('Previously connected projects')
+    expect(wrapper.text()).toContain('No activity in last 24 hours')
+    expect(wrapper.text()).toContain('Waiting for SDK')
+    wrapper.unmount()
+  })
+
 })

@@ -1,3 +1,10 @@
+import { beforeEach as beforeProjectAccessTest } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useProjectAccessStore } from '../../model/project-access.store'
+beforeProjectAccessTest(() => {
+  setActivePinia(createPinia())
+  useProjectAccessStore().access = { projectId: 'test-project', role: 'owner', permissions: [] }
+})
 import { addQuery, queryBar } from '@/test/query'
 import { selectValue } from '@/test/select'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

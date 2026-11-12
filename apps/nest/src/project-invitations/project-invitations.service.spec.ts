@@ -4,7 +4,7 @@ import { ProjectAccessService } from '../project-access/project-access.service';
 import { ProjectMember } from '../project-access/project-member.entity';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { User, UserStatus } from '../users/entities/user.entity';
-import { MailService } from '../mail/mail.service';
+import { InvitationOutboxService } from '../invitation-outbox/invitation-outbox.service';
 import { ProjectInvitation } from './project-invitation.entity';
 import { ProjectInvitationsService } from './project-invitations.service';
 
@@ -15,7 +15,8 @@ describe('ProjectInvitationsService', () => {
     ownerId: 'owner',
     slug: 'project',
     name: 'Project',
-    group: { slug: 'group' },
+    groupId: 'group-id',
+    group: { id: 'group-id', slug: 'group' },
   };
   const user = {
     id: 'member',
@@ -26,7 +27,7 @@ describe('ProjectInvitationsService', () => {
   let invitation: ProjectInvitation;
   let service: ProjectInvitationsService;
   let repositories: Map<unknown, Record<string, jest.Mock>>;
-  let mail: { sendProjectInvitation: jest.Mock };
+  let outbox: { enqueue: jest.Mock; cancel: jest.Mock };
   let transaction: jest.Mock;
   beforeEach(() => {
     invitation = {
@@ -48,7 +49,7 @@ describe('ProjectInvitationsService', () => {
       findOneByOrFail: jest.fn(),
       findOneOrFail: jest.fn(),
       existsBy: jest.fn().mockResolvedValue(false),
-      save: jest.fn(async (value) => value),
+      save: jest.fn((value) => Promise.resolve(value)),
       insert: jest.fn(),
       delete: jest.fn(),
       create: jest.fn((value) => value),
@@ -93,18 +94,19 @@ describe('ProjectInvitationsService', () => {
     repositories.get(User)!.findOne.mockResolvedValue(null);
     const manager = {
       getRepository: (entity: unknown) => repositories.get(entity),
-      save: jest.fn(async (value) => value),
+      save: jest.fn((value) => Promise.resolve(value)),
     };
-    transaction = jest.fn(async (callback) => callback(manager));
+    transaction = jest.fn((callback) => Promise.resolve(callback(manager)));
     const db = { manager, getRepository: manager.getRepository, transaction };
     const access = { requireOwner: jest.fn().mockResolvedValue({ project }) };
-    mail = {
-      sendProjectInvitation: jest.fn().mockResolvedValue({ messageId: 'ok' }),
+    outbox = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+      cancel: jest.fn().mockResolvedValue(undefined),
     };
     service = new ProjectInvitationsService(
       db as unknown as DataSource,
       access as unknown as ProjectAccessService,
-      mail as unknown as MailService,
+      outbox as unknown as InvitationOutboxService,
     );
   });
 
@@ -120,19 +122,17 @@ describe('ProjectInvitationsService', () => {
   it.each(['wrong-email', 'unverified', 'disabled'])(
     'rejects %s account',
     async (condition) => {
-      repositories
-        .get(User)!
-        .findOneBy.mockResolvedValue({
-          ...user,
-          ...(condition === 'wrong-email'
-            ? { email: 'other@example.com' }
-            : {
-                status:
-                  condition === 'disabled'
-                    ? UserStatus.Disabled
-                    : UserStatus.PendingVerification,
-              }),
-        });
+      repositories.get(User)!.findOneBy.mockResolvedValue({
+        ...user,
+        ...(condition === 'wrong-email'
+          ? { email: 'other@example.com' }
+          : {
+              status:
+                condition === 'disabled'
+                  ? UserStatus.Disabled
+                  : UserStatus.PendingVerification,
+            }),
+      });
       await expect(service.accept('member', token)).rejects.toThrow(
         'verified invited email',
       );
@@ -156,6 +156,8 @@ describe('ProjectInvitationsService', () => {
     await expect(service.accept('member', token)).resolves.toEqual({
       groupSlug: 'group',
       projectSlug: 'project',
+      groupId: 'group-id',
+      projectId: 'project',
     });
     expect(
       repositories.get(ProjectInvitation)!.findOne,
@@ -180,21 +182,18 @@ describe('ProjectInvitationsService', () => {
     );
     expect(repositories.get(ProjectMember)!.insert).not.toHaveBeenCalled();
   });
-  it('persists delivery failure and supports retry with an invalidated old token', async () => {
+  it('persists a pending delivery without waiting for SMTP and invalidates old tokens on resend', async () => {
     const previousHash = invitation.tokenHash;
-    mail.sendProjectInvitation.mockRejectedValueOnce(
-      new Error('SMTP secret token'),
-    );
     expect(
       await service.resend('owner', 'group', 'project', invitation.id),
-    ).toMatchObject({ deliveryStatus: 'failed' });
+    ).toMatchObject({ deliveryStatus: 'pending' });
     expect(invitation.tokenHash).not.toBe(previousHash);
-    const failedHash = invitation.tokenHash;
-    expect(
-      await service.resend('owner', 'group', 'project', invitation.id),
-    ).toMatchObject({ deliveryStatus: 'sent' });
-    expect(invitation.tokenHash).not.toBe(failedHash);
+    expect(outbox.enqueue).toHaveBeenCalledTimes(1);
     await expect(service.preview('member', token)).rejects.toThrow('not found');
+  });
+  it('cancels pending delivery when an invitation is revoked', async () => {
+    await service.revoke('owner', 'group', 'project', invitation.id);
+    expect(outbox.cancel).toHaveBeenCalled();
   });
   it('never reinvites existing members or the owner', async () => {
     repositories.get(User)!.findOne.mockResolvedValue({ ...user, id: 'owner' });
@@ -204,7 +203,7 @@ describe('ProjectInvitationsService', () => {
         permissions: ['project:issues:read'],
       }),
     ).rejects.toThrow('already has project access');
-    expect(mail.sendProjectInvitation).not.toHaveBeenCalled();
+    expect(outbox.enqueue).not.toHaveBeenCalled();
   });
   it('rejects owner membership edits, deletion and invitation acceptance', async () => {
     await expect(

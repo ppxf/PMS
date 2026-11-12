@@ -41,6 +41,7 @@ export enum MonitoringErrorIssueVisibility {
     unique: true,
   },
 )
+@Index('monitoring_error_issues_latest_event', ['latestEventId'])
 export class MonitoringErrorIssue {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -77,7 +78,12 @@ export class MonitoringErrorIssue {
   @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })
   resolvedAt!: Date | null;
 
-  @Column({ name: 'resolution_reason', type: 'varchar', length: 32, nullable: true })
+  @Column({
+    name: 'resolution_reason',
+    type: 'varchar',
+    length: 32,
+    nullable: true,
+  })
   resolutionReason!: MonitoringErrorIssueResolutionReason | null;
 
   @Column({ name: 'reopened_at', type: 'timestamptz', nullable: true })

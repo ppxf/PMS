@@ -1,3 +1,10 @@
+import { beforeEach as beforeProjectAccessTest } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useProjectAccessStore } from '../../model/project-access.store'
+beforeProjectAccessTest(() => {
+  setActivePinia(createPinia())
+  useProjectAccessStore().access = { projectId: 'test-project', role: 'owner', permissions: [] }
+})
 import { addQuery, queryBar } from '@/test/query'
 import { openSelect, selectValue } from '@/test/select'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -298,16 +305,13 @@ describe('Traces views', () => {
     await view.get('button[aria-label="Next page"]').trigger('click')
     await flushPromises()
     await selectValue(view, 'Interval', '1m')
-    await flushPromises()
     await selectValue(view, 'Time range', '7d')
-    await flushPromises()
     expect(api.traceSeries.mock.lastCall![2].interval).toBe('auto')
     expect(
       (await openSelect(view, 'Interval')).get('[data-value="1m"]').attributes('data-disabled'),
     ).toBeDefined()
     for (const interval of ['1h', '3h', '6h', '1d']) {
       await selectValue(view, 'Interval', interval)
-      await flushPromises()
       for (const apiCall of [api.traceSeries, api.traceAggregates, api.spanSamples]) {
         const q = apiCall.mock.lastCall![2]
         expect(q).toMatchObject({ interval, page: 1 })

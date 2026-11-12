@@ -53,7 +53,7 @@ onMounted(load)
       <RouterLink
         v-for="group in groups"
         :key="group.id"
-        :to="{ name: 'group-detail', params: { groupSlug: group.slug } }"
+        :to="{ name: 'group-detail', params: { groupSlug: group.id } }"
       >
         <Card class="h-full transition-colors hover:bg-muted/30">
           <CardHeader>

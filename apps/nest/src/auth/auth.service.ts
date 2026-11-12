@@ -69,9 +69,14 @@ export class AuthService {
     } catch (error) {
       if ((error as { code?: string }).code === '23505')
         throw new ConflictException('This email is already registered');
-      throw new ServiceUnavailableException('Unable to send the verification email. Please try again later.');
+      throw new ServiceUnavailableException(
+        'Unable to send the verification email. Please try again later.',
+      );
     }
-    return { message: 'Registration successful. Please check your email for a verification link.' };
+    return {
+      message:
+        'Registration successful. Please check your email for a verification link.',
+    };
   }
 
   async verifyEmail(tokenValue: string): Promise<{ message: string }> {
@@ -82,7 +87,9 @@ export class AuthService {
         manager,
       );
       if (!token || token.user.status !== UserStatus.PendingVerification) {
-        throw new BadRequestException('The verification link is invalid or has expired');
+        throw new BadRequestException(
+          'The verification link is invalid or has expired',
+        );
       }
       await this.users.activate(token.userId, manager);
       await this.tokens.consumeAll(
@@ -114,7 +121,10 @@ export class AuthService {
         );
       }
     }
-    return { message: 'If this email requires verification, we will send a verification email.' };
+    return {
+      message:
+        'If this email requires verification, we will send a verification email.',
+    };
   }
 
   async forgotPassword(emailInput: string): Promise<{ message: string }> {
@@ -134,7 +144,10 @@ export class AuthService {
         );
       }
     }
-    return { message: 'If this email is registered, we will send a password reset email.' };
+    return {
+      message:
+        'If this email is registered, we will send a password reset email.',
+    };
   }
 
   async resetPassword(input: {
@@ -150,7 +163,9 @@ export class AuthService {
         manager,
       );
       if (!token || token.user.status !== UserStatus.Active) {
-        throw new BadRequestException('The password reset link is invalid or has expired');
+        throw new BadRequestException(
+          'The password reset link is invalid or has expired',
+        );
       }
       await this.users.updatePassword(
         token.userId,
@@ -181,7 +196,11 @@ export class AuthService {
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
-    const payload: JwtPayload = { sub: user.id, email: user.email };
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      sessionVersion: user.sessionVersion ?? 0,
+    };
     return {
       accessToken: await this.jwt.signAsync(payload),
       ...this.toCurrentUser(user),

@@ -46,7 +46,18 @@ describe('management audit capture', () => {
       group: { name: 'group' },
       loggingEnabled: false,
     };
-    const db = { getRepository: () => ({ find: () => Promise.resolve([project]) }) };
+    const find = jest.fn().mockResolvedValue([project]);
+    const db = {
+      getRepository: () => ({
+        find,
+        existsBy: jest.fn().mockResolvedValue(false),
+        manager: {
+          getRepository: () => ({
+            existsBy: jest.fn().mockResolvedValue(false),
+          }),
+        },
+      }),
+    };
     const request = {
       method: 'PATCH',
       route: { path: '/groups/:groupSlug/projects/:projectSlug/logging' },
@@ -74,6 +85,9 @@ describe('management audit capture', () => {
     return {
       record,
       context,
+      request,
+      find,
+      project,
       interceptor: new AuditRecordsInterceptor(
         { record } as unknown as AuditRecordsService,
         db as unknown as DataSource,
@@ -115,5 +129,21 @@ describe('management audit capture', () => {
       }),
     );
     expect(JSON.stringify(record.mock.calls)).not.toContain('credential');
+  });
+  it('keeps the project audit snapshot when an old group slug looks like a UUID', async () => {
+    const { record, context, interceptor, request, find, project } = setup();
+    request.params.groupSlug = 'abcdefab-1234-4567-89ab-abcdefabcdef';
+    find.mockResolvedValueOnce([]).mockResolvedValueOnce([project]);
+    await lastValueFrom(
+      await interceptor.intercept(context, {
+        handle: () => of({ loggingEnabled: true }),
+      }),
+    );
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: project.id,
+        projectOwnerId: 'owner',
+      }),
+    );
   });
 });

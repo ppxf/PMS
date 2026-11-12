@@ -20,6 +20,17 @@ export const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getHttpAuthProvider()?.getAccessToken()
+  const path = new URL(config.url ?? '', window.location.origin).pathname.replace(
+    /^\/api(?=\/)/,
+    '',
+  )
+  if (
+    /^(post|put|patch|delete)$/i.test(config.method ?? '') &&
+    /^\/(groups|workspace)(?:\/|$)/.test(path) &&
+    !config.headers.has('Idempotency-Key')
+  ) {
+    config.headers.set('Idempotency-Key', crypto.randomUUID())
+  }
 
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`)
@@ -35,8 +46,14 @@ axiosInstance.interceptors.response.use(
   async (error: unknown) => {
     const appError = normalizeHttpError(error)
 
-    if (appError.status === 403 && axios.isAxiosError(error) && /\/groups\/[^/]+\/projects\/[^/]+/.test(error.config?.url ?? '')) {
-      window.dispatchEvent(new CustomEvent('project-access-forbidden', { detail: error.config?.url }))
+    if (
+      appError.status === 403 &&
+      axios.isAxiosError(error) &&
+      /\/groups\/[^/]+\/projects\/[^/]+/.test(error.config?.url ?? '')
+    ) {
+      window.dispatchEvent(
+        new CustomEvent('project-access-forbidden', { detail: error.config?.url }),
+      )
     }
 
     if (appError.status === 401) {

@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { TRACE_HISTORY_DAYS } from './traces-contract';
+import {
+  MONITORING_RETENTION_DAYS,
+  cleanupTable,
+} from '../retention/retention.service';
 
 @Injectable()
 export class TracesRetentionService {
   constructor(private readonly dataSource: DataSource) {}
-  // Dry-run by default. Explicit operator execution is required; no timer is registered.
   async cleanup(
     execute = false,
     now = new Date(),
@@ -15,32 +17,29 @@ export class TracesRetentionService {
     batches: number;
     executed: boolean;
   }> {
-    const cutoff = new Date(now.getTime() - TRACE_HISTORY_DAYS * 24 * 3600000);
-    return this.dataSource.transaction(async (manager) => {
-      const spanCount = await manager.query<{ count: string }[]>(
-        'SELECT count(*)::text AS count FROM monitoring_spans WHERE received_at < $1',
-        [cutoff],
-      );
-      const batchCount = await manager.query<{ count: string }[]>(
-        'SELECT count(*)::text AS count FROM monitoring_trace_ingest_batches WHERE received_at < $1',
-        [cutoff],
-      );
-      if (execute) {
-        await manager.query(
-          'DELETE FROM monitoring_spans WHERE received_at < $1',
+    const cutoff = new Date(
+      now.getTime() - MONITORING_RETENTION_DAYS * 86400000,
+    );
+    const counts: number[] = [];
+    for (const table of [
+      'monitoring_spans',
+      'monitoring_trace_ingest_batches',
+    ]) {
+      if (execute)
+        counts.push(await cleanupTable(this.dataSource, table, cutoff));
+      else {
+        const [row] = await this.dataSource.query<{ count: string }[]>(
+          `SELECT count(*)::text AS count FROM ${table} WHERE received_at < $1`,
           [cutoff],
         );
-        await manager.query(
-          'DELETE FROM monitoring_trace_ingest_batches WHERE received_at < $1',
-          [cutoff],
-        );
+        counts.push(Number(row.count));
       }
-      return {
-        cutoff: cutoff.toISOString(),
-        spans: Number(spanCount[0].count),
-        batches: Number(batchCount[0].count),
-        executed: execute,
-      };
-    });
+    }
+    return {
+      cutoff: cutoff.toISOString(),
+      spans: counts[0],
+      batches: counts[1],
+      executed: execute,
+    };
   }
 }

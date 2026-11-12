@@ -21,13 +21,38 @@ export async function evaluateAlerts(db: DataSource) {
     const rules: AlertRuleRow[] = await manager.query(
       'SELECT * FROM workspace_alert_rules WHERE enabled=true FOR UPDATE',
     );
+    const windows = [
+      ...new Map(
+        rules
+          .filter((r) => r.kind === 'error_threshold')
+          .map((r) => [
+            `${r.project_id}:${r.window_minutes}`,
+            { project_id: r.project_id, window_minutes: r.window_minutes },
+          ]),
+      ).values(),
+    ];
+    const counts = new Map<string, number>();
+    if (windows.length) {
+      const rows: {
+        project_id: string;
+        window_minutes: number;
+        count: string;
+      }[] = await manager.query(
+        `SELECT w.project_id,w.window_minutes,count(e.id)::text AS count FROM jsonb_to_recordset($1::jsonb) AS w(project_id uuid,window_minutes integer) LEFT JOIN monitoring_events e ON e.project_id=w.project_id AND e.received_at>=now()-(w.window_minutes * interval '1 minute') AND e.received_at<=now() GROUP BY w.project_id,w.window_minutes`,
+        [JSON.stringify(windows)],
+      );
+      for (const row of rows)
+        counts.set(
+          `${row.project_id}:${row.window_minutes}`,
+          Number(row.count),
+        );
+    }
     for (const r of rules) {
       if (r.kind === 'error_threshold') {
-        const [n] = await manager.query(
-          `SELECT count(*) AS count FROM monitoring_events WHERE project_id=$1 AND received_at>=now()-($2 * interval '1 minute') AND received_at<=now()`,
-          [r.project_id, r.window_minutes],
-        );
-        if (Number(n.count) >= r.threshold)
+        if (
+          (counts.get(`${r.project_id}:${r.window_minutes}`) ?? 0) >=
+          r.threshold
+        )
           await manager.query(
             `INSERT INTO workspace_alerts(project_id,rule_id,kind,title,dedup_key) SELECT $1,$2,$3,$4,gen_random_uuid()::text WHERE NOT EXISTS(SELECT 1 FROM workspace_alerts WHERE rule_id=$2 AND status='open')`,
             [r.project_id, r.id, r.kind, r.name],

@@ -135,7 +135,11 @@ describe('bounded authorized SQL queries', () => {
       ) => action(manager),
     } as unknown as DataSource;
     const projects = {
-      getAccess: async () => ({role:'owner',permissions:['project:web-vitals:read']}),
+      getAccess: () =>
+        Promise.resolve({
+          role: 'owner',
+          permissions: ['project:web-vitals:read'],
+        }),
       findReadableBySlug: jest.fn(() => Promise.resolve({ id: 'project-id' })),
     } as unknown as MonitoringProjectsService;
     const service = new TracesService(dataSource, projects);
@@ -162,7 +166,9 @@ describe('bounded authorized SQL queries', () => {
       const f = fixture();
       const input = new SpanQueryPipe().transform({
         ...f.input,
-        end: new Date(Date.parse(f.input.start) + days * 86400000).toISOString(),
+        end: new Date(
+          Date.parse(f.input.start) + days * 86400000,
+        ).toISOString(),
         interval,
       });
       f.query
@@ -247,7 +253,7 @@ describe('bounded authorized SQL queries', () => {
       'owner',
       'group',
       'project',
-    'project:traces:read',
+      'project:traces:read',
     );
     expect(result.series[0].points.map((point) => point.value)).toEqual([
       2, 0, 0,
@@ -302,10 +308,7 @@ describe('retention', () => {
     const query = jest.fn<Promise<{ count: string }[]>, [string]>(() =>
       Promise.resolve([{ count: '2' }]),
     );
-    const dataSource = {
-      transaction: (action: (manager: unknown) => Promise<unknown>) =>
-        action({ query }),
-    } as unknown as DataSource;
+    const dataSource = { query } as unknown as DataSource;
     const result = await new TracesRetentionService(dataSource).cleanup(
       false,
       new Date('2026-10-31T00:00:00Z'),
@@ -322,6 +325,3 @@ describe('retention', () => {
     );
   });
 });
-
-
-

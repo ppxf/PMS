@@ -224,8 +224,8 @@ async function acknowledge(id: string) {
 function detail(row: Row) {
   const project = projects.value.find((p) => p.id === (row.projectId ?? row.id))
   const params = {
-    groupSlug: row.groupSlug ?? project?.groupSlug,
-    projectSlug: row.projectSlug ?? project?.slug,
+    groupSlug: project?.groupId,
+    projectSlug: project?.id,
   }
   if (!params.groupSlug || !params.projectSlug) return undefined
   if (props.section === 'issues')

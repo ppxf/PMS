@@ -29,6 +29,15 @@ async function load(): Promise<void> {
   }
 }
 
+function projectDestination(project: MonitoringProject): string {
+  if (project.role === 'owner') return 'project-setup'
+  const module = ['issues', 'traces', 'metrics', 'web-vitals', 'logs', 'profiles'].find((module) =>
+    project.permissions?.includes(`project:${module}:read`),
+  )
+  if (module) return `project-${module}`
+  return project.permissions?.includes('project:audit:read') ? 'workspace-audit' : 'forbidden'
+}
+
 onMounted(load)
 </script>
 
@@ -46,7 +55,7 @@ onMounted(load)
           <p class="mt-1 text-muted-foreground">Manage Vue monitoring projects in this group.</p>
         </div>
         <Button v-if="group.isOwner" as-child>
-          <RouterLink :to="{ name: 'create-project', params: { groupSlug } }"
+          <RouterLink :to="{ name: 'create-project', params: { groupSlug: group.id } }"
             >Create project</RouterLink
           >
         </Button>
@@ -63,13 +72,17 @@ onMounted(load)
         <RouterLink
           v-for="project in projects"
           :key="project.id"
-          :to="{ name: 'project-setup', params: { groupSlug, projectSlug: project.slug } }"
+          :to="{
+            name: projectDestination(project),
+            params: { groupSlug: group.id, projectSlug: project.id },
+          }"
         >
           <Card class="h-full transition-colors hover:bg-muted/30">
             <CardHeader>
-              <CardTitle>{{ project.name }}</CardTitle><p class="text-sm text-muted-foreground">{{ project.role }}</p>
+              <CardTitle>{{ project.name }}</CardTitle>
+              <p class="text-sm text-muted-foreground">{{ project.role }}</p>
               <CardDescription
-                >{{ project.connected ? 'Connected' : 'Awaiting connection' }} ·
+                >{{ project.connected ? 'Previously connected' : 'Awaiting first connection' }} ·
                 Vue</CardDescription
               >
             </CardHeader>

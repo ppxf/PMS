@@ -6,35 +6,35 @@ describe('SDK single-instance IP rate limiting', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
-  it('limits to configured requests, returns Retry-After, and resets after the window', () => {
+  it('limits to configured requests, returns Retry-After, and resets after the window', async () => {
     let now = 1000;
     jest.spyOn(Date, 'now').mockImplementation(() => now);
     const limiter = new SdkRateLimitService(
       new ConfigService({ monitoring: { sdkRateLimitPerMinute: 2 } }),
     );
     const retry = jest.fn();
-    limiter.consume('ip', retry);
-    limiter.consume('ip', retry);
-    expect(() => limiter.consume('ip', retry)).toThrow(
+    await limiter.consume('ip', retry);
+    await limiter.consume('ip', retry);
+    await expect(limiter.consume('ip', retry)).rejects.toThrow(
       'SDK rate limit exceeded',
     );
     expect(retry).toHaveBeenCalledWith(60);
-    limiter.consume('different', retry);
+    await limiter.consume('different', retry);
     now += 60000;
-    expect(() => limiter.consume('ip', retry)).not.toThrow();
+    await expect(limiter.consume('ip', retry)).resolves.toBeUndefined();
   });
-  it('bounds the IP map and reclaims expired entries without evicting active quotas', () => {
+  it('bounds the IP map and reclaims expired entries without evicting active quotas', async () => {
     let now = 1000;
     jest.spyOn(Date, 'now').mockImplementation(() => now);
     const limiter = new SdkRateLimitService(
       new ConfigService({ monitoring: { sdkRateLimitMaxIps: 1 } }),
     );
-    limiter.consume('one', jest.fn());
-    expect(() => limiter.consume('two', jest.fn())).toThrow();
+    await limiter.consume('one', jest.fn());
+    await expect(limiter.consume('two', jest.fn())).rejects.toThrow();
     now += 60000;
-    expect(() => limiter.consume('two', jest.fn())).not.toThrow();
+    await expect(limiter.consume('two', jest.fn())).resolves.toBeUndefined();
   });
-  it('counts only SDK POST and uses request.ip instead of untrusted forwarded headers', () => {
+  it('counts only SDK POST and uses request.ip instead of untrusted forwarded headers', async () => {
     const limiter = { consume: jest.fn() };
     const guard = new SdkRateLimitGuard(limiter as never, new ConfigService());
     const context = (path: string, method: string) => ({
@@ -54,9 +54,9 @@ describe('SDK single-instance IP rate limiting', () => {
       ['/api/sdk/check', 'OPTIONS'],
       ['/api/sdk/check/extra', 'POST'],
     ])
-      guard.canActivate(context(path, method) as never);
+      await guard.canActivate(context(path, method) as never);
     expect(limiter.consume).not.toHaveBeenCalled();
-    guard.canActivate(context('/api/sdk/check', 'POST') as never);
+    await guard.canActivate(context('/api/sdk/check', 'POST') as never);
     expect(limiter.consume).toHaveBeenCalledWith(
       'remote',
       expect.any(Function),

@@ -49,6 +49,7 @@ export function sdkCors(
         staticOrigins.includes(request.headers.origin),
       ),
       methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      exposedHeaders: ['Retry-After', 'Idempotency-Replayed'],
     });
   };
 }

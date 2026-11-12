@@ -1,4 +1,5 @@
-export const TRACE_HISTORY_DAYS = 30;
+import { MONITORING_RETENTION_DAYS } from '../retention/retention.constants';
+export const TRACE_HISTORY_DAYS = MONITORING_RETENTION_DAYS;
 
 export interface MonitoringSpan {
   traceId: string;

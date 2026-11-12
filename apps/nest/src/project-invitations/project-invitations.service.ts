@@ -11,7 +11,7 @@ import { ProjectAccessService } from '../project-access/project-access.service';
 import { ProjectMember } from '../project-access/project-member.entity';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { User, UserStatus } from '../users/entities/user.entity';
-import { MailService } from '../mail/mail.service';
+import { InvitationOutboxService } from '../invitation-outbox/invitation-outbox.service';
 import { ProjectInvitation } from './project-invitation.entity';
 import {
   normalizeInvitationEmail,
@@ -27,7 +27,7 @@ export class ProjectInvitationsService {
   constructor(
     private readonly db: DataSource,
     private readonly access: ProjectAccessService,
-    private readonly mail: MailService,
+    private readonly outbox: InvitationOutboxService,
   ) {}
 
   private publicInvitation(invitation: ProjectInvitation) {
@@ -97,7 +97,16 @@ export class ProjectInvitationsService {
           deliveryStatus: 'pending',
         }),
       );
-      await this.deliver(manager, invitation, token, project.name, userId);
+      const inviter = await manager
+        .getRepository(User)
+        .findOneByOrFail({ id: userId });
+      await this.outbox.enqueue(
+        manager,
+        invitation,
+        token,
+        project.name,
+        inviter.name,
+      );
       return this.publicInvitation(invitation);
     });
   }
@@ -128,7 +137,16 @@ export class ProjectInvitationsService {
       invitation.expiresAt = new Date(Date.now() + 7 * 86400000);
       invitation.deliveryStatus = 'pending';
       await manager.save(invitation);
-      await this.deliver(manager, invitation, token, project.name, userId);
+      const inviter = await manager
+        .getRepository(User)
+        .findOneByOrFail({ id: userId });
+      await this.outbox.enqueue(
+        manager,
+        invitation,
+        token,
+        project.name,
+        inviter.name,
+      );
       return this.publicInvitation(invitation);
     });
   }
@@ -155,6 +173,7 @@ export class ProjectInvitationsService {
         throw new ConflictException('Invitation has already been accepted');
       invitation.revokedAt ??= new Date();
       await manager.save(invitation);
+      await this.outbox.cancel(manager, invitation.id);
       return this.publicInvitation(invitation);
     });
   }
@@ -227,7 +246,12 @@ export class ProjectInvitationsService {
           where: { id: project.id },
           relations: { group: true },
         });
-      return { groupSlug: withGroup.group.slug, projectSlug: project.slug };
+      return {
+        groupSlug: withGroup.group.slug,
+        projectSlug: project.slug,
+        groupId: withGroup.groupId,
+        projectId: project.id,
+      };
     });
   }
 
@@ -392,29 +416,5 @@ export class ProjectInvitationsService {
       invitation.deliveryStatus !== 'sent'
     )
       throw new BadRequestException('Invitation is no longer valid');
-  }
-  private async deliver(
-    manager: EntityManager,
-    invitation: ProjectInvitation,
-    token: string,
-    projectName: string,
-    inviterId: string,
-  ) {
-    const inviter = await manager
-      .getRepository(User)
-      .findOneByOrFail({ id: inviterId });
-    try {
-      await this.mail.sendProjectInvitation(
-        invitation.email,
-        token,
-        projectName,
-        inviter.name,
-      );
-      invitation.deliveryStatus = 'sent';
-    } catch {
-      // Persist failure without transport errors, which can contain the token or credentials.
-      invitation.deliveryStatus = 'failed';
-    }
-    await manager.save(invitation);
   }
 }

@@ -64,9 +64,9 @@ function stateLabel(status: string) {
   return (
     (
       {
-        active: 'Receiving data',
+        active: 'Active in last 24 hours',
         waiting: 'Waiting for data',
-        stale: 'No recent data',
+        stale: 'No activity in last 24 hours',
         disabled: 'Disabled',
       } as Record<string, string>
     )[status] ?? status
@@ -116,7 +116,7 @@ function time(value: string | null) {
       <div class="min-w-0">
         <h2 class="page-title">Ingestion status</h2>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Check data collection and the latest activity for each project.
+          Check data collection activity in the last 24 hours for each project.
         </p>
       </div>
     </header>
@@ -297,8 +297,8 @@ function time(value: string | null) {
       >
         <Clock class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
         <p>
-          No recent data means nothing was received in the last 24 hours. It does not necessarily
-          indicate a connection failure.
+          Activity reflects data received in the last 24 hours. A previously connected project may
+          have no recent activity.
         </p>
       </div>
       <footer class="border-t bg-muted/10 px-5 py-4 sm:px-6">

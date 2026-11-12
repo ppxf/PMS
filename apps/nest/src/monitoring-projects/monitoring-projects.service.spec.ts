@@ -1,12 +1,19 @@
 import { ConfigService } from '@nestjs/config';
 import { ConflictException } from '@nestjs/common';
 import { MonitoringProjectsService } from './monitoring-projects.service';
+import { ProjectAccessService } from '../project-access/project-access.service';
 import { UpdateLoggingPipe } from './dto/update-logging.pipe';
 
 describe('MonitoringProjectsService', () => {
   it('requires a strict boolean for the Logs project switch', () => {
-    expect(new UpdateLoggingPipe().transform({ loggingEnabled: true })).toEqual({ loggingEnabled: true });
-    for (const input of [{ loggingEnabled: 'true' }, {}, { loggingEnabled: true, extra: 1 }]) {
+    expect(new UpdateLoggingPipe().transform({ loggingEnabled: true })).toEqual(
+      { loggingEnabled: true },
+    );
+    for (const input of [
+      { loggingEnabled: 'true' },
+      {},
+      { loggingEnabled: true, extra: 1 },
+    ]) {
       expect(() => new UpdateLoggingPipe().transform(input)).toThrow();
     }
   });
@@ -38,6 +45,10 @@ describe('MonitoringProjectsService', () => {
       new ConfigService({
         monitoring: { publicUrl: 'http://localhost:3001' },
       }),
+      new ProjectAccessService(
+        repository as never,
+        { find: jest.fn().mockResolvedValue([]) } as never,
+      ),
     );
 
     const created = await service.create('user-1', 'acme-team', {
@@ -69,6 +80,10 @@ describe('MonitoringProjectsService', () => {
       new ConfigService({
         monitoring: { publicUrl: 'https://monitor.example.com' },
       }),
+      new ProjectAccessService(
+        repository as never,
+        { find: jest.fn().mockResolvedValue([]) } as never,
+      ),
     );
 
     const created = await service.create('user-1', 'acme-team', {
@@ -98,6 +113,10 @@ describe('MonitoringProjectsService', () => {
       new ConfigService({
         monitoring: { publicUrl: 'http://localhost:3001' },
       }),
+      new ProjectAccessService(
+        repository as never,
+        { find: jest.fn().mockResolvedValue([]) } as never,
+      ),
     );
 
     await expect(
@@ -121,6 +140,10 @@ describe('MonitoringProjectsService', () => {
       new ConfigService({
         monitoring: { publicUrl: 'http://localhost:3001' },
       }),
+      new ProjectAccessService(
+        repository as never,
+        { find: jest.fn().mockResolvedValue([]) } as never,
+      ),
     );
 
     const result = await service.checkConnection(
@@ -145,4 +168,3 @@ describe('MonitoringProjectsService', () => {
     );
   });
 });
-

@@ -29,6 +29,7 @@ export class UsersService {
         name: true,
         status: true,
         permissions: true,
+        sessionVersion: true,
       },
     });
   }
@@ -75,6 +76,7 @@ export class UsersService {
   ): Promise<unknown> {
     return (manager?.getRepository(User) ?? this.repository).update(id, {
       passwordHash,
+      sessionVersion: () => 'session_version + 1',
     });
   }
 }

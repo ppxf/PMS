@@ -26,10 +26,10 @@ function fixture(permissions: string[]) {
   } as MonitoringProject;
   let joined = true;
   const repository = {
-    find: async () => [project],
+    find: () => Promise.resolve([project]),
   } as unknown as Repository<MonitoringProject>;
   const members = {
-    findOne: async () => (joined ? { permissions } : null),
+    find: () => Promise.resolve(joined ? [{ projectId: project.id, permissions }] : []),
   } as unknown as Repository<ProjectMember>;
   const access = new ProjectAccessService(repository, members);
   const projects = new MonitoringProjectsService(

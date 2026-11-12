@@ -1,6 +1,11 @@
 import { validateEnvironment } from './env.validation';
 
 describe('validateEnvironment authentication settings', () => {
+  it('requires Redis in an otherwise complete production configuration', () => {
+    expect(() =>
+      validateEnvironment(completeProduction({ REDIS_URL: undefined })),
+    ).toThrow('REDIS_URL');
+  });
   it.each(['-1', 'true', '1.5', '3'])(
     'rejects unsafe or unsupported proxy hop counts: %s',
     (hops) => {
@@ -46,6 +51,7 @@ describe('validateEnvironment authentication settings', () => {
       APP_FRONTEND_URL: 'https://pms.example.com',
       CORS_ORIGINS: 'https://pms.example.com',
       PUBLIC_URL: 'https://monitor.example.com',
+      REDIS_URL: 'redis://redis:6379',
     };
 
     expect(validateEnvironment(config)).toBe(config);
@@ -85,6 +91,7 @@ describe('validateEnvironment authentication settings', () => {
       APP_FRONTEND_URL: 'https://pms.example.com',
       CORS_ORIGINS: 'https://pms.example.com',
       PUBLIC_URL: 'https://monitor.example.com',
+      REDIS_URL: 'redis://redis:6379',
       EMAIL_VERIFICATION_EXPIRES_IN_MINUTES: '1440',
       PASSWORD_RESET_EXPIRES_IN_MINUTES: '30',
     };
@@ -181,6 +188,7 @@ describe('validateEnvironment authentication settings', () => {
 
 function completeProduction(overrides: Record<string, unknown> = {}) {
   return {
+    REDIS_URL: 'redis://redis:6379',
     NODE_ENV: 'production',
     JWT_SECRET: 'a-production-jwt-secret-with-32-characters',
     SMTP_HOST: 'smtp.example.com',

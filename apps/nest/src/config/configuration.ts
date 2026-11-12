@@ -44,6 +44,20 @@ export default () => ({
       process.env.PASSWORD_RESET_EXPIRES_IN_MINUTES ?? 30,
     ),
   },
+  redis: {
+    url: process.env.REDIS_URL ?? '',
+    keyPrefix: process.env.REDIS_KEY_PREFIX ?? 'pms:',
+    memoryMaxEntries: 10000,
+  },
+  retention: {
+    enabled: parseBoolean(
+      process.env.RETENTION_ENABLED,
+      process.env.NODE_ENV === 'production',
+    ),
+    intervalMinutes: Number(process.env.RETENTION_INTERVAL_MINUTES ?? 60),
+    days: Number(process.env.RETENTION_DAYS ?? 30),
+    batchSize: Number(process.env.RETENTION_BATCH_SIZE ?? 5000),
+  },
   mail: {
     host: process.env.SMTP_HOST ?? 'localhost',
     port: Number(process.env.SMTP_PORT ?? 1025),

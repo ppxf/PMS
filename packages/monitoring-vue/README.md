@@ -21,7 +21,7 @@ pnpm add @pms/monitoring-vue
 业务应用 .env.local：
 
 ```dotenv
-VITE_PMS_DSN=http://public-key@localhost:3001/api/sdk/project-id
+VITE_PMS_DSN=http://public-key@localhost:3000/api/sdk/project-id
 ```
 
 按普通 SDK 接入方式调用 `init` 即开始采集和上报，无需授权码或域名绑定。默认项目允许任意来源上报；需要限制来源时，在 PMS 接入页填写项目的允许来源列表。

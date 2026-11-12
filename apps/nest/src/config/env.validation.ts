@@ -12,6 +12,28 @@ import { plainToInstance } from 'class-transformer';
 
 class EnvironmentVariables {
   @IsOptional()
+  @IsIn(['true', 'false'])
+  RETENTION_ENABLED?: string;
+
+  @IsOptional()
+  @Matches(/^[1-9]\d{0,3}$/)
+  RETENTION_DAYS?: string;
+
+  @IsOptional()
+  @Matches(/^[1-9]\d{0,3}$/)
+  RETENTION_INTERVAL_MINUTES?: string;
+
+  @IsOptional()
+  @Matches(/^[1-9]\d{0,4}$/)
+  RETENTION_BATCH_SIZE?: string;
+  @IsOptional()
+  @Matches(/^rediss?:\/\/[^\s]+$/)
+  REDIS_URL?: string;
+
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9_:-]{1,64}$/)
+  REDIS_KEY_PREFIX?: string;
+  @IsOptional()
   @IsIn(['development', 'test', 'production'])
   NODE_ENV?: string;
 
@@ -184,6 +206,10 @@ export function validateEnvironment(
         'Environment validation failed: PUBLIC_URL must use HTTPS in production',
       );
     }
+    if (!validated.REDIS_URL)
+      throw new Error(
+        'Environment validation failed: REDIS_URL is required in production',
+      );
   }
 
   return config;

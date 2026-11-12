@@ -6,6 +6,8 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Baseline1793577600000 } from './migrations/1793577600000-baseline';
+import { ProductionHardening1794528000000 } from './migrations/1794528000000-production-hardening';
+import { InvitationOutbox1794528000001 } from './migrations/1794528000001-invitation-outbox';
 
 // Opt in with a disposable PostgreSQL database. All objects use a fresh schema.
 const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
@@ -32,6 +34,8 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
         ProjectAccess1794355200000,
         AuditRecords1794441600000,
         WorkspaceAlerts1794441600001,
+        ProductionHardening1794528000000,
+        InvitationOutbox1794528000001,
       ],
       migrationsTableName: 'pms_migrations',
       synchronize: false,
@@ -46,7 +50,9 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
           if (!/^'.*'::jsonb$/.test(expression)) {
             throw new Error(`Unexpected JSONB default: ${expression}`);
           }
-          column.default = JSON.parse(expression.slice(1, -8)) as unknown;
+          column.default = JSON.parse(
+            expression.slice(1, -8),
+          ) as typeof column.default;
         }
       }
     }
@@ -64,12 +70,14 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
   });
 
   it('creates every entity without schema drift, tracks execution and supports down/up', async () => {
-    expect(await source.runMigrations()).toHaveLength(5);
-    expect(source.entityMetadatas).toHaveLength(19);
+    expect(await source.runMigrations()).toHaveLength(7);
+    expect(source.entityMetadatas).toHaveLength(20);
     expect((await source.driver.createSchemaBuilder().log()).upQueries).toEqual(
       [],
     );
     expect(await source.runMigrations()).toHaveLength(0);
+    await source.undoLastMigration();
+    await source.undoLastMigration();
     await source.undoLastMigration();
     await source.undoLastMigration();
     await source.undoLastMigration();
@@ -80,7 +88,7 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
       [schema],
     );
     expect(tables.map((row) => row.table_name)).toEqual(['pms_migrations']);
-    expect(await source.runMigrations()).toHaveLength(5);
+    expect(await source.runMigrations()).toHaveLength(7);
     expect((await source.driver.createSchemaBuilder().log()).upQueries).toEqual(
       [],
     );

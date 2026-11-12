@@ -23,6 +23,7 @@ import GroupsView from '../GroupsView.vue'
 
 const group = {
   id: 'group-1',
+  isOwner: true,
   name: 'Acme',
   slug: 'acme',
   projectCount: 1,
@@ -47,7 +48,7 @@ describe('group views', () => {
     expect(createGroup).toHaveBeenCalledWith({ name: 'Acme' })
     expect(push).toHaveBeenCalledWith({
       name: 'create-project',
-      params: { groupSlug: 'acme' },
+      params: { groupSlug: 'group-1' },
     })
   })
 
@@ -71,7 +72,7 @@ describe('group views', () => {
   it('shows group projects and a create project action', async () => {
     getGroup.mockResolvedValue(group)
     listProjects.mockResolvedValue([
-      { id: 'project-1', name: 'Frontend', slug: 'frontend', connected: false },
+      { id: 'project-1', name: 'Frontend', slug: 'frontend', connected: false, role: 'owner' },
     ])
     const wrapper = mount(GroupDetailView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
@@ -81,5 +82,31 @@ describe('group views', () => {
     expect(wrapper.text()).toContain('Acme')
     expect(wrapper.text()).toContain('Frontend')
     expect(wrapper.text()).toContain('Create project')
+  })
+  it('links members to a permitted module using IDs and hides group creation controls', async () => {
+    getGroup.mockResolvedValue({ ...group, isOwner: false })
+    listProjects.mockResolvedValue([
+      {
+        id: 'project-1',
+        name: 'Frontend',
+        slug: 'frontend',
+        role: 'member',
+        permissions: ['project:logs:read'],
+        connected: true,
+      },
+    ])
+    const wrapper = mount(GroupDetailView, {
+      global: {
+        stubs: { RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' } },
+      },
+    })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Create project')
+    expect(wrapper.text()).toContain('Previously connected')
+    expect(wrapper.findComponent({ name: 'RouterLink' }).props('to')).toEqual({
+      name: 'project-logs',
+      params: { groupSlug: group.id, projectSlug: 'project-1' },
+    })
+    wrapper.unmount()
   })
 })

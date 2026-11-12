@@ -1,5 +1,6 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { HttpException, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CoordinationService } from '../../coordination/coordination.service';
 
 interface Window {
   count: number;
@@ -13,7 +14,10 @@ export class SdkRateLimitService {
   private readonly maxEntries: number;
   private readonly windowMs = 60000;
   private nextSweepAt = 0;
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    @Optional() private readonly coordination?: CoordinationService,
+  ) {
     const positive = (value: number, fallback: number) =>
       Number.isSafeInteger(value) && value > 0 ? value : fallback;
     this.limit = positive(
@@ -25,7 +29,19 @@ export class SdkRateLimitService {
       10000,
     );
   }
-  consume(ip: string, setRetryAfter: (seconds: number) => void): void {
+  async consume(
+    ip: string,
+    setRetryAfter: (seconds: number) => void,
+  ): Promise<void> {
+    if (this.coordination) {
+      const retryMs = await this.coordination.consume(
+        `sdk:${ip || 'unknown'}`,
+        this.limit,
+        this.windowMs,
+      );
+      if (retryMs) this.reject(Math.ceil(retryMs / 1000), setRetryAfter);
+      return;
+    }
     const now = Date.now();
     if (now >= this.nextSweepAt || this.windows.size >= this.maxEntries) {
       for (const [key, value] of this.windows)

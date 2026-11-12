@@ -152,6 +152,7 @@ function fixture() {
     repository as never,
     {} as never,
     new ConfigService(),
+    {} as never,
   );
   const dataSource = {
     manager: {

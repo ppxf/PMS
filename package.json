@@ -8,6 +8,7 @@
     "dev": "turbo run dev --ui=stream",
     "docker:dev": "docker compose -f compose.dev.yaml up --build -d",
     "migration:show": "pnpm --filter @pms/nest migration:show",
+    "retention:cleanup": "pnpm --filter @pms/nest retention:cleanup",
     "migration:run": "pnpm --filter @pms/nest migration:run",
     "migration:revert": "pnpm --filter @pms/nest migration:revert",
     "docker:dev:migration:show": "docker compose -f compose.dev.yaml run --rm --no-deps api pnpm exec typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",

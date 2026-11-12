@@ -38,6 +38,9 @@ export class User {
   @Column({ type: 'text', array: true, default: '{}' })
   permissions!: string[];
 
+  @Column({ name: 'session_version', type: 'integer', default: 0 })
+  sessionVersion!: number;
+
   @OneToMany(() => Group, (group) => group.owner)
   groups!: Group[];
 

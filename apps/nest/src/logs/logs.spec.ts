@@ -23,10 +23,13 @@ const envelope = () => ({
     },
   ],
 });
-const queryInput = () => ({
-  start: new Date(Date.now() - 120000).toISOString(),
-  end: new Date().toISOString(),
-});
+const queryInput = () => {
+  const end = Date.now();
+  return {
+    start: new Date(end - 120000).toISOString(),
+    end: new Date(end).toISOString(),
+  };
+};
 describe('logs validation', () => {
   it.each(['p75', 'p90', 'p99'])(
     'rejects removed percentile %s',
@@ -87,7 +90,11 @@ describe('logs validation', () => {
       { visualizations: [{ aggregate: 'avg', field: 'message' }] },
       {
         visualizations: [
-          { aggregate: 'count', field: 'logs', groupBy: ['severity', 'severity'] },
+          {
+            aggregate: 'count',
+            field: 'logs',
+            groupBy: ['severity', 'severity'],
+          },
         ],
       },
     ])
@@ -238,7 +245,7 @@ describe('logs storage', () => {
       'user',
       'group',
       'slug',
-    'project:logs:read',
+      'project:logs:read',
     );
     expect(f.manager.query.mock.calls[2][0]).toContain(
       'ORDER BY timestamp ASC, log_id ASC LIMIT 20 OFFSET 20',
@@ -306,6 +313,3 @@ describe('logs storage', () => {
     expect(f.manager.query).toHaveBeenCalledTimes(2);
   });
 });
-
-
-

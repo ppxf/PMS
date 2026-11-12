@@ -57,7 +57,7 @@ async function submit(): Promise<void> {
     })
     await router.push({
       name: 'project-setup',
-      params: { groupSlug, projectSlug: project.slug },
+      params: { groupSlug: project.groupId, projectSlug: project.id },
     })
   } catch (cause) {
     error.value =

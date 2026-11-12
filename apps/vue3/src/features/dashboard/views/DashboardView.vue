@@ -74,7 +74,7 @@ const stats = computed(() => {
   const t = data.value!.totals
   return [
     {
-      label: 'Connected projects',
+      label: 'Previously connected projects',
       value: `${t.connected}`,
       suffix: `/ ${t.projects}`,
       hint: `${t.projects - t.connected} waiting for SDK`,
@@ -105,7 +105,7 @@ const stats = computed(() => {
   ]
 })
 function destination(p: DashboardProject, name: string) {
-  return { name, params: { groupSlug: p.groupSlug, projectSlug: p.slug } }
+  return { name, params: { groupSlug: p.groupId, projectSlug: p.id } }
 }
 function can(p: DashboardProject, module: string) {
   return p.permissions.includes(`project:${module}:read`)
@@ -124,8 +124,8 @@ function relative(value: string | null) {
 function connection(p: DashboardProject) {
   if (!p.lastSeenAt) return 'Waiting for SDK'
   return Date.parse(p.lastSeenAt) < Date.parse(data.value!.end) - 86400000
-    ? 'No recent data'
-    : 'Connected'
+    ? 'No activity in last 24 hours'
+    : 'Active in last 24 hours'
 }
 </script>
 
@@ -404,7 +404,7 @@ function connection(p: DashboardProject) {
                       ><span
                         class="size-1.5 rounded-full"
                         :class="
-                          connection(project) === 'Connected'
+                          connection(project) === 'Active in last 24 hours'
                             ? 'bg-emerald-500'
                             : connection(project) === 'Waiting for SDK'
                               ? 'bg-amber-500'

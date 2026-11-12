@@ -1,5 +1,17 @@
 name: pms-dev
 services:
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    ports:
+      - "127.0.0.1:16379:6379"
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   db:
     image: postgres:17-bookworm
     environment:
@@ -34,6 +46,13 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-pms-development}
       DB_NAME: ${DB_NAME:-pms}
       DB_SYNCHRONIZE: "false"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-pms:}
+      SDK_RATE_LIMIT_PER_MINUTE: ${SDK_RATE_LIMIT_PER_MINUTE:-120}
+      RETENTION_ENABLED: ${RETENTION_ENABLED:-false}
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+      RETENTION_INTERVAL_MINUTES: ${RETENTION_INTERVAL_MINUTES:-60}
+      RETENTION_BATCH_SIZE: ${RETENTION_BATCH_SIZE:-5000}
       JWT_SECRET: development-only-jwt-secret-change-before-production
       APP_FRONTEND_URL: http://localhost:5173
       CORS_ORIGINS: http://localhost:5173
@@ -55,6 +74,8 @@ services:
       - ./packages/config:/app/packages/config:ro
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -86,3 +107,4 @@ services:
         condition: service_healthy
 volumes:
   postgres:
+  redis:

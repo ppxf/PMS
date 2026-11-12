@@ -13,7 +13,7 @@ coverage/
 .agents/
 .npmrc
 .superpowers/
-docs/
+docs/*
 .codex/
 hooks/
 AGENTS.md

@@ -107,6 +107,25 @@ const navigation: NavigationItem[] = [
 
 const projectNavigation: ProjectNavigationItem[] = [
   {
+    label: 'SDK setup',
+    routeName: 'project-setup',
+    activeRouteNames: [
+      'project-setup',
+      'project-traces-setup',
+      'project-metrics-setup',
+      'project-logs-setup',
+      'project-profiles-setup',
+    ],
+    children: [
+      { label: 'Basic setup', routeName: 'project-setup' },
+      { label: 'Traces setup', routeName: 'project-traces-setup' },
+      { label: 'Metrics setup', routeName: 'project-metrics-setup' },
+      { label: 'Logs setup', routeName: 'project-logs-setup' },
+      { label: 'Profiles setup', routeName: 'project-profiles-setup' },
+    ],
+    icon: Plug,
+  },
+  {
     label: 'Members',
     routeName: 'project-members',
     activeRouteNames: ['project-members'],
@@ -130,25 +149,6 @@ const projectNavigation: ProjectNavigationItem[] = [
     routeName: 'project-metrics',
     activeRouteNames: ['project-metrics'],
     icon: ChartNoAxesCombined,
-  },
-  {
-    label: 'SDK setup',
-    routeName: 'project-setup',
-    activeRouteNames: [
-      'project-setup',
-      'project-traces-setup',
-      'project-metrics-setup',
-      'project-logs-setup',
-      'project-profiles-setup',
-    ],
-    children: [
-      { label: 'Basic setup', routeName: 'project-setup' },
-      { label: 'Traces setup', routeName: 'project-traces-setup' },
-      { label: 'Metrics setup', routeName: 'project-metrics-setup' },
-      { label: 'Logs setup', routeName: 'project-logs-setup' },
-      { label: 'Profiles setup', routeName: 'project-profiles-setup' },
-    ],
-    icon: Plug,
   },
   {
     label: 'Errors',

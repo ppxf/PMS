@@ -1,5 +1,16 @@
 name: pms-production
 services:
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   db:
     image: postgres:17-bookworm
     restart: unless-stopped
@@ -33,6 +44,13 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
       DB_NAME: ${DB_NAME:-pms}
       DB_SYNCHRONIZE: "false"
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-pms:}
+      SDK_RATE_LIMIT_PER_MINUTE: ${SDK_RATE_LIMIT_PER_MINUTE:-120}
+      RETENTION_ENABLED: ${RETENTION_ENABLED:-true}
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+      RETENTION_INTERVAL_MINUTES: ${RETENTION_INTERVAL_MINUTES:-60}
+      RETENTION_BATCH_SIZE: ${RETENTION_BATCH_SIZE:-5000}
       DB_LOGGING: "false"
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET to at least 32 characters}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
@@ -48,6 +66,8 @@ services:
       SWAGGER_ENABLED: "false"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -73,3 +93,4 @@ services:
       retries: 5
 volumes:
   postgres:
+  redis:

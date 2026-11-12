@@ -12,6 +12,9 @@ import { MailService } from './mail.service';
       useFactory: (config: ConfigService) =>
         createTransport({
           host: config.getOrThrow<string>('mail.host'),
+          connectionTimeout: 30000,
+          greetingTimeout: 30000,
+          socketTimeout: 60000,
           port: config.getOrThrow<number>('mail.port'),
           secure: config.get<boolean>('mail.secure', false),
           auth: config.get<string>('mail.user')
