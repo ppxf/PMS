@@ -741,6 +741,7 @@ describe('MonitoringEventsService management queries', () => {
     const eventRepository = { find: jest.fn().mockResolvedValue(recentEvents) };
     const projects = {
       findOwnedBySlug: jest.fn().mockResolvedValue({ id: projectId }),
+      findReadableBySlug: jest.fn().mockResolvedValue({ id: projectId }),
     };
     const manager = {
       findOneBy: jest.fn().mockResolvedValue(issue),
@@ -777,7 +778,7 @@ describe('MonitoringEventsService management queries', () => {
       }],
       total: 1, page: 2, pageSize: 10,
     });
-    expect(app.projects.findOwnedBySlug).toHaveBeenCalledWith('user-1', 'acme', 'web');
+    expect(app.projects.findReadableBySlug).toHaveBeenCalledWith('user-1', 'acme', 'web', 'project:issues:read');
     expect(app.queryBuilder.where).toHaveBeenCalledWith(
       'issue.projectId = :projectId', { projectId },
     );
@@ -933,3 +934,6 @@ describe('MonitoringEventsService management queries', () => {
     expect(app.eventRepository.find).not.toHaveBeenCalled();
   });
 });
+
+
+

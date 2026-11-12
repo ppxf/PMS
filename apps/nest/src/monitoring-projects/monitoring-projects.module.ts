@@ -1,3 +1,4 @@
+import { ProjectAccessModule } from '../project-access/project-access.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GroupsModule } from '../groups/groups.module';
@@ -7,7 +8,11 @@ import { MonitoringProjectsService } from './monitoring-projects.service';
 import { SdkCheckController } from './sdk-check.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([MonitoringProject]), GroupsModule],
+  imports: [
+    TypeOrmModule.forFeature([MonitoringProject]),
+    GroupsModule,
+    ProjectAccessModule,
+  ],
   controllers: [MonitoringProjectsController, SdkCheckController],
   providers: [MonitoringProjectsService],
   exports: [MonitoringProjectsService],

@@ -1,4 +1,5 @@
 import { WebVitalsModule } from '../web-vitals/web-vitals.module';
+import { AuditRecordsModule } from '../audit-records/audit-records.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MonitoringProjectsModule } from '../monitoring-projects/monitoring-projects.module';
@@ -16,6 +17,7 @@ import { ProfilesModule } from '../profiles/profiles.module';
 
 @Module({
   imports: [
+    AuditRecordsModule,
     TypeOrmModule.forFeature([
       MonitoringEvent,
       MonitoringErrorIssue,

@@ -2,6 +2,12 @@ import type { RouteRecordRaw } from 'vue-router'
 
 export const routes: RouteRecordRaw[] = [
   {
+    path: '/project-invitations/accept',
+    name: 'project-invitation-accept',
+    component: () => import('@/features/monitoring/views/ProjectInvitationAcceptView.vue'),
+    meta: { title: 'Project invitation', requiresAuth: true, layout: 'blank' },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/features/auth/views/LoginView.vue'),
@@ -50,6 +56,21 @@ export const routes: RouteRecordRaw[] = [
       layout: 'app',
     },
     children: [
+      ...(['issues', 'alerts', 'ingestion', 'audit'] as const).map((section) => ({
+        path: `workspace/${section}`,
+        name: `workspace-${section}`,
+        component: () => import('@/features/workspace/WorkspaceView.vue'),
+        props: { section },
+        meta: {
+          title: {
+            issues: 'Issue center',
+            alerts: 'Alerts',
+            ingestion: 'Ingestion status',
+            audit: 'Audit records',
+          }[section],
+          requiresAuth: true,
+        },
+      })),
       {
         path: '',
         name: 'dashboard',
@@ -101,6 +122,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'project-metrics-setup',
         component: () => import('@/features/monitoring/views/ProjectSetupView.vue'),
         meta: { title: 'Metrics setup', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/setup/logs',
+        name: 'project-logs-setup',
+        component: () => import('@/features/monitoring/views/ProjectSetupView.vue'),
+        meta: { title: 'Logs setup', requiresAuth: true },
       },
       {
         path: 'groups/:groupSlug/projects/:projectSlug/setup/profiles',
@@ -173,6 +200,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'project-detail',
         component: () => import('@/features/monitoring/views/ProjectDetailView.vue'),
         meta: { title: 'Monitoring projects', requiresAuth: true },
+      },
+      {
+        path: 'groups/:groupSlug/projects/:projectSlug/members',
+        name: 'project-members',
+        component: () => import('@/features/monitoring/views/ProjectMembersView.vue'),
+        meta: { title: 'Members', requiresAuth: true },
       },
       {
         path: 'users',

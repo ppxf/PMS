@@ -75,7 +75,7 @@ export class LogsService {
     });
   }
   async fields(user: string, group: string, slug: string) {
-    const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:logs:read');
     return this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       const rows = await manager.query<{ key: string }[]>(
@@ -114,13 +114,13 @@ export class LogsService {
         truncated: rows.length > 100,
         levels: LOG_LEVELS,
         enabled: project.loggingEnabled,
-        dsn: project.dsn,
+
       };
     });
   }
   async query(user: string, group: string, slug: string, input: LogQuery) {
     const q = new LogQueryPipe().transform(input);
-    const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:logs:read');
     const params: unknown[] = [project.id, q.start, q.end];
     const bind = (value: unknown) => {
       params.push(value);
@@ -247,3 +247,5 @@ export class LogsService {
     });
   }
 }
+
+

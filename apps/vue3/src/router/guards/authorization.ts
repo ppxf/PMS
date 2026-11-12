@@ -1,3 +1,8 @@
+import { rememberInvitationRedirect } from '@/features/auth/model/invitation-redirect'
+import {
+  useProjectAccessStore,
+  projectModules,
+} from '@/features/monitoring/model/project-access.store'
 import { useAuthStore } from '@/features/auth'
 import { useOnboardingStore } from '@/features/monitoring'
 
@@ -8,7 +13,19 @@ export function installAuthorizationGuards(router: Router, pinia: Pinia): void {
   const auth = useAuthStore(pinia)
   const onboarding = useOnboardingStore(pinia)
 
+  window.addEventListener('project-access-forbidden', (event) => {
+    const current = router.currentRoute.value
+    const path = `/groups/${String(current.params.groupSlug)}/projects/${String(current.params.projectSlug)}`
+    if (!String((event as CustomEvent).detail ?? '').startsWith(path)) return
+    useProjectAccessStore(pinia).clear()
+    void router.replace({ name: 'forbidden' })
+  })
+
   router.beforeEach(async (to) => {
+    if (to.name === 'project-invitation-accept') {
+      rememberInvitationRedirect(to.fullPath)
+      sessionStorage.setItem('project-invitation-redirect', to.fullPath)
+    }
     await auth.initialize()
 
     if (to.meta.requiresAuth && !auth.isAuthenticated) {
@@ -22,8 +39,36 @@ export function installAuthorizationGuards(router: Router, pinia: Pinia): void {
       if (onboarding.loadedForUserId !== auth.user?.id) onboarding.reset()
       await onboarding.load(auth.user?.id ?? null)
 
-      if (onboarding.needsGroup && to.name !== 'create-group-onboarding') {
+      if (
+        onboarding.needsGroup &&
+        to.name !== 'create-group-onboarding' &&
+        to.name !== 'project-invitation-accept'
+      ) {
         return { name: 'create-group-onboarding' }
+      }
+    }
+
+    if (typeof to.params.groupSlug === 'string' && typeof to.params.projectSlug === 'string') {
+      const access = useProjectAccessStore(pinia)
+      try {
+        const value = await access.load(
+          String(auth.user?.id ?? ''),
+          to.params.groupSlug,
+          to.params.projectSlug,
+        )
+        if (!access.canRoute(String(to.name ?? ''))) {
+          const module = projectModules.find((module) =>
+            value.permissions.includes(`project:${module}:read`),
+          )
+          if (value.role === 'member' && module)
+            return { name: `project-${module}`, params: to.params }
+          if (value.role === 'member' && value.permissions.includes('project:audit:read'))
+            return { name: 'workspace-audit' }
+          return { name: 'forbidden' }
+        }
+      } catch {
+        access.clear()
+        return { name: 'forbidden' }
       }
     }
 

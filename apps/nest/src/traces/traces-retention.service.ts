@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { TRACE_HISTORY_DAYS } from './traces-contract';
 
 @Injectable()
 export class TracesRetentionService {
@@ -14,7 +15,7 @@ export class TracesRetentionService {
     batches: number;
     executed: boolean;
   }> {
-    const cutoff = new Date(now.getTime() - 7 * 24 * 3600000);
+    const cutoff = new Date(now.getTime() - TRACE_HISTORY_DAYS * 24 * 3600000);
     return this.dataSource.transaction(async (manager) => {
       const spanCount = await manager.query<{ count: string }[]>(
         'SELECT count(*)::text AS count FROM monitoring_spans WHERE received_at < $1',

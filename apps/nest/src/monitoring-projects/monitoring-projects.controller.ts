@@ -142,7 +142,7 @@ export class MonitoringProjectsController {
     @Req() request: AuthenticatedRequest,
     @Param('groupSlug') groupSlug: string,
   ) {
-    return this.projects.listOwned(request.user.id, groupSlug);
+    return this.projects.listAccessible(request.user.id, groupSlug);
   }
 
   @Get(':projectSlug/connection')
@@ -154,13 +154,22 @@ export class MonitoringProjectsController {
     return this.projects.getConnection(request.user.id, groupSlug, projectSlug);
   }
 
+  @Get(':projectSlug/access')
+  access(
+    @Req() request: AuthenticatedRequest,
+    @Param('groupSlug') groupSlug: string,
+    @Param('projectSlug') projectSlug: string,
+  ) {
+    return this.projects.getAccess(request.user.id, groupSlug, projectSlug);
+  }
+
   @Get(':projectSlug')
   detail(
     @Req() request: AuthenticatedRequest,
     @Param('groupSlug') groupSlug: string,
     @Param('projectSlug') projectSlug: string,
   ) {
-    return this.projects.findOwnedBySlug(
+    return this.projects.findAccessibleBySlug(
       request.user.id,
       groupSlug,
       projectSlug,

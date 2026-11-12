@@ -107,7 +107,14 @@ describe('Web Vitals', () => {
     expect(query).not.toHaveProperty('samplePage')
     await selectValue(view, 'Device', 'desktop')
     expect(mocks.replace).toHaveBeenCalledWith({
-      query: { range: '7d', device: 'desktop', environment: undefined, route: undefined, traceId: undefined, page: undefined },
+      query: {
+        range: '7d',
+        device: 'desktop',
+        environment: undefined,
+        route: undefined,
+        traceId: undefined,
+        page: undefined,
+      },
     })
   })
   it('removes free text and dates and ignores obsolete URL filters', async () => {
@@ -134,7 +141,7 @@ describe('Web Vitals', () => {
     const view = mount(ProjectWebVitalsView)
     await flushPromises()
     expect(view.text()).toContain('/checkout')
-    expect(view.text()).toContain('Previous samples')
+    expect(view.get('button[aria-label="Previous samples"]').text()).toBe('Previous')
     expect(view.text()).not.toContain('No matching pages')
     expect(
       mocks.request.mock.calls.some((call) => call[2] === 'samples' && call[3].page === 2),

@@ -75,7 +75,7 @@ describe('logs validation', () => {
         {
           aggregate: 'avg',
           field: 'duration',
-          groupBy: ['severity'],
+          groupBy: ['severity', 'origin', 'sdk.name'],
           conditions: [],
         },
       ],
@@ -87,7 +87,7 @@ describe('logs validation', () => {
       { visualizations: [{ aggregate: 'avg', field: 'message' }] },
       {
         visualizations: [
-          { aggregate: 'count', field: 'logs', groupBy: ['x', 'y', 'z'] },
+          { aggregate: 'count', field: 'logs', groupBy: ['severity', 'severity'] },
         ],
       },
     ])
@@ -154,7 +154,7 @@ describe('logs storage', () => {
     };
     const projects = {
       findForIngestion: jest.fn().mockResolvedValue({ loggingEnabled: true }),
-      findOwnedBySlug: jest
+      findReadableBySlug: jest
         .fn()
         .mockResolvedValue({ id: 'project', loggingEnabled: true }),
     };
@@ -212,7 +212,7 @@ describe('logs storage', () => {
       f.service.ingest('project', 'key', envelope() as never),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(f.logs.insert).not.toHaveBeenCalled();
-    f.projects.findOwnedBySlug.mockRejectedValue(new ForbiddenException());
+    f.projects.findReadableBySlug.mockRejectedValue(new ForbiddenException());
     await expect(
       f.service.query('user', 'group', 'slug', queryInput() as never),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -234,10 +234,11 @@ describe('logs storage', () => {
       pageSize: 20,
       sortDirection: 'asc',
     } as never);
-    expect(f.projects.findOwnedBySlug).toHaveBeenCalledWith(
+    expect(f.projects.findReadableBySlug).toHaveBeenCalledWith(
       'user',
       'group',
       'slug',
+    'project:logs:read',
     );
     expect(f.manager.query.mock.calls[2][0]).toContain(
       'ORDER BY timestamp ASC, log_id ASC LIMIT 20 OFFSET 20',
@@ -305,3 +306,6 @@ describe('logs storage', () => {
     expect(f.manager.query).toHaveBeenCalledTimes(2);
   });
 });
+
+
+

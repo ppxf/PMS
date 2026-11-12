@@ -119,7 +119,7 @@ const createUser = handleSubmit((values) => {
   <section class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight">Users</h2>
+        <h2 class="page-title">Users</h2>
         <p class="mt-1 text-muted-foreground">Manage users, roles, and account status.</p>
       </div>
 

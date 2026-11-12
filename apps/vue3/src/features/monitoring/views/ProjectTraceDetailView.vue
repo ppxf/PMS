@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useProjectAccessStore } from "../model/project-access.store"
+const projectAccess = useProjectAccessStore()
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ArrowLeft, GitBranch, Clock3, Layers } from '@lucide/vue'
@@ -168,7 +171,7 @@ onBeforeUnmount(() => {
     </RouterLink>
     <div class="trace-heading">
       <div class="min-w-0">
-        <h2 class="text-xl font-semibold">Trace details</h2>
+        <h2 class="page-title">Trace details</h2>
         <p class="trace-id">{{ route.params.traceId }}</p>
       </div>
       <div class="trace-summary">
@@ -209,10 +212,12 @@ onBeforeUnmount(() => {
     <p v-if="spans.some((s) => s.truncated || s.droppedSpanCount > 0)" class="trace-notice">
       This trace contains truncated records or dropped child spans and may be incomplete.
     </p>
-    <p v-if="!loading && !error && !spans.length" class="trace-notice">
-      No retained records for this trace. It may be unsampled, pending ingestion, or expired.
-      Related metrics are still available in Application Metrics.
-    </p>
+    <EmptyState
+      v-if="!loading && !error && !spans.length"
+      class="rounded-lg border bg-background p-8"
+      title="No retained records for this trace."
+      description="It may be unsampled, pending ingestion, or expired. Related metrics are still available in Application Metrics."
+    />
     <p v-if="targetMissing" role="status" class="trace-notice">
       {{
         hasMore
@@ -220,13 +225,13 @@ onBeforeUnmount(() => {
           : 'The target span is not retained. It may not have been collected or may have expired.'
       }}
     </p>
-    <TraceWebVitalsPanel
+    <TraceWebVitalsPanel v-if="projectAccess.canRoute('project-web-vitals')"
       :group="String(route.params.groupSlug)"
       :project="String(route.params.projectSlug)"
       :trace-id="String(route.params.traceId)"
     />
     <TraceMetricsPanel
-      v-if="tab === 'metrics'"
+      v-if="tab === 'metrics' && projectAccess.canRoute('project-metrics')"
       :group="String(route.params.groupSlug)"
       :project="String(route.params.projectSlug)"
       :trace-id="String(route.params.traceId)"

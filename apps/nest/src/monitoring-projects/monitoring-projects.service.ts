@@ -1,3 +1,5 @@
+import { ProjectAccessService } from '../project-access/project-access.service';
+import { ProjectPermission } from '../project-access/project-permissions';
 import { randomBytes } from 'node:crypto';
 import {
   ConflictException,
@@ -28,6 +30,7 @@ export class MonitoringProjectsService {
     private readonly repository: Repository<MonitoringProject>,
     private readonly groups: GroupsService,
     private readonly config: ConfigService,
+    private readonly access: ProjectAccessService,
   ) {}
 
   async create(
@@ -39,6 +42,7 @@ export class MonitoringProjectsService {
     const project = this.repository.create({
       errorMonitoringEnabled: input.errorMonitoringEnabled ?? true,
       groupId: group.id,
+      ownerId: userId,
       allowedOrigins: ['*'],
       lastSeenAt: null,
       loggingEnabled: input.loggingEnabled ?? false,
@@ -73,19 +77,93 @@ export class MonitoringProjectsService {
     return projects.map((project) => this.toResponse(project));
   }
 
+  async listAccessible(userId: string, groupSlug: string) {
+    const group = await this.groups.findAccessibleBySlug(userId, groupSlug);
+    const projects = await this.repository
+      .createQueryBuilder('project')
+      .leftJoin(
+        'project_members',
+        'member',
+        'member.project_id = project.id AND member.user_id = :userId',
+        { userId },
+      )
+      .where('project.groupId = :groupId', { groupId: group.id })
+      .andWhere('(project.ownerId = :userId OR member.id IS NOT NULL)', {
+        userId,
+      })
+      .orderBy('project.createdAt', 'DESC')
+      .getMany();
+    return Promise.all(
+      projects.map((project) =>
+        this.findAccessibleBySlug(userId, groupSlug, project.slug),
+      ),
+    );
+  }
   async findOwnedBySlug(
     userId: string,
     groupSlug: string,
     projectSlug: string,
   ): Promise<MonitoringProjectResponse> {
-    const group = await this.groups.findOwnedBySlug(userId, groupSlug);
-    const project = await this.repository.findOne({
-      where: { groupId: group.id, slug: projectSlug },
-    });
-    if (!project) throw new NotFoundException('Monitoring project not found');
+    const { project } = await this.access.requireOwner(
+      userId,
+      groupSlug,
+      projectSlug,
+    );
     return this.toResponse(project);
   }
 
+  async findReadableBySlug(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+    permission: ProjectPermission,
+  ) {
+    return (
+      await this.access.requirePermission(
+        userId,
+        groupSlug,
+        projectSlug,
+        permission,
+      )
+    ).project;
+  }
+  async getAccess(userId: string, groupSlug: string, projectSlug: string) {
+    const { project, role, permissions } = await this.access.requireAccess(
+      userId,
+      groupSlug,
+      projectSlug,
+    );
+    return { projectId: project.id, role, permissions };
+  }
+  async findAccessibleBySlug(
+    userId: string,
+    groupSlug: string,
+    projectSlug: string,
+  ) {
+    const { project, role, permissions } = await this.access.requireAccess(
+      userId,
+      groupSlug,
+      projectSlug,
+    );
+    if (role === 'owner')
+      return Object.assign(this.toResponse(project), {
+        role,
+        isOwner: true,
+        permissions,
+      });
+    return {
+      id: project.id,
+      groupId: project.groupId,
+      name: project.name,
+      slug: project.slug,
+      platform: project.platform,
+      createdAt: project.createdAt,
+      errorMonitoringEnabled: project.errorMonitoringEnabled, loggingEnabled: project.loggingEnabled, tracingEnabled: project.tracingEnabled, metricsEnabled: project.metricsEnabled, profilesEnabled: project.profilesEnabled, connected: Boolean(project.lastSeenAt), lastSeenAt: project.lastSeenAt,
+      role,
+      isOwner: false,
+      permissions,
+    };
+  }
   async getConnection(
     userId: string,
     groupSlug: string,
@@ -233,3 +311,4 @@ export class MonitoringProjectsService {
     return url.toString().replace(/\/$/, '');
   }
 }
+

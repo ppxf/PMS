@@ -1,5 +1,25 @@
 export const buildEnvSnippet = (dsn: string) => `VITE_PMS_DSN=${dsn}`
 
+export const buildLogsInitSnippet = () => `import { createApp } from 'vue'
+import { flush, init, logger } from '@pms/monitoring-vue'
+import App from './App.vue'
+
+const app = createApp(App)
+
+init({
+  app,
+  dsn: import.meta.env.VITE_PMS_DSN,
+  environment: import.meta.env.MODE,
+  enableLogs: true,
+})
+
+app.mount('#app')
+
+// Send a test log and flush the buffer so it appears in Logs.
+logger.info('Checkout completed', { orderId: 'order-123', amount: 99 })
+logger.warn('Payment retry', { attempt: 2 })
+void flush()`
+
 export const buildMetricsInitSnippet = () => `import { createApp } from 'vue'
 import { init } from '@pms/monitoring-vue'
 import App from './App.vue'

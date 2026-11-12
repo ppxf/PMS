@@ -1,3 +1,6 @@
+import { ProjectAccess1794355200000 } from './migrations/1794355200000-project-access';
+import { AuditRecords1794441600000 } from './migrations/1794441600000-audit-records';
+import { WorkspaceAlerts1794441600001 } from './migrations/1794441600001-workspace-alerts';
 import { WebVitals1793923200000 } from './migrations/1793923200000-web-vitals';
 import { DataSource, QueryRunner } from 'typeorm';
 import { resolve } from 'node:path';
@@ -23,7 +26,13 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
       schema,
       extra: { options: `-c search_path=${schema},public` },
       entities: [resolve(__dirname, '../**/*.entity.ts')],
-      migrations: [Baseline1793577600000, WebVitals1793923200000],
+      migrations: [
+        Baseline1793577600000,
+        WebVitals1793923200000,
+        ProjectAccess1794355200000,
+        AuditRecords1794441600000,
+        WorkspaceAlerts1794441600001,
+      ],
       migrationsTableName: 'pms_migrations',
       synchronize: false,
       installExtensions: false,
@@ -55,12 +64,15 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
   });
 
   it('creates every entity without schema drift, tracks execution and supports down/up', async () => {
-    expect(await source.runMigrations()).toHaveLength(2);
-    expect(source.entityMetadatas).toHaveLength(16);
+    expect(await source.runMigrations()).toHaveLength(5);
+    expect(source.entityMetadatas).toHaveLength(19);
     expect((await source.driver.createSchemaBuilder().log()).upQueries).toEqual(
       [],
     );
     expect(await source.runMigrations()).toHaveLength(0);
+    await source.undoLastMigration();
+    await source.undoLastMigration();
+    await source.undoLastMigration();
     await source.undoLastMigration();
     await source.undoLastMigration();
     const tables: { table_name: string }[] = await source.query(
@@ -68,7 +80,7 @@ const databaseUrl = process.env.MIGRATIONS_TEST_DATABASE_URL;
       [schema],
     );
     expect(tables.map((row) => row.table_name)).toEqual(['pms_migrations']);
-    expect(await source.runMigrations()).toHaveLength(2);
+    expect(await source.runMigrations()).toHaveLength(5);
     expect((await source.driver.createSchemaBuilder().log()).upQueries).toEqual(
       [],
     );

@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { createGroup } from '../api/monitoring.api'
 import { useOnboardingStore } from '../model/onboarding.store'
@@ -36,7 +36,7 @@ async function submit(): Promise<void> {
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <Card class="w-full max-w-lg">
       <CardHeader>
-        <CardTitle>Create your first group</CardTitle>
+        <h1 class="page-title">Create your first group</h1>
         <CardDescription
           >Monitoring projects belong to groups. You can create more groups later.</CardDescription
         >

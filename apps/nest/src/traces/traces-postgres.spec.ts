@@ -67,7 +67,8 @@ postgres('PostgreSQL traces integration', () => {
     const projects = {
       findForIngestion: (id: string) =>
         Promise.resolve({ id, tracingEnabled: true }),
-      findOwnedBySlug: () => Promise.resolve({ id: projectId }),
+      getAccess: async () => ({role:'owner',permissions:['project:web-vitals:read']}),
+      findReadableBySlug: () => Promise.resolve({ id: projectId }),
     };
     service = new TracesService(
       dataSource,
@@ -166,3 +167,4 @@ postgres('PostgreSQL traces integration', () => {
     expect(detail.hasMore).toBe(false);
   });
 });
+

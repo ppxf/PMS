@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { querySuggestions } from '../model/query-suggestions'
-import { ChevronLeft, ChevronRight, Download, Trash2 } from '@lucide/vue'
+import { Download, Trash2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { use } from 'echarts/core'
@@ -405,27 +407,24 @@ onBeforeUnmount(() => {
             Loading…
           </p>
           <VChart v-else-if="result?.total" :option="chart" autoresize class="h-full w-full" />
-          <p v-else class="grid h-full place-items-center text-sm text-muted-foreground">
-            {{ error ? 'Query not completed' : 'No metric samples in this time range' }}
+          <p v-else-if="error" class="grid h-full place-items-center text-sm text-muted-foreground">
+            Query not completed
           </p>
+          <EmptyState v-else class="h-full" title="No metric samples in this time range" />
         </div>
       </div>
       <div
         class="flex h-96 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-background"
       >
-        <nav class="flex shrink-0 gap-4 border-b bg-muted/40 px-4" aria-label="Metric data views">
+        <nav class="flex shrink-0 gap-1 overflow-x-auto border-b" aria-label="Metric data views">
           <button
             v-for="item in [
               { id: 'samples', label: 'Samples' },
               { id: 'aggregates', label: 'Aggregates' },
             ]"
             :key="item.id"
-            class="border-b-2 px-1 py-3 text-sm font-medium"
-            :class="
-              tab === item.id
-                ? 'border-cyan-600 text-cyan-700'
-                : 'border-transparent text-muted-foreground'
-            "
+            type="button"
+            class="monitoring-tab"
             :aria-pressed="tab === item.id"
             @click="tab = item.id"
           >
@@ -433,8 +432,8 @@ onBeforeUnmount(() => {
           </button>
         </nav>
         <div class="flex min-h-0 flex-1 flex-col overflow-auto">
-          <table v-if="tab === 'samples'" class="w-full text-left text-sm">
-            <thead class="sticky top-0 z-10 bg-muted/30">
+          <table v-if="tab === 'samples'" class="app-table">
+            <thead class="sticky top-0 z-10">
               <tr>
                 <th>Trace ID</th>
                 <th>Value ({{ identity?.unit ?? 'none' }})</th>
@@ -487,8 +486,8 @@ onBeforeUnmount(() => {
               </tr>
             </tbody>
           </table>
-          <table v-else class="w-full text-left text-sm">
-            <thead class="sticky top-0 z-10 bg-muted/30">
+          <table v-else class="app-table">
+            <thead class="sticky top-0 z-10">
               <tr>
                 <th>{{ groupLabel || 'Group' }}</th>
                 <th>
@@ -507,38 +506,27 @@ onBeforeUnmount(() => {
               </tr>
             </tbody>
           </table>
-          <p
+          <EmptyState
             v-if="
               !loading &&
               !error &&
               !(tab === 'samples' ? result?.samples.length : result?.aggregates.length)
             "
-            class="grid flex-1 place-items-center px-4 py-8 text-sm text-muted-foreground"
-          >
-            {{ tab === 'samples' ? 'No samples to display' : 'No aggregates to display' }}
-          </p>
+            class="flex-1 px-4 py-8"
+            :title="tab === 'samples' ? 'No samples to display' : 'No aggregates to display'"
+          />
         </div>
-        <footer
+        <TablePagination
           v-if="tab === 'samples'"
-          class="flex shrink-0 items-center justify-end gap-3 border-t bg-muted/20 px-4 py-2 text-sm"
-        >
-          <Button
-            variant="outline"
-            size="icon-sm"
-            :disabled="loading || page <= 1"
-            aria-label="Previous page"
-            @click="paginate(-1)"
-            ><ChevronLeft aria-hidden="true" /></Button
-          ><span class="min-w-8 text-center tabular-nums" aria-current="page">{{ page }}</span
-          ><Button
-            variant="outline"
-            size="icon-sm"
-            :disabled="loading || !result || page * 20 >= result.total"
-            aria-label="Next page"
-            @click="paginate(1)"
-            ><ChevronRight aria-hidden="true"
-          /></Button>
-        </footer>
+          class="shrink-0 border-t px-4 py-2"
+          :page="page"
+          :total="result?.total ?? 0"
+          :page-size="20"
+          :busy="loading"
+          unit="samples"
+          label="Metric samples pagination"
+          @change="paginate($event - page)"
+        />
       </div>
     </div>
   </section>
@@ -572,14 +560,5 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--muted-foreground);
   min-width: 0;
-}
-.metrics-view th {
-  color: var(--muted-foreground);
-  font-weight: 500;
-}
-.metrics-view th,
-.metrics-view td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--border);
 }
 </style>

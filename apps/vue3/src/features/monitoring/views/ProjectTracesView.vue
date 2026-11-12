@@ -1,20 +1,18 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { querySuggestions } from '../model/query-suggestions'
 import QuerySearchBar from '../components/QuerySearchBar.vue'
-import { ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { use } from 'echarts/core'
 import { LineChart, BarChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
-import {
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-  DataZoomComponent,
-} from 'echarts/components'
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { Button } from '@/components/ui/button'
+import Loading from '@/components/ui/loading/Loading.vue'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import {
   spanSamples,
@@ -34,39 +32,42 @@ import type {
   TraceSeries,
   TraceAggregates,
 } from '../model/traces'
-use([
-  LineChart,
-  BarChart,
-  CanvasRenderer,
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-  DataZoomComponent,
-])
+use([LineChart, BarChart, CanvasRenderer, GridComponent, TooltipComponent, LegendComponent])
 const route = useRoute()
 const group = computed(() => String(route.params.groupSlug)),
   project = computed(() => String(route.params.projectSlug))
-function localInput(time: number) {
-  const d = new Date(time)
-  return new Date(time - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19)
-}
-const start = ref(localInput(Date.now() - 3600000)),
-  end = ref(localInput(Date.now()))
 const preset = ref('pages')
 const metrics = ref<TraceMetric[]>(presetQuery('pages').metrics),
   filters = ref<TraceFilter[]>(presetQuery('pages').filters),
   groups = ref(presetQuery('pages').groupBy)
 const primaryMetric = ref(0),
-  limit = ref(5),
-  interval = ref<TraceQuery['interval']>('auto')
-const chartType = ref<'line' | 'bar'>('line')
-const timeRange = ref('1h')
+  limit = ref(5)
+let nextChartId = 0
+function createChart() {
+  const now = Date.now()
+  return {
+    id: nextChartId++,
+    start: now - 3600000,
+    end: now,
+    timeRange: '1h',
+    type: 'line' as 'line' | 'bar',
+    interval: 'auto' as NonNullable<TraceQuery['interval']>,
+    result: null as TraceSeries | null,
+    loading: false,
+    error: false,
+    generation: 0,
+  }
+}
+type MetricChart = ReturnType<typeof createChart>
+const chartSettings = ref(metrics.value.map(createChart))
 const timeRanges = [
   { value: '1h', label: 'Last hour', duration: 3600000 },
   { value: '6h', label: 'Last 6 hours', duration: 6 * 3600000 },
   { value: '24h', label: 'Last 24 hours', duration: 24 * 3600000 },
   { value: '3d', label: 'Last 3 days', duration: 3 * 86400000 },
   { value: '7d', label: 'Last 7 days', duration: 7 * 86400000 },
+  { value: '14d', label: 'Last 14 days', duration: 14 * 86400000 },
+  { value: '30d', label: 'Last 30 days', duration: 30 * 86400000 },
 ]
 const intervals: {
   value: NonNullable<TraceQuery['interval']>
@@ -81,21 +82,17 @@ const intervals: {
   { value: '6h', label: '6 hours', duration: 21600000 },
   { value: '1d', label: '1 day', duration: 86400000 },
 ]
-function intervalDisabled(value: TraceQuery['interval']) {
+function intervalDisabled(chart: MetricChart, value: TraceQuery['interval']) {
   const duration = intervals.find((item) => item.value === value)?.duration
-  return (
-    duration != null &&
-    Math.ceil((Date.parse(end.value) - Date.parse(start.value)) / duration) > 500
-  )
+  return duration != null && Math.ceil((chart.end - chart.start) / duration) > 500
 }
-function applyTimeRange() {
-  const selected = timeRanges.find((range) => range.value === timeRange.value)
+function applyTimeRange(chart: MetricChart, index: number) {
+  const selected = timeRanges.find((range) => range.value === chart.timeRange)
   if (!selected) return
   const now = Date.now()
-  start.value = localInput(now - selected.duration)
-  end.value = localInput(now)
-  if (intervalDisabled(interval.value)) interval.value = 'auto'
-  apply()
+  chart.start = now - selected.duration
+  chart.end = now
+  refreshChart(chart, index)
 }
 const fields = ref<TraceField[]>([]),
   loading = ref(false),
@@ -107,18 +104,24 @@ const sortBy = ref('startTime'),
 const spans = ref<Span[]>([]),
   traces = ref<TraceSample[]>([]),
   total = ref(0)
-const series = ref<TraceSeries | null>(null),
-  aggregates = ref<TraceAggregates | null>(null)
+const aggregates = ref<TraceAggregates | null>(null)
 const seriesMetrics = ref<TraceMetric[]>(metrics.value.map((m) => ({ ...m })))
-const filterField = ref('span.op'),
-  filterOperator = ref<TraceFilter['operator']>('eq'),
-  filterValue = ref('')
+const filterField = ref('span.op')
 const availableGroups = computed(() =>
   fields.value.length ? fields.value.filter((f) => f.groupable).map((f) => f.name) : groupFields,
 )
+const addingGroup = ref(false)
+function selectGroup(index: number, value: string) {
+  if (index === groups.value.length) addingGroup.value = false
+  groups.value[index] = value
+}
+function removeGroup(index: number) {
+  if (index === groups.value.length) addingGroup.value = false
+  else groups.value.splice(index, 1)
+}
 const availableFilters = computed(() =>
   fields.value.length
-    ? fields.value.map((f) => f.name)
+    ? fields.value.filter((f) => f.operators.length > 0).map((f) => f.name)
     : [...groupFields, ...metricFields, 'span.status', 'span.truncated', 'page.route'],
 )
 const filterOperators = computed(
@@ -136,9 +139,9 @@ const filterOperators = computed(
     ],
 )
 const tabs = ['Span Samples', 'Trace Samples', 'Aggregates']
-function query(): TraceQuery {
-  const s = new Date(start.value),
-    e = new Date(end.value)
+function query(chart = chartSettings.value[primaryMetric.value]!): TraceQuery {
+  const s = new Date(chart.start),
+    e = new Date(chart.end)
   if (!Number.isFinite(s.getTime()) || !Number.isFinite(e.getTime()) || s >= e)
     throw new Error('Select a valid time range')
   return {
@@ -146,18 +149,21 @@ function query(): TraceQuery {
     end: e.toISOString(),
     filters: [...filters.value],
     metrics: metrics.value.map((m) => ({ ...m })),
-    groupBy: groups.value.filter(Boolean).slice(0, 2),
+    groupBy: [...groups.value],
     primaryMetric: primaryMetric.value,
     limit: limit.value,
-    interval: interval.value,
+    interval: chart.interval,
     page: page.value,
     pageSize: 20,
     sortBy: tab.value === 'Aggregates' ? Number(sortBy.value) || 0 : sortBy.value,
     sortDirection: direction.value,
   }
 }
+const resultsTable = ref<HTMLDivElement | null>(null)
+const resultsHeight = ref(0)
 let generation = 0
 async function load() {
+  if (!loading.value) resultsHeight.value = resultsTable.value?.offsetHeight ?? 0
   const current = ++generation
   loading.value = true
   error.value = ''
@@ -165,7 +171,6 @@ async function load() {
     const q = query()
     const sampleQuery = { ...q, sortBy: tab.value === 'Aggregates' ? 'startTime' : q.sortBy }
     const result = await Promise.all([
-      traceSeries(group.value, project.value, q),
       traceAggregates(group.value, project.value, {
         ...q,
         sortBy: tab.value === 'Aggregates' ? q.sortBy : primaryMetric.value,
@@ -175,12 +180,11 @@ async function load() {
         : spanSamples(group.value, project.value, sampleQuery),
     ])
     if (current !== generation) return
-    series.value = result[0]
     seriesMetrics.value = q.metrics
-    aggregates.value = result[1]
-    total.value = result[2].total
-    if (tab.value === 'Trace Samples') traces.value = result[2].items as TraceSample[]
-    else spans.value = result[2].items as Span[]
+    aggregates.value = result[0]
+    total.value = result[1].total
+    if (tab.value === 'Trace Samples') traces.value = result[1].items as TraceSample[]
+    else spans.value = result[1].items as Span[]
   } catch (cause) {
     if (current === generation)
       error.value =
@@ -190,6 +194,35 @@ async function load() {
   } finally {
     if (current === generation) loading.value = false
   }
+}
+async function loadChart(chart: MetricChart, index: number) {
+  const current = ++chart.generation
+  chart.loading = true
+  chart.error = false
+  chart.result = null
+  try {
+    const q = query(chart)
+    const result = await traceSeries(group.value, project.value, {
+      ...q,
+      metrics: [q.metrics[index]!],
+      primaryMetric: 0,
+      sortBy: 'startTime',
+      page: 1,
+    })
+    if (current === chart.generation) chart.result = result
+  } catch {
+    if (current === chart.generation) chart.error = true
+  } finally {
+    if (current === chart.generation) chart.loading = false
+  }
+}
+function refreshChart(chart: MetricChart, index: number) {
+  if (intervalDisabled(chart, chart.interval)) chart.interval = 'auto'
+  void loadChart(chart, index)
+  if (index === primaryMetric.value) apply()
+}
+function loadCharts() {
+  chartSettings.value.forEach((chart, index) => void loadChart(chart, index))
 }
 function apply() {
   page.value = 1
@@ -206,9 +239,15 @@ function columnSort(column: string): 'ascending' | 'descending' | 'none' {
 function sortIcon(column: string) {
   return sortBy.value === column ? (direction.value === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
 }
+function addMetric() {
+  metrics.value.push({ function: 'avg', field: 'span.duration' })
+  chartSettings.value.push(createChart())
+}
 function removeMetric(index: number) {
   metrics.value.splice(index, 1)
-  primaryMetric.value = 0
+  chartSettings.value.splice(index, 1)
+  if (index === primaryMetric.value) primaryMetric.value = 0
+  else if (index < primaryMetric.value) primaryMetric.value--
 }
 function changePage(offset: number) {
   page.value += offset
@@ -218,121 +257,117 @@ function applyPreset() {
   const q = presetQuery(preset.value)
   filters.value = q.filters
   metrics.value = q.metrics
+  chartSettings.value = q.metrics.map(createChart)
   groups.value = q.groupBy
+  addingGroup.value = false
   primaryMetric.value = 0
-  apply()
 }
-async function applyCondition(condition: { field: string; operator: string; value: string }) {
+function applyCondition(condition: { field: string; operator: string; value: string }) {
   filterField.value = condition.field
-  await nextTick()
-  filterOperator.value = condition.operator as TraceFilter['operator']
-  filterValue.value = condition.value
-  addFilter()
-}
-function addFilter() {
-  const field = fields.value.find((f) => f.name === filterField.value)
+  const operator = condition.operator as TraceFilter['operator']
+  const field = fields.value.find((f) => f.name === condition.field)
   const parse = (v: string): unknown =>
     field?.type === 'number' ||
-    metricFields.includes(filterField.value) ||
-    filterField.value === 'http.status_code'
+    metricFields.includes(condition.field) ||
+    condition.field === 'http.status_code'
       ? Number(v)
       : field?.type === 'boolean' ||
-          filterField.value === 'is_transaction' ||
-          filterField.value === 'span.truncated'
+          condition.field === 'is_transaction' ||
+          condition.field === 'span.truncated'
         ? v === 'true'
         : v
   const value =
-    filterOperator.value === 'in' || filterOperator.value === 'not_in'
-      ? filterValue.value.split(',').map((v) => parse(v.trim()))
-      : parse(filterValue.value.trim())
+    operator === 'in' || operator === 'not_in'
+      ? condition.value.split(',').map((v) => parse(v.trim()))
+      : parse(condition.value.trim())
   filters.value.push({
-    field: filterField.value,
-    operator: filterOperator.value,
-    ...(filterOperator.value === 'exists' ? {} : { value }),
+    field: condition.field,
+    operator,
+    ...(operator === 'exists' ? {} : { value }),
   })
-  filterValue.value = ''
 }
 function changeFunction(metric: TraceMetric) {
   if (metric.function === 'count' || metric.function === 'errorRate') metric.field = 'spans'
   else if (metric.field === 'spans') metric.field = 'span.duration'
 }
-const units = computed(() => [...new Set(seriesMetrics.value.map(metricUnit))])
-const chart = computed(() => ({
-  animation: false,
-  grid: { left: 80, right: 80, top: 70, bottom: 70 },
-  legend: { type: 'scroll', top: 0 },
-  tooltip: {
-    trigger: 'axis',
-    renderMode: 'richText',
-    formatter: (input: unknown) => {
-      const points = (Array.isArray(input) ? input : [input]) as {
-        seriesName?: string
-        data?: { value?: [string, number | null]; sampleCount?: number }
-      }[]
-      return points
-        .map(
-          (p) =>
-            `${p.seriesName ?? ''}: ${p.data?.value?.[1] == null ? '—' : p.data.value[1]} (n=${p.data?.sampleCount ?? 0})`,
-        )
-        .join('\n')
-    },
-  },
-  xAxis: { type: 'time' },
-  yAxis: units.value.map((unit, index) => ({
-    type: 'value',
-    name: unit,
-    position: index % 2 ? 'right' : 'left',
-    offset: Math.floor(index / 2) * 45,
-  })),
-  dataZoom: [
-    { type: 'inside', filterMode: 'none' },
-    { type: 'slider', filterMode: 'none' },
-  ],
-  series: (series.value?.series ?? []).map((s) => {
-    const metric = seriesMetrics.value[s.metricIndex]!
-    const group = series.value?.groups.find((g) => g.key === s.groupKey)
-    return {
-      type: chartType.value,
-      smooth: false,
-      connectNulls: false,
-      showSymbol: chartType.value === 'line',
-      yAxisIndex: units.value.indexOf(metricUnit(metric)),
-      name: `${group?.values.map((v) => (v == null ? 'Unknown' : JSON.stringify(v))).join(' / ') || 'All'} · ${metric.function}(${metric.field})`,
-      data: s.points.map((p) => ({
-        value: [
-          p.timestamp,
-          p.value == null ? null : metric.function === 'errorRate' ? p.value * 100 : p.value,
-        ],
-        sampleCount: p.sampleCount,
-      })),
-      tooltip: {
-        valueFormatter: (v: unknown) =>
-          typeof v !== 'number' ? '—' : `${v} ${metricUnit(metric)}`,
+function chartOptions(metric: TraceMetric, chart: MetricChart) {
+  const { start, end } = chart
+  const timeLabel = new Intl.DateTimeFormat(
+    'en-US',
+    end - start <= 86400000
+      ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+      : { month: 'short', day: 'numeric' },
+  )
+  const unit = metricUnit(metric)
+  const numberLabel = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
+  const formatValue = (value: number) =>
+    unit === 'ms' && value >= 1000
+      ? `${numberLabel.format(value / 1000)}s`
+      : `${numberLabel.format(value)}${unit === 'spans' ? '' : unit === 'byte' ? ' B' : unit}`
+  return {
+    animation: false,
+    grid: { left: 80, right: 80, top: 70, bottom: 30 },
+    legend: { type: 'scroll', top: 0 },
+    tooltip: {
+      trigger: 'axis',
+      renderMode: 'richText',
+      formatter: (input: unknown) => {
+        const points = (Array.isArray(input) ? input : [input]) as {
+          seriesName?: string
+          data?: { value?: [string, number | null]; sampleCount?: number }
+        }[]
+        return points
+          .map(
+            (p) =>
+              `${p.seriesName ?? ''}: ${p.data?.value?.[1] == null ? '—' : formatValue(p.data.value[1])} (n=${p.data?.sampleCount ?? 0})`,
+          )
+          .join('\n')
       },
-    }
-  }),
-}))
-// ECharts provides percentages for slider and absolute timestamps for inside zoom.
-function zoom(payload: unknown) {
-  if (!payload || typeof payload !== 'object') return
-  const event = payload as {
-    start?: number
-    end?: number
-    startValue?: number
-    endValue?: number
-    batch?: { start?: number; end?: number; startValue?: number; endValue?: number }[]
+    },
+    xAxis: {
+      type: 'time',
+      min: start,
+      max: end,
+      axisLabel: {
+        formatter: (timestamp: number) => timeLabel.format(timestamp),
+        hideOverlap: true,
+      },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      minInterval: unit === 'spans' || unit === 'byte' ? 1 : undefined,
+      axisLabel: { formatter: (value: number) => (value === 0 ? '0' : formatValue(value)) },
+    },
+    series: (chart.result?.series ?? []).map((s) => {
+      const group = chart.result?.groups.find((g) => g.key === s.groupKey)
+      return {
+        type: chart.type,
+        smooth: false,
+        connectNulls: false,
+        showSymbol: chart.type === 'line',
+        name: `${group?.values.map((v) => (v == null ? 'Unknown' : JSON.stringify(v))).join(' / ') || 'All'} · ${metric.function}(${metric.field})`,
+        data: s.points.map((p) => ({
+          value: [
+            p.timestamp,
+            p.value == null ? null : metric.function === 'errorRate' ? p.value * 100 : p.value,
+          ],
+          sampleCount: p.sampleCount,
+        })),
+        tooltip: {
+          valueFormatter: (v: unknown) => (typeof v !== 'number' ? '—' : formatValue(v)),
+        },
+      }
+    }),
   }
-  const range = event.batch?.[0] ?? event
-  const a = new Date(start.value).getTime(),
-    b = new Date(end.value).getTime()
-  const from = range.startValue ?? a + ((b - a) * (range.start ?? 0)) / 100,
-    to = range.endValue ?? a + ((b - a) * (range.end ?? 100)) / 100
-  if (from >= to) return
-  timeRange.value = 'custom'
-  start.value = localInput(from)
-  end.value = localInput(to)
-  apply()
 }
+const charts = computed(() =>
+  metrics.value.map((metric, index) => ({
+    title: `${metric.function}(${metric.field})`,
+    settings: chartSettings.value[index]!,
+    option: chartOptions(metric, chartSettings.value[index]!),
+  })),
+)
 function detailLink(traceId: string) {
   return {
     name: 'project-trace-detail',
@@ -340,12 +375,27 @@ function detailLink(traceId: string) {
     query: { highlight: JSON.stringify(filters.value) },
   }
 }
-watch(tab, () => {
-  sortBy.value = tab.value === 'Aggregates' ? '0' : 'startTime'
-  direction.value = 'desc'
-  apply()
-})
+watch([filters, metrics, groups, limit], loadCharts, { deep: true })
+watch(
+  groups,
+  () => {
+    tab.value = groups.value.length ? 'Aggregates' : 'Span Samples'
+  },
+  { deep: true, flush: 'sync' },
+)
+watch(
+  [tab, filters, metrics, groups, primaryMetric, limit],
+  ([currentTab], [previousTab]) => {
+    if (currentTab !== previousTab) {
+      sortBy.value = currentTab === 'Aggregates' ? '0' : 'startTime'
+      direction.value = 'desc'
+    }
+    apply()
+  },
+  { deep: true },
+)
 watch([group, project], () => {
+  loadCharts()
   page.value = 1
   void load()
 })
@@ -355,6 +405,7 @@ onMounted(async () => {
   } catch {
     /* Backend still independently validates all queries. */
   }
+  loadCharts()
   void load()
 })
 </script>
@@ -362,11 +413,11 @@ onMounted(async () => {
 <template>
   <section class="traces-page space-y-6">
     <div>
-      <h2 class="text-2xl font-semibold">Traces · {{ project }}</h2>
+      <h2 class="page-title">Traces</h2>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-      <label
-        >Quick query
+      <label class="flex flex-col gap-2">
+        <span>Quick query</span>
         <FormSelect
           v-model="preset"
           class="control"
@@ -386,11 +437,6 @@ onMounted(async () => {
             { value: 'all', label: 'All spans' },
           ]"
       /></label>
-      <Button
-        variant="outline"
-        @click="filters.push({ field: 'span.op', operator: 'eq', value: 'http.client' })"
-        >Add HTTP filter</Button
-      >
     </div>
     <QuerySearchBar
       :fields="
@@ -464,108 +510,139 @@ onMounted(async () => {
             >Remove metric</Button
           >
         </div>
-        <Button
-          v-if="metrics.length < 5"
-          variant="outline"
-          @click="metrics.push({ function: 'avg', field: 'span.duration' })"
+        <Button v-if="metrics.length < 5" variant="outline" @click="addMetric"
           >Add metric series</Button
         >
-        <h3 class="font-semibold">Group by (up to 2)</h3>
-        <FormSelect
-          v-for="i in 2"
-          :key="i"
-          v-model="groups[i - 1]"
-          :aria-label="`Group by ${i}`"
-          class="control w-full"
-          :options="[
-            { value: '', label: 'None' },
-            ...availableGroups.map((value) => ({
-              value,
-              label: value,
-              disabled: groups.includes(value) && groups[i - 1] !== value,
-            })),
-          ]"
-        />
-        <label class="top-limit"
-          >Top
-          <FormSelect
-            v-model="limit"
-            class="control"
-            aria-label="Top limit"
-            :options="[5, 6, 7, 8, 9, 10].map((value) => ({ value, label: String(value) }))"
-        /></label>
-        <Button :disabled="loading" @click="apply">Update chart</Button>
-      </aside>
-      <div class="chart-panel min-w-0 rounded-xl border p-5">
+        <h3 class="font-semibold">Group by</h3>
         <div
-          class="chart-toolbar mb-5 flex flex-wrap items-center justify-end gap-3"
-          role="group"
-          aria-label="Chart settings"
+          v-for="i in groups.length + Number(addingGroup)"
+          :key="i"
+          class="space-y-3 border-b pb-4"
         >
           <FormSelect
-            v-model="timeRange"
-            class="control"
-            aria-label="Time range"
-            @change="applyTimeRange"
-            :options="[
-              ...(timeRange === 'custom'
-                ? [{ value: 'custom', label: 'Custom range (zoom)' }]
-                : []),
-              ...timeRanges,
-            ]"
-          />
-          <FormSelect
-            v-model="chartType"
-            class="control"
-            aria-label="Chart type"
-            :options="[
-              { value: 'line', label: 'Line' },
-              { value: 'bar', label: 'Bar' },
-            ]"
-          />
-          <FormSelect
-            v-model="interval"
-            class="control"
-            aria-label="Interval"
-            @change="apply"
+            :model-value="groups[i - 1]"
+            :aria-label="`Group by ${i}`"
+            class="control w-full"
+            placeholder="Select a field"
             :options="
-              intervals.map((item) => ({ ...item, disabled: intervalDisabled(item.value) }))
+              availableGroups.map((value) => ({
+                value,
+                label: value,
+                disabled: groups.includes(value) && groups[i - 1] !== value,
+              }))
             "
+            @change="selectGroup(i - 1, $event)"
           />
+          <Button variant="outline" :aria-label="`Remove group ${i}`" @click="removeGroup(i - 1)">
+            Remove group
+          </Button>
         </div>
-        <p v-if="loading" role="status">Loading…</p>
-        <VChart
-          v-if="series"
-          :option="chart"
-          :update-options="{ replaceMerge: ['series'] }"
-          class="chart"
-          autoresize
-          @datazoom="zoom"
+        <Button
+          v-if="!addingGroup"
+          variant="outline"
+          :disabled="!availableGroups.some((value) => !groups.includes(value))"
+          @click="addingGroup = true"
+        >
+          Add group
+        </Button>
+        <h3 class="font-semibold">Top</h3>
+        <FormSelect
+          v-model="limit"
+          class="control w-full"
+          aria-label="Top limit"
+          :options="[5, 6, 7, 8, 9, 10].map((value) => ({ value, label: String(value) }))"
         />
-        <p v-else class="py-20 text-center">No chart data</p>
-        <p class="text-sm text-muted-foreground">
-          Matched
-          {{ series?.sampleCount ?? 0 }}
-          sampled records. Drag to zoom and query samples and aggregates together. Times use your
-          local time zone.
-        </p>
+      </aside>
+      <div class="min-w-0 space-y-3">
+        <section
+          v-for="(chart, index) in charts"
+          :key="chart.settings.id"
+          class="chart-panel min-w-0 rounded-xl border p-5"
+        >
+          <header class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+            <h3 class="break-words text-sm font-semibold">{{ chart.title }}</h3>
+            <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Chart settings">
+              <FormSelect
+                v-model="chart.settings.timeRange"
+                class="control w-48 max-sm:grow"
+                :aria-label="index === 0 ? 'Time range' : `Time range for chart ${index + 1}`"
+                @change="applyTimeRange(chart.settings, index)"
+                :options="timeRanges"
+              />
+              <FormSelect
+                v-model="chart.settings.type"
+                class="control w-30 max-sm:grow"
+                :aria-label="index === 0 ? 'Chart type' : `Chart type for chart ${index + 1}`"
+                :options="[
+                  { value: 'line', label: 'Line' },
+                  { value: 'bar', label: 'Bar' },
+                ]"
+              />
+              <FormSelect
+                v-model="chart.settings.interval"
+                class="control w-32 max-sm:grow"
+                :aria-label="index === 0 ? 'Interval' : `Interval for chart ${index + 1}`"
+                @change="refreshChart(chart.settings, index)"
+                :options="
+                  intervals.map((item) => ({
+                    ...item,
+                    disabled: intervalDisabled(chart.settings, item.value),
+                  }))
+                "
+              />
+            </div>
+          </header>
+          <div class="relative">
+            <VChart
+              :option="chart.option"
+              :update-options="{ replaceMerge: ['series'] }"
+              class="chart"
+              autoresize
+            />
+            <EmptyState
+              v-if="chart.settings.result?.sampleCount === 0"
+              class="pointer-events-none absolute inset-0"
+              title="No chart data in this time range"
+            />
+          </div>
+          <Loading v-if="chart.settings.loading" class="mb-2" label="Loading chart…" />
+          <p
+            v-else-if="chart.settings.error"
+            role="alert"
+            class="mb-2 text-sm text-muted-foreground"
+          >
+            Unable to load chart.
+            <Button variant="outline" @click="loadChart(chart.settings, index)">Retry</Button>
+          </p>
+          <p class="text-sm text-muted-foreground">
+            Matched {{ chart.settings.result?.sampleCount ?? 0 }} sampled records. Times use your
+            local time zone.
+          </p>
+        </section>
       </div>
     </div>
     <div v-if="error" role="alert" class="text-destructive">
       {{ error }} <Button variant="outline" @click="load">Retry</Button>
     </div>
-    <nav class="result-tabs flex flex-wrap gap-2" aria-label="Trace result views">
-      <Button
+    <nav class="flex gap-1 overflow-x-auto border-b" aria-label="Trace result views">
+      <button
         v-for="t in tabs"
         :key="t"
-        :variant="tab === t ? 'default' : 'outline'"
+        type="button"
+        :aria-pressed="tab === t"
+        class="monitoring-tab"
         @click="tab = t"
-        >{{ t }}</Button
       >
+        {{ t }}
+      </button>
     </nav>
-    <div class="results-table overflow-x-auto rounded-xl border">
-      <table v-if="tab === 'Span Samples'" class="w-full text-sm">
-        <thead>
+    <div
+      ref="resultsTable"
+      class="table-surface"
+      :style="loading ? { minHeight: `${resultsHeight}px` } : undefined"
+    >
+      <table class="app-table" :aria-busy="loading">
+        <thead v-if="tab === 'Span Samples'">
           <tr>
             <th>Span</th>
             <th>Type</th>
@@ -592,23 +669,7 @@ onMounted(async () => {
             <th>Status / completeness</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="s in spans" :key="s.spanId">
-            <td>
-              <RouterLink class="text-primary hover:underline" :to="detailLink(s.traceId)">{{
-                s.name
-              }}</RouterLink>
-            </td>
-            <td>{{ s.op }}</td>
-            <td>{{ s.isTransaction }}</td>
-            <td>{{ new Date(s.startTime).toLocaleString('en-US') }}</td>
-            <td>{{ s.durationMs }} ms</td>
-            <td>{{ s.status }} {{ s.truncated ? 'Truncated' : '' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <table v-else-if="tab === 'Trace Samples'" class="w-full text-sm">
-        <thead>
+        <thead v-else-if="tab === 'Trace Samples'">
           <tr>
             <th>Trace</th>
             <th :aria-sort="columnSort('startTime')">
@@ -635,22 +696,7 @@ onMounted(async () => {
             <th>Completeness</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="t in traces" :key="t.traceId">
-            <td>
-              <RouterLink class="text-primary hover:underline" :to="detailLink(t.traceId)">{{
-                t.traceId
-              }}</RouterLink>
-            </td>
-            <td>{{ new Date(t.startTime).toLocaleString('en-US') }}</td>
-            <td>{{ t.durationMs }} ms</td>
-            <td>{{ t.spanCount }}</td>
-            <td>{{ t.truncated ? 'Truncated' : 'Retained records' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <table v-else class="w-full text-sm">
-        <thead>
+        <thead v-else>
           <tr>
             <th>Group by</th>
             <th v-for="(m, i) in seriesMetrics" :key="i" :aria-sort="columnSort(String(i))">
@@ -666,41 +712,65 @@ onMounted(async () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="a in aggregates?.items" :key="a.groupKey">
-            <td>{{ a.groupValues.map((v) => v ?? 'Unknown').join(' / ') || 'All' }}</td>
-            <td v-for="(m, i) in seriesMetrics" :key="i">
-              {{ formatMetric(a.values[i], m) }}
-              <span class="text-muted-foreground">(n={{ a.sampleCounts[i] ?? 0 }})</span>
+          <tr v-if="loading || (tab === 'Aggregates' ? !aggregates?.items.length : !total)">
+            <td
+              :colspan="
+                tab === 'Span Samples' ? 6 : tab === 'Trace Samples' ? 5 : seriesMetrics.length + 1
+              "
+              class="result-placeholder text-muted-foreground"
+            >
+              <Loading v-if="loading" label="Loading results…" />
+              <EmptyState v-else-if="!error" title="No data" />
             </td>
           </tr>
+          <template v-else-if="tab === 'Span Samples'">
+            <tr v-for="s in spans" :key="s.spanId">
+              <td>
+                <RouterLink class="text-primary hover:underline" :to="detailLink(s.traceId)">{{
+                  s.name
+                }}</RouterLink>
+              </td>
+              <td>{{ s.op }}</td>
+              <td>{{ s.isTransaction }}</td>
+              <td>{{ new Date(s.startTime).toLocaleString('en-US') }}</td>
+              <td>{{ s.durationMs }} ms</td>
+              <td>{{ s.status }} {{ s.truncated ? 'Truncated' : '' }}</td>
+            </tr>
+          </template>
+          <template v-else-if="tab === 'Trace Samples'">
+            <tr v-for="t in traces" :key="t.traceId">
+              <td>
+                <RouterLink class="text-primary hover:underline" :to="detailLink(t.traceId)">{{
+                  t.traceId
+                }}</RouterLink>
+              </td>
+              <td>{{ new Date(t.startTime).toLocaleString('en-US') }}</td>
+              <td>{{ t.durationMs }} ms</td>
+              <td>{{ t.spanCount }}</td>
+              <td>{{ t.truncated ? 'Truncated' : 'Retained records' }}</td>
+            </tr>
+          </template>
+          <template v-else>
+            <tr v-for="a in aggregates?.items" :key="a.groupKey">
+              <td>{{ a.groupValues.map((v) => v ?? 'Unknown').join(' / ') || 'All' }}</td>
+              <td v-for="(m, i) in seriesMetrics" :key="i">
+                {{ formatMetric(a.values[i], m) }}
+                <span class="text-muted-foreground">(n={{ a.sampleCounts[i] ?? 0 }})</span>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
-      <p
-        v-if="!loading && (tab === 'Aggregates' ? !aggregates?.items.length : !total)"
-        class="p-8 text-center text-muted-foreground"
-      >
-        No data
-      </p>
     </div>
-    <div v-if="tab !== 'Aggregates'" class="flex items-center gap-3">
-      <Button
-        aria-label="Previous page"
-        variant="outline"
-        size="icon-sm"
-        :disabled="page === 1 || loading"
-        @click="changePage(-1)"
-        ><ChevronLeft aria-hidden="true" /></Button
-      ><span class="min-w-8 text-center text-sm tabular-nums" aria-current="page">{{ page }}</span
-      ><Button
-        aria-label="Next page"
-        variant="outline"
-        size="icon-sm"
-        :disabled="page * 20 >= total || loading"
-        @click="changePage(1)"
-        ><ChevronRight aria-hidden="true"
-      /></Button>
-      <span class="text-sm text-muted-foreground">{{ total }} records</span>
-    </div>
+    <TablePagination
+      v-if="tab !== 'Aggregates'"
+      :page="page"
+      :total="total"
+      :page-size="20"
+      :busy="loading"
+      label="Trace results pagination"
+      @change="changePage($event - page)"
+    />
   </section>
 </template>
 <style scoped>
@@ -716,52 +786,16 @@ label {
 }
 .visualize-panel,
 .filter-panel,
-.chart-panel,
-.results-table {
+.chart-panel {
   background: var(--background);
 }
-.chart-panel {
-  display: flex;
-  flex-direction: column;
-}
-.chart-toolbar {
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-}
-.chart-toolbar [role='combobox'][aria-label='Time range'] {
-  min-width: 155px;
-}
-.chart-toolbar [role='combobox'][aria-label='Chart type'] {
-  min-width: 115px;
-}
-.chart-toolbar [role='combobox'][aria-label='Interval'] {
-  min-width: 110px;
-}
-.top-limit {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 .chart {
-  flex: 1;
   min-height: 360px;
   height: 360px;
 }
-th,
-td {
-  padding: 1rem 1.25rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-th {
-  background: var(--muted);
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-tbody tr:last-child td {
-  border-bottom: 0;
+.result-placeholder {
+  height: 5.5rem;
+  text-align: center;
 }
 tbody tr:hover {
   background: color-mix(in srgb, var(--muted) 45%, transparent);
@@ -792,20 +826,9 @@ th[aria-sort='none'] .sort-icon {
   color: var(--muted-foreground);
 }
 @media (max-width: 640px) {
-  .chart-toolbar {
-    justify-content: flex-start;
-    gap: 0.75rem;
-  }
-  .chart-toolbar [role='combobox'] {
-    flex: 1;
-  }
   .chart {
     min-height: 300px;
     height: 300px;
-  }
-  th,
-  td {
-    padding: 0.75rem 1rem;
   }
 }
 </style>

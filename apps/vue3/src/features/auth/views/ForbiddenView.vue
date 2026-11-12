@@ -11,7 +11,7 @@ const router = useRouter()
   <main class="grid min-h-screen place-items-center bg-muted/30 p-6 text-center">
     <div class="max-w-md space-y-4">
       <ShieldX class="mx-auto size-14 text-destructive" />
-      <h1 class="text-3xl font-semibold">Access denied</h1>
+      <h1 class="page-title">Access denied</h1>
       <p class="text-muted-foreground">
         Your account does not have permission to access this page. Contact your administrator.
       </p>

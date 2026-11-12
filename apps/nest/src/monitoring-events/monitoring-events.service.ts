@@ -178,7 +178,7 @@ export class MonitoringEventsService {
       view?: 'active' | 'archived';
     },
   ) {
-    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    const project = await this.projects.findReadableBySlug(userId, groupSlug, projectSlug, 'project:issues:read');
     const issuesQuery = this.dataSource.getRepository(MonitoringErrorIssue)
       .createQueryBuilder('issue')
       .leftJoinAndSelect('issue.latestEvent', 'latestEvent')
@@ -229,7 +229,7 @@ export class MonitoringEventsService {
     projectSlug: string,
     issueId: string,
   ) {
-    const project = await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
+    const project = await this.projects.findReadableBySlug(userId, groupSlug, projectSlug, 'project:issues:read');
     const issue = await this.dataSource.getRepository(MonitoringErrorIssue).findOne({
       where: { id: issueId, projectId: project.id },
       relations: { latestEvent: true },

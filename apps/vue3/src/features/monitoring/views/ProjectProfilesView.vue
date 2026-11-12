@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useProjectAccessStore } from "../model/project-access.store"
+const projectAccess = useProjectAccessStore()
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -125,7 +129,7 @@ onBeforeUnmount(() => {
   <section class="space-y-6">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Profiles</h1>
+        <h1 class="page-title">Profiles</h1>
         <p class="mt-1 text-sm text-muted-foreground">
           Find expensive browser functions from sampled call stacks.
         </p>
@@ -136,24 +140,24 @@ onBeforeUnmount(() => {
       class="flex flex-wrap items-end gap-3 rounded-lg border bg-background p-4"
       @submit.prevent="apply"
     >
-      <div class="space-y-1 text-xs text-muted-foreground">
-        <span>Current project</span>
-        <div
-          class="flex h-9 items-center rounded-md border px-3 text-sm font-medium text-foreground"
-        >
-          {{ project }}
-        </div>
-      </div>
-      <label class="w-44 space-y-1 text-xs text-muted-foreground"
-        >Time range<FormSelect v-model="timeRange" aria-label="Time range" :options="ranges"
-      /></label>
-      <label class="w-40 space-y-1 text-xs text-muted-foreground"
-        >Environment<FormSelect
+      <label class="flex w-44 flex-col gap-2 text-xs text-muted-foreground">
+        <span>Time range</span>
+        <FormSelect
+          v-model="timeRange"
+          aria-label="Time range"
+          :options="ranges"
+          @change="apply"
+        />
+      </label>
+      <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
+        <span>Environment</span>
+        <FormSelect
           v-model="environment"
           aria-label="Environment"
           :options="environments"
-      /></label>
-      <Button type="submit">Apply filters</Button>
+          @change="apply"
+        />
+      </label>
     </form>
     <ProfilesExplorer
       :overview="overview"
@@ -176,8 +180,8 @@ onBeforeUnmount(() => {
         </div></template
       >
       <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
-      <div class="overflow-x-auto rounded-lg border bg-background" :aria-busy="loading">
-        <table class="w-full text-left text-sm">
+      <div class="table-surface" :aria-busy="loading">
+        <table class="app-table">
           <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="p-3">Profile</th>
@@ -191,7 +195,7 @@ onBeforeUnmount(() => {
           <tbody>
             <tr v-for="item in items" :key="item.profileId" class="border-b last:border-0">
               <td class="max-w-80 break-all p-3">
-                <RouterLink
+                <RouterLink v-if="projectAccess.canRoute('project-profiles-setup')"
                   class="font-medium hover:underline"
                   :to="{
                     name: 'project-profile-detail',
@@ -211,38 +215,31 @@ onBeforeUnmount(() => {
         <p v-if="loading" role="status" class="p-12 text-center text-sm text-muted-foreground">
           Loading profiles…
         </p>
-        <p
+        <EmptyState
           v-else-if="!error && !items.length"
-          class="p-12 text-center text-sm text-muted-foreground"
+          class="min-h-52 p-8"
+          title="No profiles found."
+          description="Adjust your filters or follow the setup instructions."
         >
-          No profiles found. Adjust your filters or follow the
-          <RouterLink
-            class="underline"
+          <RouterLink v-if="projectAccess.canRoute('project-profiles-setup')"
+            class="text-xs text-violet-600 hover:underline"
             :to="{
               name: 'project-profiles-setup',
               params: { groupSlug: group, projectSlug: project },
             }"
             >Profiles setup instructions</RouterLink
-          >.
-        </p>
+          >
+        </EmptyState>
       </div>
-      <nav class="flex items-center justify-end gap-3 text-sm" aria-label="Profiles pagination">
-        <span
-          >{{ total }} profiles · Page {{ page }} of {{ Math.max(1, Math.ceil(total / 20)) }}</span
-        ><Button
-          aria-label="Previous page"
-          variant="outline"
-          :disabled="loading || page <= 1"
-          @click="changePage(-1)"
-          >Previous</Button
-        ><Button
-          aria-label="Next page"
-          variant="outline"
-          :disabled="loading || page * 20 >= total"
-          @click="changePage(1)"
-          >Next</Button
-        >
-      </nav>
+      <TablePagination
+        :page="page"
+        :total="total"
+        :page-size="20"
+        :busy="loading"
+        unit="profiles"
+        label="Profiles pagination"
+        @change="changePage($event - page)"
+      />
     </ProfilesExplorer>
   </section>
 </template>

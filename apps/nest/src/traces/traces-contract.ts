@@ -1,3 +1,5 @@
+export const TRACE_HISTORY_DAYS = 30;
+
 export interface MonitoringSpan {
   traceId: string;
   spanId: string;

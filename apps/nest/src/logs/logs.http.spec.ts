@@ -84,3 +84,4 @@ describe('Logs HTTP boundary', () => {
     expect(ingest).toHaveBeenCalledTimes(2);
   });
 });
+

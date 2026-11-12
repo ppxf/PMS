@@ -84,8 +84,7 @@ onBeforeUnmount(() => {
     <template v-if="project">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-semibold tracking-tight">{{ project.name }}</h2>
-          <p class="mt-1 text-muted-foreground">Vue monitoring project</p>
+          <h2 class="page-title">{{ project.name }}</h2>
         </div>
         <Badge :variant="project.connected ? 'default' : 'secondary'">
           {{ project.connected ? 'Connected' : 'Awaiting connection' }}

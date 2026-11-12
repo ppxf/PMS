@@ -3,8 +3,10 @@ import {
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { DataSource, LessThanOrEqual } from 'typeorm';
+import { AuditRecordsService } from '../audit-records/audit-records.service';
 import {
   MonitoringErrorIssue,
   MonitoringErrorIssueResolutionReason,
@@ -21,7 +23,10 @@ export class IssueAutoResolutionService
   private readonly logger = new Logger(IssueAutoResolutionService.name);
   private timer: NodeJS.Timeout | undefined;
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional() private readonly audit?: AuditRecordsService,
+  ) {}
 
   onModuleInit(): void {
     if (process.env.NODE_ENV !== 'production') return;
@@ -39,6 +44,8 @@ export class IssueAutoResolutionService
 
   async resolveInactiveProductionIssues(now = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - SEVEN_DAYS_MS);
+    if (this.audit)
+      return this.audit.resolveInactiveProductionIssues(now, cutoff);
     const result = await this.dataSource
       .getRepository(MonitoringErrorIssue)
       .update(

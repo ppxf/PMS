@@ -8,6 +8,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 import { Group } from '../../groups/entities/group.entity';
 
 export enum MonitoringPlatform {
@@ -19,6 +21,16 @@ export enum MonitoringPlatform {
 export class MonitoringProject {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Column({ name: 'owner_id', type: 'uuid' })
+  ownerId!: string;
+
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({
+    name: 'owner_id',
+    foreignKeyConstraintName: 'fk_project_owner',
+  })
+  owner!: Relation<User>;
 
   @Column({ name: 'group_id', type: 'uuid' })
   groupId!: string;

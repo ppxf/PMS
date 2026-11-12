@@ -5,6 +5,7 @@ import {
   MonitoringErrorIssueStatus,
 } from './entities/monitoring-error-issue.entity';
 import { IssueAutoResolutionService } from './issue-auto-resolution.service';
+import { AuditRecordsService } from '../audit-records/audit-records.service';
 
 describe('IssueAutoResolutionService', () => {
   const now = new Date('2026-09-29T12:00:00.000Z');
@@ -17,8 +18,29 @@ describe('IssueAutoResolutionService', () => {
     return { service: new IssueAutoResolutionService(dataSource), update };
   }
 
-  beforeEach(() => jest.useFakeTimers().setSystemTime(now));
-  afterEach(() => jest.useRealTimers());
+  const originalNodeEnv = process.env.NODE_ENV;
+  beforeEach(() => {
+    process.env.NODE_ENV = 'production';
+    jest.useFakeTimers().setSystemTime(now);
+  });
+  afterEach(() => {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    jest.useRealTimers();
+  });
+
+  it('uses atomic audit resolution when audit persistence is configured', async () => {
+    const resolveInactiveProductionIssues = jest.fn().mockResolvedValue(2);
+    const service = new IssueAutoResolutionService(
+      {} as DataSource,
+      { resolveInactiveProductionIssues } as unknown as AuditRecordsService,
+    );
+    await expect(service.resolveInactiveProductionIssues(now)).resolves.toBe(2);
+    expect(resolveInactiveProductionIssues).toHaveBeenCalledWith(
+      now,
+      new Date('2026-09-22T12:00:00.000Z'),
+    );
+  });
 
   it('resolves only inactive unresolved production issues after seven days', async () => {
     const { service, update } = fixture();

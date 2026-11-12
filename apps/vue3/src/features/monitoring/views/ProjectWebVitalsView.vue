@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useProjectAccessStore } from "../model/project-access.store"
+const projectAccess = useProjectAccessStore()
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { webVitalsQuery } from '../api/web-vitals.api'
@@ -11,6 +15,7 @@ import { GridComponent, TooltipComponent, MarkLineComponent } from 'echarts/comp
 import VChart from 'vue-echarts'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import { Button } from '@/components/ui/button'
+import { RefreshCw } from '@lucide/vue'
 use([LineChart, CanvasRenderer, GridComponent, TooltipComponent, MarkLineComponent])
 const metric = ref('LCP')
 const series = ref<{ timestamp: string; name: string; p75: number | null; count: number }[]>([])
@@ -226,23 +231,31 @@ onBeforeUnmount(() => {
       }"
       >← All pages</RouterLink
     >
-    <h2 v-if="detail">{{ route.query.route }}</h2>
     <header class="flex justify-between">
       <div>
-        <h1 class="text-2xl font-semibold">Web Vitals</h1>
+        <h1 class="page-title break-words">{{ detail ? route.query.route : 'Web Vitals' }}</h1>
         <p class="text-sm text-muted-foreground">Real user experience · p75</p>
         <p v-if="overview?.lastReceivedAt" class="text-xs text-muted-foreground">
           Last metric received: {{ new Date(overview.lastReceivedAt).toLocaleString() }}
         </p>
       </div>
-      <Button variant="outline" :disabled="loading" @click="refreshData">Refresh</Button>
+      <Button
+        variant="outline"
+        size="icon"
+        title="Refresh"
+        aria-label="Refresh"
+        :disabled="loading"
+        @click="refreshData"
+      >
+        <RefreshCw class="size-4" aria-hidden="true" />
+      </Button>
     </header>
     <div
       class="flex flex-wrap items-end gap-3 rounded-xl border bg-background p-4"
       aria-label="Web Vitals filters"
     >
-      <label class="w-40 space-y-1 text-sm"
-        >Time range
+      <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
+        <span>Time range</span>
         <FormSelect
           :model-value="String(route.query.range || '24h')"
           aria-label="Time range"
@@ -255,8 +268,8 @@ onBeforeUnmount(() => {
           @change="update('range', $event)"
         />
       </label>
-      <label class="w-44 space-y-1 text-sm"
-        >Environment
+      <label class="flex w-44 flex-col gap-2 text-xs text-muted-foreground">
+        <span>Environment</span>
         <FormSelect
           :model-value="String(route.query.environment || '')"
           aria-label="Environment"
@@ -268,8 +281,8 @@ onBeforeUnmount(() => {
           @change="update('environment', $event)"
         />
       </label>
-      <label class="w-40 space-y-1 text-sm"
-        >Device
+      <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
+        <span>Device</span>
         <FormSelect
           :model-value="String(route.query.device || '')"
           aria-label="Device"
@@ -283,8 +296,8 @@ onBeforeUnmount(() => {
           @change="update('device', $event)"
         />
       </label>
-      <label class="w-40 space-y-1 text-sm"
-        >Auto refresh
+      <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
+        <span>Auto refresh</span>
         <FormSelect
           v-model="refresh"
           aria-label="Auto refresh"
@@ -309,13 +322,12 @@ onBeforeUnmount(() => {
       </button>
     </p>
     <template v-if="overview">
-      <p
-        v-if="!overview.pageViews && !failures.includes('overview')"
-        class="rounded-xl border bg-white p-6"
-      >
-        No Web Vitals received for these filters. Basic SDK setup automatically collects supported
-        browser metrics.
-      </p>
+      <EmptyState
+        v-if="!loading && !overview.pageViews && !failures.includes('overview')"
+        class="rounded-lg border bg-background p-6"
+        title="No Web Vitals received for these filters."
+        description="Basic SDK setup automatically collects supported browser metrics."
+      />
       <div class="grid items-stretch gap-4 lg:grid-cols-3">
         <section class="min-w-0 rounded-xl border bg-background p-5">
           <div class="flex items-center justify-between gap-3">
@@ -443,56 +455,71 @@ onBeforeUnmount(() => {
       </section>
       <section v-if="!detail" class="overflow-auto rounded-xl border bg-white p-5">
         <h2 class="mb-4 font-semibold">Pages</h2>
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr>
-              <th>Page</th>
-              <th>Page views</th>
-              <th>Poor experiences</th>
-              <th>LCP coverage</th>
-              <th v-for="name in ['LCP', 'INP', 'CLS', 'FCP', 'TTFB']" :key="name">
-                {{ name }} p75
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in pages" :key="item.route" class="border-t">
-              <td class="py-3">
-                <RouterLink
-                  class="underline"
-                  :to="{
-                    name: 'project-web-vitals-detail',
-                    params,
-                    query: { ...route.query, route: item.route, page: undefined },
-                  }"
-                  >{{ item.route }}</RouterLink
-                >
-              </td>
-              <td>{{ item.pageViews }}</td>
-              <td>{{ item.poorPageViews }}</td>
-              <td>
-                {{
-                  formatRate(item.metrics.find((metric) => metric.name === 'LCP')?.coverage ?? null)
-                }}
-              </td>
-              <td v-for="name in ['LCP', 'INP', 'CLS', 'FCP', 'TTFB']" :key="name">
-                {{ formatVital(name, item.metrics.find((x) => x.name === name)?.p75 ?? null) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="!pages.length" class="py-6">No matching pages</p>
-        <div class="mt-4 flex justify-end gap-4">
-          <button :disabled="page <= 1" @click="update('page', String(page - 1))">Previous</button
-          ><span>Page {{ page }} · {{ total }} pages</span
-          ><button :disabled="page * 20 >= total" @click="update('page', String(page + 1))">
-            Next
-          </button>
+        <div class="table-surface">
+          <table class="app-table">
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Page views</th>
+                <th>Poor experiences</th>
+                <th>LCP coverage</th>
+                <th v-for="name in ['LCP', 'INP', 'CLS', 'FCP', 'TTFB']" :key="name">
+                  {{ name }} p75
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in pages" :key="item.route" class="border-t">
+                <td class="py-3">
+                  <RouterLink
+                    class="underline"
+                    :to="{
+                      name: 'project-web-vitals-detail',
+                      params,
+                      query: { ...route.query, route: item.route, page: undefined },
+                    }"
+                    >{{ item.route }}</RouterLink
+                  >
+                </td>
+                <td>{{ item.pageViews }}</td>
+                <td>{{ item.poorPageViews }}</td>
+                <td>
+                  {{
+                    formatRate(
+                      item.metrics.find((metric) => metric.name === 'LCP')?.coverage ?? null,
+                    )
+                  }}
+                </td>
+                <td v-for="name in ['LCP', 'INP', 'CLS', 'FCP', 'TTFB']" :key="name">
+                  {{ formatVital(name, item.metrics.find((x) => x.name === name)?.p75 ?? null) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <EmptyState
+            v-if="!loading && !failures.includes('pages') && !pages.length"
+            class="p-8"
+            title="No matching pages"
+          />
         </div>
+        <TablePagination
+          class="mt-4"
+          :page="page"
+          :total="total"
+          :page-size="20"
+          :busy="loading"
+          unit="pages"
+          label="Web Vitals pages pagination"
+          @change="update('page', String($event))"
+        />
       </section>
       <section v-if="detail" class="rounded-xl border bg-white p-5">
         <h2 class="font-semibold">Page samples and attribution</h2>
-        <p v-if="!samples.length">No samples for this page</p>
+        <EmptyState
+          v-if="!loading && !failures.includes('samples') && !samples.length"
+          class="p-8"
+          title="No samples for this page"
+        />
         <article v-for="sample in samples" :key="sample.pageViewId" class="mt-4 border-t pt-3">
           <p>{{ sample.startedAt }} · {{ sample.pageViewId }}</p>
           <RouterLink
@@ -513,14 +540,18 @@ onBeforeUnmount(() => {
             }}</pre>
           </div>
         </article>
-        <div class="mt-4 flex gap-4">
-          <button :disabled="page <= 1" @click="update('page', String(page - 1))">
-            Previous samples</button
-          ><span>Page {{ page }} · {{ total }} samples</span
-          ><button :disabled="page * 20 >= total" @click="update('page', String(page + 1))">
-            Next samples
-          </button>
-        </div>
+        <TablePagination
+          class="mt-4"
+          :page="page"
+          :total="total"
+          :page-size="20"
+          :busy="loading"
+          unit="samples"
+          label="Web Vitals samples pagination"
+          previous-label="Previous samples"
+          next-label="Next samples"
+          @change="update('page', String($event))"
+        />
       </section>
     </template>
   </main>

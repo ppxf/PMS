@@ -166,7 +166,7 @@ describe('Profiles overview scope', () => {
         run({ query }),
       ),
     } as unknown as DataSource,
-    { findOwnedBySlug: owned } as unknown as MonitoringProjectsService,
+    { findReadableBySlug: owned } as unknown as MonitoringProjectsService,
   );
   beforeEach(() => {
     query.mockReset().mockResolvedValue([]);
@@ -174,7 +174,7 @@ describe('Profiles overview scope', () => {
   });
   it('binds every filter and loads the previous equal interval in the same snapshot', async () => {
     await service.overview('owner', 'team', 'web', q);
-    expect(owned).toHaveBeenCalledWith('owner', 'team', 'web');
+    expect(owned).toHaveBeenCalledWith('owner', 'team', 'web', 'project:profiles:read');
     const call = query.mock.calls.find(([sql]: [string]) =>
       sql.includes('SELECT profile'),
     )!;
@@ -260,3 +260,5 @@ describe('Profiles overview scope', () => {
     );
   });
 });
+
+

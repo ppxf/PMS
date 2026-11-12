@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ChevronLeft, ChevronRight, Search } from '@lucide/vue'
-import { Button } from '@/components/ui/button'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import ProfileTrendChart from './ProfileTrendChart.vue'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import type { ProfileDistribution, ProfileFunctionOverview } from '../model/profiles-overview'
@@ -104,26 +104,6 @@ watch([mode, metric, scope, () => props.functions], () => {
           P95 self time compared with the previous equal time period.
         </p>
       </div>
-      <div class="flex shrink-0">
-        <Button
-          size="icon"
-          variant="outline"
-          class="size-7 rounded-r-none"
-          :aria-label="`${initialMode} previous functions`"
-          :disabled="page === 0 || loading"
-          @click="page--"
-          ><ChevronLeft class="size-3"
-        /></Button>
-        <Button
-          size="icon"
-          variant="outline"
-          class="size-7 rounded-l-none"
-          :aria-label="`${initialMode} next functions`"
-          :disabled="(page + 1) * 5 >= ranked.length || loading"
-          @click="page++"
-          ><ChevronRight class="size-3"
-        /></Button>
-      </div>
     </div>
     <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs">
       <FormSelect
@@ -146,31 +126,26 @@ watch([mode, metric, scope, () => props.functions], () => {
           : 'Includes application, SDK and framework functions.'
       }}
     </p>
-    <div
-      v-if="loading || failed || !visible.length"
-      class="flex flex-1 flex-col items-center justify-center gap-4 py-14 text-center"
-    >
-      <Search class="size-12 text-muted-foreground/70" :stroke-width="1.5" />
-      <p class="text-lg">
-        {{
-          loading
-            ? 'Loading functions…'
-            : failed
-              ? 'Function statistics unavailable'
-              : comparison
-                ? mode === 'regressed'
-                  ? 'No regressed functions detected'
-                  : 'No improved functions detected'
-                : 'No functions found'
-        }}
-      </p>
-      <p
-        v-if="comparison && !loading && !failed && !visible.length"
-        class="max-w-xs text-xs text-muted-foreground"
-      >
-        Changes require a matching function with non-zero P95 self time in the comparison period.
-      </p>
-    </div>
+    <p v-if="loading || failed" class="grid flex-1 place-items-center py-14 text-center text-lg">
+      {{ loading ? 'Loading functions…' : 'Function statistics unavailable' }}
+    </p>
+    <EmptyState
+      v-else-if="!visible.length"
+      class="flex-1 py-14"
+      size="lg"
+      :title="
+        comparison
+          ? mode === 'regressed'
+            ? 'No regressed functions detected'
+            : 'No improved functions detected'
+          : 'No functions found'
+      "
+      :description="
+        comparison
+          ? 'Changes require a matching function with non-zero P95 self time in the comparison period.'
+          : undefined
+      "
+    />
     <ol v-else class="mt-3 divide-y border-y">
       <li v-for="fn in visible" :key="fn.key" class="py-4">
         <div class="grid grid-cols-[20px_minmax(0,1fr)_auto] items-start gap-x-3 text-xs">
@@ -226,9 +201,17 @@ watch([mode, metric, scope, () => props.functions], () => {
         />
       </li>
     </ol>
-    <p v-if="visible.length" class="mt-auto pt-3 text-right text-xs text-muted-foreground">
-      {{ page * 5 + 1 }}–{{ Math.min((page + 1) * 5, ranked.length) }} of
-      {{ ranked.length }} functions
-    </p>
+    <TablePagination
+      class="mt-auto pt-3"
+      :page="page + 1"
+      :total="ranked.length"
+      :page-size="5"
+      :busy="loading"
+      unit="functions"
+      :label="`${initialMode} functions pagination`"
+      :previous-label="`${initialMode} previous functions`"
+      :next-label="`${initialMode} next functions`"
+      @change="page = $event - 1"
+    />
   </article>
 </template>

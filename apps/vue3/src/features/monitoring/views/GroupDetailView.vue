@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -41,10 +42,10 @@ onMounted(load)
     <template v-else-if="group">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-semibold tracking-tight">{{ group.name }}</h2>
+          <h2 class="page-title">{{ group.name }}</h2>
           <p class="mt-1 text-muted-foreground">Manage Vue monitoring projects in this group.</p>
         </div>
-        <Button as-child>
+        <Button v-if="group.isOwner" as-child>
           <RouterLink :to="{ name: 'create-project', params: { groupSlug } }"
             >Create project</RouterLink
           >
@@ -52,12 +53,11 @@ onMounted(load)
       </div>
 
       <Card v-if="projects.length === 0">
-        <CardHeader>
-          <CardTitle>No monitoring projects yet</CardTitle>
-          <CardDescription
-            >Create a Vue project to get a DSN and setup instructions.</CardDescription
-          >
-        </CardHeader>
+        <EmptyState
+          class="p-8"
+          title="No monitoring projects yet"
+          description="Create a Vue project to get a DSN and setup instructions."
+        />
       </Card>
       <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <RouterLink
@@ -67,7 +67,7 @@ onMounted(load)
         >
           <Card class="h-full transition-colors hover:bg-muted/30">
             <CardHeader>
-              <CardTitle>{{ project.name }}</CardTitle>
+              <CardTitle>{{ project.name }}</CardTitle><p class="text-sm text-muted-foreground">{{ project.role }}</p>
               <CardDescription
                 >{{ project.connected ? 'Connected' : 'Awaiting connection' }} ·
                 Vue</CardDescription

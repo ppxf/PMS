@@ -27,7 +27,8 @@ const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
         key === 'key'
           ? Promise.resolve({ id: projectId })
           : Promise.reject(new Error('denied')),
-      findOwnedBySlug: (user: string) =>
+      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      findReadableBySlug: (user: string) =>
         user === 'owner'
           ? Promise.resolve({ id: projectId, slug: 'web' })
           : Promise.reject(new Error('denied')),

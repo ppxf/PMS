@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { Button } from '@/components/ui/button'
 import type { ProfileSegment } from '../model/profiles'
@@ -139,9 +140,7 @@ onBeforeUnmount(() => observer?.disconnect())
     <div class="flex justify-between text-xs text-muted-foreground">
       <span>{{ start.toFixed(2) }} ms</span><span>{{ end.toFixed(2) }} ms</span>
     </div>
-    <p v-if="!segments.length" class="py-8 text-center text-sm text-muted-foreground">
-      No samples recorded
-    </p>
+    <EmptyState v-if="!segments.length" class="py-8" title="No samples recorded" />
     <div v-else class="grid overflow-hidden rounded border lg:grid-cols-[minmax(0,1fr)_240px]">
       <div class="max-h-[480px] min-w-0 overflow-y-auto">
         <canvas

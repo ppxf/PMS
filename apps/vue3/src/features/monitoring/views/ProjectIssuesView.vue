@@ -149,7 +149,7 @@ function issueRowClass(issue: MonitoringIssueSummary): string | undefined {
   <section class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight">
+        <h2 class="page-title">
           {{ view === 'active' ? 'Issues' : 'Archived issues' }}
         </h2>
         <p class="mt-1 text-muted-foreground">Review grouped frontend errors in this project.</p>

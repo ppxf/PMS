@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { http } from '@/services/http'
+import { ref } from 'vue'
+import { useProjectAccessStore } from '@/features/monitoring/model/project-access.store'
 import {
   Bug,
+  Bell,
+  ShieldCheck,
   Flame,
   Gauge,
   Logs,
@@ -11,8 +16,9 @@ import {
   LayoutDashboard,
   LogOut,
   Plug,
+  Workflow,
   Settings,
-  ShieldCheck,
+  Activity,
   Users,
 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -45,7 +51,21 @@ interface ProjectNavigationItem {
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const projectAccess = useProjectAccessStore()
+const visibleProjectNavigation = computed(() =>
+  projectNavigation.filter((item) => projectAccess.canRoute(item.routeName)),
+)
 
+const workspaceAuditAvailable = ref(false)
+onMounted(async () => {
+  try {
+    workspaceAuditAvailable.value = (
+      await http.get<{ canRead: boolean }>('/audit-records/capabilities')
+    ).canRead
+  } catch {
+    workspaceAuditAvailable.value = false
+  }
+})
 const navigation: NavigationItem[] = [
   {
     label: 'Dashboard',
@@ -53,11 +73,28 @@ const navigation: NavigationItem[] = [
     activeRouteNames: ['dashboard'],
     icon: LayoutDashboard,
   },
+  ...(['issues', 'alerts', 'ingestion'] as const).map((section) => ({
+    label: {
+      issues: 'Issue center',
+      alerts: 'Alerts',
+      ingestion: 'Ingestion status',
+      audit: 'Audit records',
+    }[section],
+    routeName: `workspace-${section}`,
+    activeRouteNames: [`workspace-${section}`],
+    icon: { issues: Bug, alerts: Bell, ingestion: Plug }[section],
+  })),
   {
     label: 'Groups and projects',
     routeName: 'groups',
     activeRouteNames: ['groups', 'group-detail', 'create-project'],
     icon: FolderKanban,
+  },
+  {
+    label: 'Audit records',
+    routeName: 'workspace-audit',
+    activeRouteNames: ['workspace-audit'],
+    icon: ShieldCheck,
   },
   {
     label: 'Users',
@@ -69,6 +106,12 @@ const navigation: NavigationItem[] = [
 ]
 
 const projectNavigation: ProjectNavigationItem[] = [
+  {
+    label: 'Members',
+    routeName: 'project-members',
+    activeRouteNames: ['project-members'],
+    icon: Users,
+  },
   {
     label: 'Profiles',
     routeName: 'project-profiles',
@@ -95,12 +138,14 @@ const projectNavigation: ProjectNavigationItem[] = [
       'project-setup',
       'project-traces-setup',
       'project-metrics-setup',
+      'project-logs-setup',
       'project-profiles-setup',
     ],
     children: [
       { label: 'Basic setup', routeName: 'project-setup' },
       { label: 'Traces setup', routeName: 'project-traces-setup' },
       { label: 'Metrics setup', routeName: 'project-metrics-setup' },
+      { label: 'Logs setup', routeName: 'project-logs-setup' },
       { label: 'Profiles setup', routeName: 'project-profiles-setup' },
     ],
     icon: Plug,
@@ -112,20 +157,26 @@ const projectNavigation: ProjectNavigationItem[] = [
     icon: Bug,
   },
   {
+    label: 'Traces',
+    routeName: 'project-traces',
+    activeRouteNames: ['project-traces', 'project-trace-detail'],
+    icon: Workflow,
+  },
+  {
     label: 'Settings',
     routeName: 'project-detail',
     activeRouteNames: ['project-detail'],
     icon: Settings,
   },
-  {
-    label: 'Traces',
-    routeName: 'project-traces',
-    activeRouteNames: ['project-traces', 'project-trace-detail'],
-    icon: Plug,
-  },
 ]
 
-const visibleNavigation = computed(() => navigation.filter((item) => auth.can(item.permissions)))
+const visibleNavigation = computed(() =>
+  navigation.filter(
+    (item) =>
+      auth.can(item.permissions) &&
+      (item.routeName !== 'workspace-audit' || workspaceAuditAvailable.value),
+  ),
+)
 const currentRouteName = computed(() => String(route.name ?? ''))
 const currentProject = computed(() => {
   const groupSlug = route.params.groupSlug
@@ -151,29 +202,35 @@ async function logout(): Promise<void> {
     <aside class="border-r bg-background">
       <div class="flex h-16 items-center gap-2 px-5">
         <div class="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
-          <ShieldCheck class="size-5" />
+          <Activity class="size-5" aria-hidden="true" />
         </div>
-        <div>
-          <p class="font-semibold">PMS CMS</p>
-          <p class="text-xs text-muted-foreground">Application monitoring</p>
-        </div>
+        <p class="font-semibold">PMS</p>
       </div>
 
       <Separator />
 
       <nav class="space-y-1 p-3" aria-label="Main navigation">
-        <RouterLink
-          v-for="item in visibleNavigation"
-          :key="item.routeName"
-          :to="{ name: item.routeName }"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          :class="{ 'bg-muted text-foreground': isActive(item.activeRouteNames) }"
-          active-class=""
-        >
-          <component :is="item.icon" class="size-4" />
-          {{ item.label }}
-        </RouterLink>
-
+        <p class="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">Workbench</p>
+        <template v-for="item in visibleNavigation" :key="item.routeName">
+          <p
+            v-if="
+              item.routeName === 'workspace-audit' ||
+              (item.routeName === 'users' && !workspaceAuditAvailable)
+            "
+            class="px-3 pt-5 pb-2 text-xs font-semibold uppercase text-muted-foreground"
+          >
+            Management
+          </p>
+          <RouterLink
+            :to="{ name: item.routeName }"
+            class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            :class="{ 'bg-muted text-foreground': isActive(item.activeRouteNames) }"
+            active-class=""
+          >
+            <component :is="item.icon" class="size-4" />
+            {{ item.label }}
+          </RouterLink>
+        </template>
         <div v-if="currentProject">
           <p
             data-testid="current-project-navigation"
@@ -182,7 +239,7 @@ async function logout(): Promise<void> {
             <FolderOpen class="size-4" />
             Current project
           </p>
-          <template v-for="item in projectNavigation" :key="item.routeName">
+          <template v-for="item in visibleProjectNavigation" :key="item.routeName">
             <div v-if="item.children" class="ml-3">
               <p
                 class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground"
@@ -229,10 +286,7 @@ async function logout(): Promise<void> {
       <header
         class="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/90 px-6 backdrop-blur"
       >
-        <div>
-          <h1 class="font-semibold">{{ route.meta.title }}</h1>
-          <p class="text-xs text-muted-foreground">Application monitoring console</p>
-        </div>
+        <h1 class="font-semibold">{{ route.meta.title }}</h1>
 
         <div class="flex items-center gap-3">
           <div class="hidden text-right sm:block">

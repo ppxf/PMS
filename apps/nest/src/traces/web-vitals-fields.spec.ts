@@ -30,3 +30,4 @@ describe('Web Vitals query fields', () => {
     },
   );
 });
+

@@ -16,6 +16,14 @@ function withoutLazyComponents(route: RouteRecordRaw): RouteRecordRaw {
 }
 
 describe('project routes', () => {
+  it('returns to dashboard for the removed global search URL', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: routes.map(withoutLazyComponents),
+    })
+    await router.push('/workspace/search')
+    expect(router.currentRoute.value.name).toBe('dashboard')
+  })
   it('opens SDK setup by default when entering a project', async () => {
     const router = createRouter({
       history: createMemoryHistory(),

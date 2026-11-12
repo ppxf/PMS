@@ -91,11 +91,31 @@ describe('Logs explorer', () => {
     picker('Chart field 1').vm.$emit('update:modelValue', 'message')
     await selectValue(view, 'Aggregate 1', 'count')
     expect(api.logQuery.mock.lastCall![2].visualizations[0].field).toBe('logs')
-    await view
-      .findAll('button')
-      .find((b) => b.text() === 'Add group')!
-      .trigger('click')
-    expect(keys('Group 1.1')).toEqual(expected)
+  }, 15000)
+  it('adds groups on demand and switches between grouped results and logs', async () => {
+    const view = mount(ProjectLogsView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    const activeTab = () => view.get('[role="tab"][aria-selected="true"]').text()
+    for (const [index, field] of ['severity', 'origin', 'sdk.name'].entries()) {
+      const calls = api.logQuery.mock.calls.length
+      await view
+        .findAll('button')
+        .find((button) => button.text() === 'Add group')!
+        .trigger('click')
+      expect(api.logQuery).toHaveBeenCalledTimes(calls)
+      await selectValue(view, `Group 1.${index + 1}`, field)
+      expect(activeTab()).toBe('aggregates')
+    }
+    expect(api.logQuery.mock.lastCall![2].visualizations[0].groupBy).toEqual([
+      'severity',
+      'origin',
+      'sdk.name',
+    ])
+    for (const index of [3, 2, 1]) {
+      await view.get(`[aria-label="Remove group 1.${index}"]`).trigger('click')
+      expect(activeTab()).toBe(index === 1 ? 'logs' : 'aggregates')
+    }
+    expect(api.logQuery.mock.lastCall![2].visualizations[0].groupBy).toEqual([])
   }, 15000)
   it('uses conditions instead of the previous configuration and preserves paging windows', async () => {
     const view = mount(ProjectLogsView, { global: { stubs: { RouterLink: true } } })

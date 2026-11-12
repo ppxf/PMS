@@ -33,7 +33,10 @@ describe('Trace metrics query boundary', () => {
         MetricsService,
         {
           provide: MonitoringProjectsService,
-          useValue: { findOwnedBySlug: owner },
+          useValue: {
+            getAccess: async () => ({ role: 'owner', permissions: [] }),
+            findReadableBySlug: owner,
+          },
         },
         {
           provide: DataSource,
@@ -83,7 +86,12 @@ describe('Trace metrics query boundary', () => {
       pageSize: 20,
       samples: [sample],
     });
-    expect(owner).toHaveBeenCalledWith('user', 'team', 'web');
+    expect(owner).toHaveBeenCalledWith(
+      'user',
+      'team',
+      'web',
+      'project:metrics:read',
+    );
     const [sql, params] = query.mock.calls.find(([sql]: [string]) =>
       sql.startsWith('SELECT event_id'),
     )!;

@@ -1,3 +1,4 @@
+import { ProjectAccessService } from '../project-access/project-access.service';
 /* eslint-disable @typescript-eslint/require-await -- In-memory adapters model asynchronous database calls. */
 import { ForbiddenException, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -111,6 +112,10 @@ describe('Profiles HTTP boundaries', () => {
               }),
           },
         },
+        { provide: ProjectAccessService, useValue: {
+          requireOwner: async(user:string,_group:string,slug:string) => {if(user !== 'owner') throw new ForbiddenException(); return {project:slug === 'project' ? project : {...project,id:'550e8400-e29b-41d4-a716-446655440099'},role:'owner',permissions:[]};},
+          requirePermission: async(user:string,_group:string,slug:string) => {if(user !== 'owner') throw new ForbiddenException(); return {project:slug === 'project' ? project : {...project,id:'550e8400-e29b-41d4-a716-446655440099'},role:'owner',permissions:[]};},
+        } },
         { provide: MonitoringEventsService, useValue: {} },
       ],
     }).compile();
@@ -347,3 +352,4 @@ describe('Profiles HTTP boundaries', () => {
     expect(Number(response?.headers['retry-after'])).toBeGreaterThan(0);
   });
 });
+

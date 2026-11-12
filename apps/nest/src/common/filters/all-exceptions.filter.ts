@@ -1,3 +1,4 @@
+import { safeRequestUrl } from '../../logger/safe-request-url';
 import {
   ArgumentsHost,
   Catch,
@@ -39,7 +40,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ? HttpStatus.PAYLOAD_TOO_LARGE
           : HttpStatus.INTERNAL_SERVER_ERROR;
     const details = this.getErrorDetails(exception, statusCode);
-    const path = request.url;
+    const path = safeRequestUrl(request.url);
 
     const body: ApiErrorResponse = {
       success: false,
@@ -86,3 +87,4 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
   }
 }
+

@@ -1,3 +1,4 @@
+import { safeRequestUrl } from './safe-request-url';
 import {
   CallHandler,
   ExecutionContext,
@@ -30,7 +31,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
     const request = http.getRequest<RequestLike>();
     const response = http.getResponse<ResponseLike>();
     const method = request.method ?? 'UNKNOWN';
-    const url = request.originalUrl ?? request.url ?? '/';
+    const url = safeRequestUrl(request.originalUrl ?? request.url);
     const startedAt = performance.now();
 
     return next.handle().pipe(
@@ -50,3 +51,4 @@ export class HttpLoggingInterceptor implements NestInterceptor {
     );
   }
 }
+

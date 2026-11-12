@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { AuditRecordsModule } from './audit-records/audit-records.module';
+import { WorkspaceModule } from './workspace/workspace.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -16,17 +19,22 @@ import { MonitoringProjectsModule } from './monitoring-projects/monitoring-proje
 import { MonitoringEventsModule } from './monitoring-events/monitoring-events.module';
 import { SdkRateLimitService } from './common/http/sdk-rate-limit.service';
 import { SdkRateLimitGuard } from './common/http/sdk-rate-limit.guard';
+import { ProjectInvitationsModule } from './project-invitations/project-invitations.module';
 
 @Module({
   imports: [
     AppConfigModule,
     LoggerModule,
     DatabaseModule,
+    AuditRecordsModule,
+    WorkspaceModule,
+    DashboardModule,
     UsersModule,
     GroupsModule,
     MonitoringProjectsModule,
     MonitoringEventsModule,
     AuthModule,
+    ProjectInvitationsModule,
   ],
   controllers: [AppController],
   providers: [

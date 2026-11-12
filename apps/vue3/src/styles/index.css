@@ -5,6 +5,60 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@utility page-title {
+  @apply text-2xl font-semibold tracking-tight;
+}
+
+@utility table-surface {
+  @apply min-w-0 overflow-x-auto rounded-lg border bg-background;
+}
+
+.app-table {
+  @apply w-full text-left text-sm;
+}
+
+.app-table > thead {
+  @apply border-b text-xs text-muted-foreground;
+  background: color-mix(in oklab, var(--muted) 40%, var(--background));
+}
+
+.app-table > thead > tr > th {
+  @apply px-4 py-3 text-left align-middle font-medium text-inherit;
+}
+
+.app-table > tbody > tr > td {
+  @apply px-4 py-3 align-middle;
+}
+
+.app-table > tbody > tr:not(:last-child) {
+  @apply border-b;
+}
+
+.workspace-select {
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+}
+
+@media (forced-colors: active) {
+  .workspace-select {
+    appearance: auto;
+    background-image: none;
+  }
+}
+
+@utility monitoring-tab {
+  @apply shrink-0 border-b-2 border-transparent px-4 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground;
+
+  &[aria-selected='true'],
+  &[aria-pressed='true'] {
+    @apply border-violet-500 text-violet-600 dark:text-violet-400;
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);

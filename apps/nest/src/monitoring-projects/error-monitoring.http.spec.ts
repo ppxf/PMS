@@ -59,6 +59,32 @@ describe('Project error monitoring switch HTTP', () => {
             repository as never,
             groups as never,
             new ConfigService(),
+            {
+              requireOwner: async (
+                userId: string,
+                groupSlug: string,
+                projectSlug: string,
+              ) => {
+                await groups.findOwnedBySlug(userId, groupSlug);
+                const project = await repository.findOne({
+                  where: { groupId: 'group-1', slug: projectSlug },
+                });
+                if (!project) throw new NotFoundException();
+                return { project };
+              },
+              requireAccess: async (
+                userId: string,
+                groupSlug: string,
+                projectSlug: string,
+              ) => {
+                await groups.findOwnedBySlug(userId, groupSlug);
+                const project = await repository.findOne({
+                  where: { groupId: 'group-1', slug: projectSlug },
+                });
+                if (!project) throw new NotFoundException();
+                return { project, role: 'owner', permissions: [] };
+              },
+            } as never,
           ),
         },
       ],

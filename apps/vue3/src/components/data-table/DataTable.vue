@@ -1,11 +1,13 @@
 <script setup lang="ts" generic="TData extends RowData">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, ref, watch } from 'vue'
-import { ArrowUpDown, ChevronLeft, ChevronRight, LoaderCircle } from '@lucide/vue'
+import { ArrowUpDown } from '@lucide/vue'
 import { FlexRender, useTable } from '@tanstack/vue-table'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import {
   Table,
@@ -148,7 +150,7 @@ function changePageSize(size: number): void {
       </AlertDescription>
     </Alert>
 
-    <div class="overflow-hidden rounded-lg border bg-card">
+    <div class="table-surface">
       <Table>
         <TableHeader>
           <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
@@ -217,10 +219,7 @@ function changePageSize(size: number): void {
 
           <TableRow v-else>
             <TableCell :colspan="columnCount" class="h-32 text-center">
-              <div class="flex flex-col items-center gap-2 text-muted-foreground">
-                <LoaderCircle v-if="loading" class="size-5 animate-spin" />
-                <span>{{ emptyText }}</span>
-              </div>
+              <EmptyState :title="emptyText" />
             </TableCell>
           </TableRow>
         </TableBody>
@@ -228,8 +227,6 @@ function changePageSize(size: number): void {
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-muted-foreground">{{ totalRows }} rows</p>
-
       <div class="flex items-center gap-2">
         <label class="text-sm text-muted-foreground" for="data-table-page-size">
           Rows per page
@@ -242,30 +239,16 @@ function changePageSize(size: number): void {
           class="w-20"
           @change="changePageSize"
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          :disabled="currentPage <= 1"
-          aria-label="Previous page"
-          @click="changePage(currentPage - 1)"
-        >
-          <ChevronLeft aria-hidden="true" />
-        </Button>
-        <span class="min-w-8 text-center text-sm tabular-nums" aria-current="page">{{
-          currentPage
-        }}</span>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          :disabled="currentPage >= pageCount"
-          aria-label="Next page"
-          @click="changePage(currentPage + 1)"
-        >
-          <ChevronRight aria-hidden="true" />
-        </Button>
       </div>
+      <TablePagination
+        class="ml-auto"
+        :page="currentPage"
+        :total="totalRows"
+        :page-size="pageSize"
+        :busy="loading"
+        unit="rows"
+        @change="changePage"
+      />
     </div>
   </div>
 </template>

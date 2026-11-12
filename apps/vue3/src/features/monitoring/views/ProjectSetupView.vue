@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { RefreshCw } from '@lucide/vue'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -13,6 +14,7 @@ import {
   buildBrowserTracesInstallSnippet,
   buildBrowserTracesInitSnippet,
   buildMetricsInitSnippet,
+  buildLogsInitSnippet,
 } from '../utils/sdk-setup'
 import MetricsSetupGuide from '../components/MetricsSetupGuide.vue'
 import { updateProjectOrigins, getProject, getProjectConnection } from '../api/monitoring.api'
@@ -21,6 +23,7 @@ import type { MonitoringProject } from '../model/types'
 const route = useRoute()
 const isTracesSetup = computed(() => route.name === 'project-traces-setup')
 const isMetricsSetup = computed(() => route.name === 'project-metrics-setup')
+const isLogsSetup = computed(() => route.name === 'project-logs-setup')
 const groupSlug = computed(() => String(route.params.groupSlug))
 const projectSlug = computed(() => String(route.params.projectSlug))
 const project = ref<MonitoringProject | null>(null)
@@ -102,13 +105,12 @@ const envSnippet = computed(() => (project.value ? buildEnvSnippet(project.value
 const installSnippet = computed(() =>
   isTracesSetup.value ? buildBrowserTracesInstallSnippet() : buildInstallSnippet(),
 )
-const initSnippet = computed(() =>
-  isMetricsSetup.value
-    ? buildMetricsInitSnippet()
-    : isTracesSetup.value
-      ? buildBrowserTracesInitSnippet()
-      : buildInitSnippet(),
-)
+const initSnippet = computed(() => {
+  if (isLogsSetup.value) return buildLogsInitSnippet()
+  if (isMetricsSetup.value) return buildMetricsInitSnippet()
+  if (isTracesSetup.value) return buildBrowserTracesInitSnippet()
+  return buildInitSnippet()
+})
 
 async function load(): Promise<void> {
   const version = scopeVersion
@@ -174,17 +176,27 @@ watch(
     <template v-else-if="project">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-semibold tracking-tight">
-            {{ isMetricsSetup ? 'Metrics setup' : isTracesSetup ? 'Traces setup' : 'Basic setup' }}
+          <h2 class="page-title">
+            {{
+              isLogsSetup
+                ? 'Logs setup'
+                : isMetricsSetup
+                  ? 'Metrics setup'
+                  : isTracesSetup
+                    ? 'Traces setup'
+                    : 'Basic setup'
+            }}
           </h2>
           <p class="mt-1 text-muted-foreground">
             {{ project.name }} ·
             {{
-              isMetricsSetup
-                ? 'Set up custom application measurements.'
-                : isTracesSetup
-                  ? 'Set up browser page and HTTP performance tracing.'
-                  : 'Set up Vue, browser errors, and automatic Web Vitals monitoring.'
+              isLogsSetup
+                ? 'Set up structured application logs.'
+                : isMetricsSetup
+                  ? 'Set up custom application measurements.'
+                  : isTracesSetup
+                    ? 'Set up browser page and HTTP performance tracing.'
+                    : 'Set up Vue, browser errors, and automatic Web Vitals monitoring.'
             }}
           </p>
         </div>
@@ -232,7 +244,12 @@ watch(
         <CardHeader>
           <CardTitle class="text-base">3. Initialize the SDK</CardTitle>
           <CardDescription>
-            <template v-if="isMetricsSetup"
+            <template v-if="isLogsSetup"
+              >Set enableLogs: true in your application's main.ts. If the SDK is already
+              initialized, add this option to the existing initialization. Send a test log and check
+              the Logs page for the current project.</template
+            >
+            <template v-else-if="isMetricsSetup"
               >Enable Application Metrics in Project settings and set enableMetrics: true in your
               application's main.ts. If the SDK is already initialized, merge these options into
               that initialization and initialize only once. Traces are optional for metric
@@ -264,9 +281,16 @@ watch(
               @click="copy(initSnippet, 'initialization code')"
               >Copy initialization code</Button
             >
-            <Button data-testid="refresh-connection" @click="refreshConnection"
-              >Refresh connection status</Button
+            <Button
+              data-testid="refresh-connection"
+              variant="outline"
+              size="icon"
+              title="Refresh connection status"
+              aria-label="Refresh connection status"
+              @click="refreshConnection"
             >
+              <RefreshCw class="size-4" aria-hidden="true" />
+            </Button>
           </div>
           <p v-if="copied" role="status" class="text-sm text-muted-foreground">
             Copied {{ copied }}
@@ -328,9 +352,8 @@ watch(
           </p>
           <p class="text-sm text-muted-foreground">
             After clicking, open Traces, select All spans in Quick query, and filter span.name equal
-            to Manual trace test. Click Update chart, then click a record name in Span Samples to
-            view the full trace. The default Page performance filter does not show this business
-            operation.
+            to Manual trace test. Click a record name in Span Samples to view the full trace. The
+            default Page performance filter does not show this business operation.
           </p>
         </CardContent>
       </Card>
@@ -369,10 +392,14 @@ watch(
             <Button
               data-testid="refresh-origins"
               variant="outline"
+              size="icon"
+              title="Refresh origin settings"
+              aria-label="Refresh origin settings"
               :disabled="savingOrigins || refreshingOrigins"
               @click="refreshOrigins"
-              >Refresh origin settings</Button
             >
+              <RefreshCw class="size-4" aria-hidden="true" />
+            </Button>
           </div>
           <p v-if="actionError" role="alert" class="text-destructive">{{ actionError }}</p>
         </CardContent>

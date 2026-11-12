@@ -1,3 +1,6 @@
+import { ProjectAccess1794355200000 } from './migrations/1794355200000-project-access';
+import { AuditRecords1794441600000 } from './migrations/1794441600000-audit-records';
+import { WorkspaceAlerts1794441600001 } from './migrations/1794441600001-workspace-alerts';
 import { WebVitals1793923200000 } from './migrations/1793923200000-web-vitals';
 import 'reflect-metadata';
 import { resolve } from 'node:path';
@@ -25,7 +28,13 @@ export default new DataSource({
   password: database.password,
   database: database.name,
   entities: [resolve(__dirname, '../**/*.entity{.ts,.js}')],
-  migrations: [Baseline1793577600000, WebVitals1793923200000],
+  migrations: [
+    Baseline1793577600000,
+    WebVitals1793923200000,
+    ProjectAccess1794355200000,
+    AuditRecords1794441600000,
+    WorkspaceAlerts1794441600001,
+  ],
   migrationsTableName: 'pms_migrations',
   migrationsTransactionMode: 'all',
   synchronize: false,

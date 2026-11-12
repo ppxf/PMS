@@ -181,7 +181,8 @@ describe('metrics ingestion and authorization', () => {
       findForIngestion: jest.fn(() =>
         Promise.resolve({ metricsEnabled: true }),
       ),
-      findOwnedBySlug: jest.fn(() => Promise.resolve({ id: 'project' })),
+      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      findReadableBySlug: jest.fn(() => Promise.resolve({ id: 'project' })),
     };
     return {
       service: new MetricsService(
@@ -285,7 +286,8 @@ describe('metrics ingestion and authorization', () => {
         action(manager),
     };
     const projects = {
-      findOwnedBySlug: () => Promise.resolve({ id: 'owned', slug: 'web' }),
+      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      findReadableBySlug: () => Promise.resolve({ id: 'owned', slug: 'web' }),
     };
     const service = new MetricsService(
       source as unknown as DataSource,
@@ -331,7 +333,7 @@ describe('metrics ingestion and authorization', () => {
       f.service.ingest('project', 'key', envelope() as never),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(f.samples.insert).not.toHaveBeenCalled();
-    f.projects.findOwnedBySlug.mockRejectedValue(new ForbiddenException());
+    f.projects.findReadableBySlug.mockRejectedValue(new ForbiddenException());
     await expect(
       f.service.catalog('other', 'team', 'web'),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -362,7 +364,8 @@ describe('metrics ingestion and authorization', () => {
         Promise.resolve(action(manager)),
     };
     const projects = {
-      findOwnedBySlug: jest.fn(() => Promise.resolve({ id: 'owned' })),
+      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      findReadableBySlug: jest.fn(() => Promise.resolve({ id: 'owned' })),
     };
     const service = new MetricsService(
       source as unknown as DataSource,
@@ -436,7 +439,8 @@ describe('metrics ingestion and authorization', () => {
         action(manager),
     };
     const projects = {
-      findOwnedBySlug: () => Promise.resolve({ id: 'owned' }),
+      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      findReadableBySlug: () => Promise.resolve({ id: 'owned' }),
     };
     const service = new MetricsService(
       source as unknown as DataSource,

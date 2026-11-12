@@ -55,6 +55,13 @@ describe('Traces views', () => {
     const vital = 'browser.web_vital.lcp.value'
     api.traceFields.mockResolvedValueOnce([
       {
+        name: 'spans',
+        type: 'number',
+        groupable: false,
+        operators: [],
+        aggregations: ['count', 'errorRate'],
+      },
+      {
         name: 'span.duration',
         type: 'number',
         unit: 'ms',
@@ -73,10 +80,92 @@ describe('Traces views', () => {
     ])
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
+    expect(
+      queryBar(view)
+        .props('fields')
+        .map((field) => field.key),
+    ).not.toContain('spans')
     await selectValue(view, 'Metric field 1', vital)
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Add group')!
+      .trigger('click')
     await selectValue(view, 'Group by 1', vital)
     expect(view.get('[aria-label="Metric field 1"]').text()).toContain(vital)
     expect(view.get('[aria-label="Group by 1"]').text()).toContain(vital)
+  })
+  it('adds group selectors on demand and removes selected fields from the query', async () => {
+    const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    const calls = api.traceSeries.mock.calls.length
+    expect(api.traceSeries.mock.lastCall?.[2].groupBy).toEqual([])
+    expect(view.find('[aria-label="Group by 1"]').exists()).toBe(false)
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Add group')!
+      .trigger('click')
+    expect(api.traceSeries).toHaveBeenCalledTimes(calls)
+    expect(view.get('[aria-label="Group by 1"]').text()).toContain('Select a field')
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Span Samples')
+    const aggregateCalls = api.traceAggregates.mock.calls.length
+    await selectValue(view, 'Group by 1', 'span.name')
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Aggregates')
+    expect(api.traceAggregates).toHaveBeenCalledTimes(aggregateCalls + 1)
+    expect(api.traceAggregates.mock.lastCall?.[2]).toMatchObject({
+      groupBy: ['span.name'],
+      sortBy: 0,
+    })
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Add group')!
+      .trigger('click')
+    expect(view.get('[aria-label="Group by 2"]').text()).toContain('Select a field')
+    await selectValue(view, 'Group by 2', 'http.method')
+    expect(api.traceSeries.mock.lastCall?.[2].groupBy).toEqual(['span.name', 'http.method'])
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Add group')!
+      .trigger('click')
+    await selectValue(view, 'Group by 3', 'http.route')
+    const groupBy = ['span.name', 'http.method', 'http.route']
+    expect(api.traceSeries.mock.lastCall?.[2].groupBy).toEqual(groupBy)
+    expect(api.traceAggregates.mock.lastCall?.[2].groupBy).toEqual(groupBy)
+    await view.get('[aria-label="Remove group 3"]').trigger('click')
+    await view.get('[aria-label="Remove group 1"]').trigger('click')
+    expect(api.traceSeries.mock.lastCall?.[2].groupBy).toEqual(['http.method'])
+    expect(view.find('[aria-label="Group by 2"]').exists()).toBe(false)
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Aggregates')
+    await view.get('[aria-label="Remove group 1"]').trigger('click')
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Span Samples')
+    expect(api.spanSamples.mock.lastCall?.[2]).toMatchObject({ groupBy: [], sortBy: 'startTime' })
+  })
+  it('keeps tab loading inside the results table until the new rows arrive', async () => {
+    const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    const chart = view.getComponent(VChart).element
+    const calls = api.traceSeries.mock.calls.length
+    type TraceSamplesResult = Awaited<ReturnType<typeof api.traceSamples>>
+    let resolveSamples!: (result: TraceSamplesResult) => void
+    api.traceSamples.mockReturnValueOnce(
+      new Promise<TraceSamplesResult>((resolve) => {
+        resolveSamples = resolve
+      }),
+    )
+
+    await view
+      .findAll('nav button')
+      .find((button) => button.text() === 'Trace Samples')!
+      .trigger('click')
+    expect(view.get('table').attributes('aria-busy')).toBe('true')
+    expect(view.get('tbody [role="status"]').text()).toBe('Loading results…')
+    expect(view.get('tbody').text()).not.toContain('No data')
+    expect(view.getComponent(VChart).element).toBe(chart)
+    expect(api.traceSeries).toHaveBeenCalledTimes(calls)
+
+    resolveSamples({ items: [], total: 0, page: 1, pageSize: 20 })
+    await flushPromises()
+    expect(view.get('table').attributes('aria-busy')).toBe('false')
+    expect(view.get('tbody').text()).toBe('No data')
   })
   it('sorts samples from table headers, toggles direction and resets pagination', async () => {
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
@@ -148,6 +237,61 @@ describe('Traces views', () => {
     expect(chart.props('option')).toMatchObject({ series: [{ type: 'line' }] })
     expect(api.traceSeries).toHaveBeenCalledTimes(calls)
   })
+  it('adds a separate chart per metric and removes it with the metric', async () => {
+    const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(view.findAllComponents(VChart)).toHaveLength(1)
+    for (const value of [1, 2]) {
+      api.traceSeries.mockResolvedValueOnce({
+        intervalMs: 60000,
+        groups: [{ key: 'all', values: [] }],
+        series: [
+          {
+            metricIndex: 0,
+            groupKey: 'all',
+            points: [{ timestamp: root.startTime, value, sampleCount: 1 }],
+          },
+        ],
+        sampleCount: 1,
+      })
+    }
+    await view
+      .findAll('button')
+      .find((b) => b.text() === 'Add metric series')!
+      .trigger('click')
+    await flushPromises()
+    const charts = view.findAllComponents(VChart)
+    expect(charts).toHaveLength(2)
+    for (const [index, chart] of charts.entries()) {
+      expect(chart.props('option')?.series).toEqual([
+        expect.objectContaining({ data: [{ value: [root.startTime, index + 1], sampleCount: 1 }] }),
+      ])
+    }
+    const calls = api.traceSeries.mock.calls.length
+    const resultCalls = api.spanSamples.mock.calls.length
+    await selectValue(view, 'Chart type for chart 2', 'bar')
+    expect(charts[0]!.props('option')).toMatchObject({ series: [{ type: 'line' }] })
+    expect(charts[1]!.props('option')).toMatchObject({ series: [{ type: 'bar' }] })
+    expect(api.traceSeries).toHaveBeenCalledTimes(calls)
+    await selectValue(view, 'Time range for chart 2', '6h')
+    await selectValue(view, 'Interval for chart 2', '30m')
+    expect(api.traceSeries).toHaveBeenCalledTimes(calls + 2)
+    expect(api.spanSamples).toHaveBeenCalledTimes(resultCalls)
+    const q = api.traceSeries.mock.lastCall![2]
+    expect(q).toMatchObject({
+      interval: '30m',
+      primaryMetric: 0,
+      metrics: [{ function: 'avg', field: 'span.duration' }],
+    })
+    expect(Date.parse(q.end) - Date.parse(q.start)).toBe(6 * 3600000)
+    expect(view.get('[aria-label="Time range"]').text()).toBe('Last hour')
+    await view
+      .findAll('button')
+      .filter((b) => b.text() === 'Remove metric')[1]!
+      .trigger('click')
+    await flushPromises()
+    expect(view.findAllComponents(VChart)).toHaveLength(1)
+  })
   it('applies chart time range and interval to every result query and resets pagination', async () => {
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
@@ -170,6 +314,14 @@ describe('Traces views', () => {
         expect(Date.parse(q.end) - Date.parse(q.start)).toBe(7 * 24 * 3600000)
       }
     }
+    await selectValue(view, 'Time range', '30d')
+    const q = api.traceSeries.mock.lastCall![2]
+    expect(Date.parse(q.end) - Date.parse(q.start)).toBe(30 * 86400000)
+    const option = view.findComponent(VChart).props('option')
+    expect(option).toMatchObject({
+      xAxis: { min: Date.parse(q.start), max: Date.parse(q.end) },
+      yAxis: { min: 0 },
+    })
   })
   it('uses backend registry field names when field metadata is unavailable', async () => {
     api.traceFields.mockRejectedValueOnce(new Error('offline'))
@@ -182,12 +334,14 @@ describe('Traces views', () => {
     expect(options).not.toContain('status')
     expect(options).not.toContain('truncated')
     await addQuery(view, 'span.truncated', 'eq', 'true')
-    await view
-      .findAll('button')
-      .find((b) => b.text() === 'Update chart')!
-      .trigger('click')
     await flushPromises()
     expect(api.spanSamples.mock.lastCall?.[2].filters).toContainEqual({
+      field: 'span.truncated',
+      operator: 'eq',
+      value: true,
+    })
+    await view.get('button[aria-label="Remove condition span.truncated"]').trigger('click')
+    expect(api.spanSamples.mock.lastCall?.[2].filters).not.toContainEqual({
       field: 'span.truncated',
       operator: 'eq',
       value: true,
@@ -332,14 +486,13 @@ describe('Traces views', () => {
       .find((b) => b.text() === 'Aggregates')!
       .trigger('click')
     await flushPromises()
-    await selectValue(view, 'Metric field 1', 'http.response_content_length')
     expect(view.get('table').text()).toContain('100 ms')
     api.spanSamples.mockRejectedValueOnce(new Error('offline'))
-    await view
-      .findAll('button')
-      .find((b) => b.text() === 'Update chart')!
-      .trigger('click')
+    await selectValue(view, 'Metric field 1', 'http.response_content_length')
     await flushPromises()
+    expect(api.spanSamples.mock.lastCall?.[2].metrics[0]?.field).toBe(
+      'http.response_content_length',
+    )
     expect(view.get('table').text()).toContain('100 ms')
     expect(view.get('table').text()).not.toContain('byte')
   })
@@ -359,10 +512,6 @@ describe('Traces views', () => {
     })
     expect(api.spanSamples.mock.calls[0]?.[2].start).toMatch(/Z$/)
     await selectValue(view, 'Top limit', 10)
-    await view
-      .findAll('button')
-      .find((b) => b.text() === 'Update chart')!
-      .trigger('click')
     await flushPromises()
     expect(api.spanSamples.mock.lastCall?.[2].limit).toBe(10)
     await view.get('button[aria-label="Next page"]').trigger('click')

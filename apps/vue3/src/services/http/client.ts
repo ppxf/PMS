@@ -35,6 +35,10 @@ axiosInstance.interceptors.response.use(
   async (error: unknown) => {
     const appError = normalizeHttpError(error)
 
+    if (appError.status === 403 && axios.isAxiosError(error) && /\/groups\/[^/]+\/projects\/[^/]+/.test(error.config?.url ?? '')) {
+      window.dispatchEvent(new CustomEvent('project-access-forbidden', { detail: error.config?.url }))
+    }
+
     if (appError.status === 401) {
       const provider = getHttpAuthProvider()
 

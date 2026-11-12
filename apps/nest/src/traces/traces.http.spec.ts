@@ -59,3 +59,4 @@ describe('transaction HTTP dispatch boundary', () => {
     expect(ingest).not.toHaveBeenCalled();
   });
 });
+

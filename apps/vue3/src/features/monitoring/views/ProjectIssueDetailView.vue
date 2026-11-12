@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useProjectAccessStore } from "../model/project-access.store"
+const projectAccess = useProjectAccessStore()
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
@@ -200,7 +203,7 @@ onMounted(loadIssue)
     <template v-else-if="issue">
       <div>
         <div class="flex flex-wrap items-center gap-3">
-          <h2 class="text-2xl font-semibold tracking-tight">{{ issue.title }}</h2>
+          <h2 class="page-title">{{ issue.title }}</h2>
           <Badge
             data-testid="issue-status"
             :variant="issue.status === 'resolved' ? 'success' : 'secondary'"
@@ -214,7 +217,7 @@ onMounted(loadIssue)
             {{ issue.eventCount === 1 ? 'event' : 'events' }}</Badge
           >
           <Button
-            data-testid="issue-status-action"
+            v-if="projectAccess.access?.role === 'owner'" data-testid="issue-status-action"
             type="button"
             size="sm"
             variant="outline"
@@ -224,7 +227,7 @@ onMounted(loadIssue)
           >
           <template v-if="issue.visibility === 'active'">
             <Button
-              data-testid="archive-issue"
+              v-if="projectAccess.access?.role === 'owner'" data-testid="archive-issue"
               type="button"
               size="sm"
               variant="outline"
@@ -232,7 +235,7 @@ onMounted(loadIssue)
               >Archive</Button
             >
             <Button
-              data-testid="delete-issue"
+              v-if="projectAccess.access?.role === 'owner'" data-testid="delete-issue"
               type="button"
               size="sm"
               variant="destructive"
@@ -241,7 +244,7 @@ onMounted(loadIssue)
             >
           </template>
           <Button
-            v-else
+            v-else-if="projectAccess.access?.role === 'owner'"
             data-testid="restore-issue"
             type="button"
             size="sm"
@@ -583,25 +586,29 @@ onMounted(loadIssue)
       <Card>
         <CardHeader><CardTitle class="text-base">Recent events</CardTitle></CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader
-              ><TableRow
-                ><TableHead>Time</TableHead><TableHead>Source</TableHead
-                ><TableHead>Environment</TableHead><TableHead>Message</TableHead></TableRow
-              ></TableHeader
-            >
-            <TableBody>
-              <TableRow v-for="event in issue.recentEvents" :key="event.id">
-                <TableCell>{{ formatDate(event.timestamp) }}</TableCell>
-                <TableCell>{{ event.source }}</TableCell>
-                <TableCell>{{ event.environment ?? '-' }}</TableCell>
-                <TableCell>{{ event.exceptionValue }}</TableCell>
-              </TableRow>
-              <TableRow v-if="issue.recentEvents.length === 0"
-                ><TableCell :colspan="4" class="text-center">No recent events</TableCell></TableRow
+          <div class="table-surface">
+            <Table>
+              <TableHeader
+                ><TableRow
+                  ><TableHead>Time</TableHead><TableHead>Source</TableHead
+                  ><TableHead>Environment</TableHead><TableHead>Message</TableHead></TableRow
+                ></TableHeader
               >
-            </TableBody>
-          </Table>
+              <TableBody>
+                <TableRow v-for="event in issue.recentEvents" :key="event.id">
+                  <TableCell>{{ formatDate(event.timestamp) }}</TableCell>
+                  <TableCell>{{ event.source }}</TableCell>
+                  <TableCell>{{ event.environment ?? '-' }}</TableCell>
+                  <TableCell>{{ event.exceptionValue }}</TableCell>
+                </TableRow>
+                <TableRow v-if="issue.recentEvents.length === 0">
+                  <TableCell :colspan="4">
+                    <EmptyState class="py-4" title="No recent events" />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </template>

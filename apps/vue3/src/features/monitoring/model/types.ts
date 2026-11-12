@@ -1,4 +1,6 @@
 export interface MonitoringGroup {
+  isOwner?: boolean
+  role?: 'owner' | 'member'
   id: string
   name: string
   slug: string
@@ -8,6 +10,8 @@ export interface MonitoringGroup {
 }
 
 export interface MonitoringProject {
+  role?: 'owner' | 'member'
+  permissions?: string[]
   id: string
   groupId: string
   name: string

@@ -9,7 +9,8 @@ it('lists built-in Web Vitals and typed attribution fields before any sample arr
         action({ query: () => Promise.resolve([]) }),
     } as unknown as DataSource,
     {
-      findOwnedBySlug: () =>
+      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      findReadableBySlug: () =>
         Promise.resolve({ id: 'project', metricsEnabled: false }),
     } as unknown as MonitoringProjectsService,
   );
@@ -53,7 +54,8 @@ it('accepts p75 on the canonical Web Vitals source and queries latest values', a
         action({ query }),
     } as unknown as DataSource,
     {
-      findOwnedBySlug: () => Promise.resolve({ id: 'project' }),
+      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      findReadableBySlug: () => Promise.resolve({ id: 'project' }),
     } as unknown as MonitoringProjectsService,
   );
   await service.query('user', 'group', 'project', q);

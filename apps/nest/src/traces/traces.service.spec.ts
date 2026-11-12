@@ -135,7 +135,8 @@ describe('bounded authorized SQL queries', () => {
       ) => action(manager),
     } as unknown as DataSource;
     const projects = {
-      findOwnedBySlug: jest.fn(() => Promise.resolve({ id: 'project-id' })),
+      getAccess: async () => ({role:'owner',permissions:['project:web-vitals:read']}),
+      findReadableBySlug: jest.fn(() => Promise.resolve({ id: 'project-id' })),
     } as unknown as MonitoringProjectsService;
     const service = new TracesService(dataSource, projects);
     const input = new SpanQueryPipe().transform({
@@ -151,16 +152,17 @@ describe('bounded authorized SQL queries', () => {
     return { service, query, input, projects };
   }
   it.each([
-    ['3h', 10800000],
-    ['6h', 21600000],
-    ['1d', 86400000],
+    ['3h', 10800000, 2],
+    ['6h', 21600000, 2],
+    ['1d', 86400000, 2],
+    ['auto', 10800000, 30],
   ])(
-    'aggregates %s buckets using the selected SQL interval',
-    async (interval, intervalMs) => {
+    'aggregates %s buckets (%i ms) across %i days',
+    async (interval, intervalMs, days) => {
       const f = fixture();
       const input = new SpanQueryPipe().transform({
         ...f.input,
-        end: '2026-10-03T00:00:00Z',
+        end: new Date(Date.parse(f.input.start) + days * 86400000).toISOString(),
         interval,
       });
       f.query
@@ -194,7 +196,7 @@ describe('bounded authorized SQL queries', () => {
       );
       expect(result.intervalMs).toBe(intervalMs);
       const points = result.series[0].points;
-      expect(points).toHaveLength((2 * 86400000) / Number(intervalMs));
+      expect(points).toHaveLength((days * 86400000) / intervalMs);
       expect(
         Date.parse(points[1].timestamp) - Date.parse(points[0].timestamp),
       ).toBe(intervalMs);
@@ -206,13 +208,19 @@ describe('bounded authorized SQL queries', () => {
   );
   it('fills empty buckets without changing the whole-range Top N and sample counts', async () => {
     const f = fixture();
+    const input = new SpanQueryPipe().transform({
+      ...f.input,
+      groupBy: ['span.op', 'http.method', 'http.route'],
+    });
+    const groupValues = ['http.client', 'GET', '/orders'];
+    const groupKey = JSON.stringify(groupValues);
     f.query
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ count: '2' }])
       .mockResolvedValueOnce([
         {
-          groupKey: '["http.client"]',
-          groupValues: ['http.client'],
+          groupKey,
+          groupValues,
           m0: '2',
           n0: '2',
           m1: 5,
@@ -222,7 +230,7 @@ describe('bounded authorized SQL queries', () => {
       .mockResolvedValueOnce([
         {
           bucket: 0,
-          groupKey: '["http.client"]',
+          groupKey,
           m0: '2',
           n0: '2',
           m1: 5,
@@ -233,12 +241,13 @@ describe('bounded authorized SQL queries', () => {
       'owner',
       'group',
       'project',
-      f.input,
+      input,
     );
-    expect(jest.spyOn(f.projects, 'findOwnedBySlug')).toHaveBeenCalledWith(
+    expect(jest.spyOn(f.projects, 'findReadableBySlug')).toHaveBeenCalledWith(
       'owner',
       'group',
       'project',
+    'project:traces:read',
     );
     expect(result.series[0].points.map((point) => point.value)).toEqual([
       2, 0, 0,
@@ -249,6 +258,7 @@ describe('bounded authorized SQL queries', () => {
       null,
     ]);
     expect(result.series[1].points[0].sampleCount).toBe(1);
+    expect(result.groups[0].values).toEqual(groupValues);
     const rankSql = f.query.mock.calls[2][0];
     expect(rankSql).toContain('percentile_cont(0.95)');
     expect(rankSql).toContain('truncated = false');
@@ -278,7 +288,7 @@ describe('bounded authorized SQL queries', () => {
   it('denies read before accessing database', async () => {
     const f = fixture();
     jest
-      .spyOn(f.projects, 'findOwnedBySlug')
+      .spyOn(f.projects, 'findReadableBySlug')
       .mockRejectedValue(new ForbiddenException());
     await expect(
       f.service.samples('other', 'group', 'project', f.input),
@@ -288,7 +298,7 @@ describe('bounded authorized SQL queries', () => {
 });
 
 describe('retention', () => {
-  it('defaults to dry-run and uses received_at seven-day cutoff for both tables', async () => {
+  it('defaults to dry-run and uses a 30-day received_at cutoff for both tables', async () => {
     const query = jest.fn<Promise<{ count: string }[]>, [string]>(() =>
       Promise.resolve([{ count: '2' }]),
     );
@@ -298,7 +308,7 @@ describe('retention', () => {
     } as unknown as DataSource;
     const result = await new TracesRetentionService(dataSource).cleanup(
       false,
-      new Date('2026-10-08T00:00:00Z'),
+      new Date('2026-10-31T00:00:00Z'),
     );
     expect(result).toEqual({
       cutoff: '2026-10-01T00:00:00.000Z',
@@ -312,3 +322,6 @@ describe('retention', () => {
     );
   });
 });
+
+
+

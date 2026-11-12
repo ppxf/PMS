@@ -93,7 +93,7 @@ export class ProfilesService {
   }
   async query(user: string, group: string, slug: string, input: ProfileQuery) {
     const q = new ProfileQueryPipe().transform(input);
-    const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:profiles:read');
     const params: unknown[] = [project.id, q.start, q.end];
     const bind = (value: unknown) => {
       params.push(value);
@@ -134,7 +134,7 @@ export class ProfilesService {
     input: ProfileQuery,
   ) {
     const q = new ProfileQueryPipe().transform(input);
-    const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:profiles:read');
     const start = Date.parse(q.start);
     const previousStart = new Date(
       start - (Date.parse(q.end) - start),
@@ -194,7 +194,7 @@ export class ProfilesService {
   ): Promise<MonitoringProfile> {
     if (!validProfileId(profileId))
       throw new BadRequestException('Invalid profileId');
-    const project = await this.projects.findOwnedBySlug(user, group, slug);
+    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:profiles:read');
     const row = await this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       return manager.getRepository(ProfileEntity).findOneBy({
@@ -206,3 +206,5 @@ export class ProfilesService {
     return row.profile;
   }
 }
+
+

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed } from 'vue'
 const props = defineProps<{
   series: { at: string; self: number; total: number }[]
@@ -142,9 +143,7 @@ const chart = computed(() => {
         {{ label.label }}
       </text>
     </svg>
-    <p v-if="!series.length" class="text-center text-xs text-muted-foreground">
-      No trend samples available
-    </p>
+    <EmptyState v-if="!series.length" class="py-4" title="No trend samples available" />
     <p class="text-right text-[10px] text-muted-foreground">
       {{ aggregation.toUpperCase() }} {{ metric }} time · Gaps indicate no samples
     </p>

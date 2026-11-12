@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+const get = vi.hoisted(() => vi.fn(() => Promise.resolve({ canRead: false })))
+vi.mock('@/services/http', () => ({ http: { get } }))
 import AppLayout from '../AppLayout.vue'
+import { useProjectAccessStore } from '@/features/monitoring/model/project-access.store'
 
 const EmptyView = defineComponent({ template: '<div />' })
 
@@ -12,6 +15,16 @@ function createTestRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
+      ...['issues', 'alerts', 'ingestion', 'audit'].map((section) => ({
+        path: `/workspace/${section}`,
+        name: `workspace-${section}`,
+        component: EmptyView,
+      })),
+      {
+        path: '/groups/:groupSlug/projects/:projectSlug/members',
+        name: 'project-members',
+        component: EmptyView,
+      },
       {
         path: '/groups/:groupSlug/projects/:projectSlug/web-vitals',
         name: 'project-web-vitals',
@@ -60,6 +73,11 @@ function createTestRouter() {
         component: EmptyView,
       },
       {
+        path: '/groups/:groupSlug/projects/:projectSlug/setup/logs',
+        name: 'project-logs-setup',
+        component: EmptyView,
+      },
+      {
         path: '/groups/:groupSlug/projects/:projectSlug/setup/profiles',
         name: 'project-profiles-setup',
         component: EmptyView,
@@ -93,6 +111,7 @@ function createTestRouter() {
 async function mountAt(path: string) {
   const pinia = createPinia()
   setActivePinia(pinia)
+  useProjectAccessStore().access = { projectId: 'p1', role: 'owner', permissions: [] }
   const router = createTestRouter()
   await router.push(path)
   await router.isReady()
@@ -189,5 +208,28 @@ describe('AppLayout navigation', () => {
 
     expect(errorLinks).toHaveLength(1)
     expect(errorLinks[0]?.classes()).toContain('bg-muted')
+  })
+})
+
+describe('workbench navigation permissions', () => {
+  it('orders workbench entries and hides audit without capability', async () => {
+    get.mockResolvedValue({ canRead: false })
+    const view = await mountAt('/')
+    const links = view.findAll('nav > a, nav > template a, nav a').map((link) => link.text())
+    expect(links.slice(0, 5)).toEqual([
+      'Dashboard',
+      'Issue center',
+      'Alerts',
+      'Ingestion status',
+      'Groups and projects',
+    ])
+    expect(view.text()).not.toContain('Audit records')
+  })
+  it('shows separately permitted audit via server capability', async () => {
+    get.mockResolvedValue({ canRead: true })
+    const view = await mountAt('/')
+    expect(view.get('a[href="/workspace/audit"]').text()).toBe('Audit records')
+    expect(get).toHaveBeenCalledWith('/audit-records/capabilities')
+    expect(view.text()).toContain('Management')
   })
 })

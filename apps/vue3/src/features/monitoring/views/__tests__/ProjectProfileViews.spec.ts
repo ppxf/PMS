@@ -256,6 +256,8 @@ describe('Profiles views', () => {
     expect(view.find('input[aria-label="Trace ID"]').exists()).toBe(false)
     expect(view.find('input[aria-label="Environment"]').exists()).toBe(false)
     await selectValue(view, 'Environment', 'production')
+    expect(api.queryProfiles.mock.lastCall![2]).toMatchObject({ environment: 'production', page: 1 })
+    expect(api.profilesOverview.mock.lastCall![2]).toMatchObject({ environment: 'production' })
     await view.get('input[aria-label="Search profiles"]').setValue('Home')
     await view.get('form').trigger('submit')
     await flushPromises()
@@ -265,7 +267,6 @@ describe('Profiles views', () => {
       page: 1,
     })
     await selectValue(view, 'Time range', '31d')
-    await view.get('form').trigger('submit')
     await flushPromises()
     const month = api.queryProfiles.mock.lastCall![2]
     expect(Date.parse(month.end) - Date.parse(month.start)).toBe(31 * 86400000)

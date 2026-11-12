@@ -10,6 +10,20 @@ export class MailService {
     private readonly config: ConfigService,
   ) {}
 
+  sendProjectInvitation(
+    email: string,
+    token: string,
+    projectName: string,
+    inviterName: string,
+  ): Promise<unknown> {
+    return this.send(
+      email,
+      'Project invitation',
+      `${inviterName} invited you to ${projectName}`,
+      `/project-invitations/accept?token=${encodeURIComponent(token)}`,
+    );
+  }
+
   sendEmailVerification(email: string, token: string): Promise<unknown> {
     return this.send(
       email,
@@ -38,12 +52,24 @@ export class MailService {
       .getOrThrow<string>('app.frontendUrl')
       .replace(/\/$/, '');
     const url = `${baseUrl}${path}`;
+    const escape = (value: string) =>
+      value.replace(
+        /[&<>"']/g,
+        (character) =>
+          ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+          })[character]!,
+      );
     return this.transport.sendMail({
       from: this.config.getOrThrow<string>('mail.from'),
       to,
       subject,
       text: `${introduction}: ${url}`,
-      html: `<p>${introduction}</p><p><a href="${url}">${url}</a></p>`,
+      html: `<p>${escape(introduction)}</p><p><a href="${escape(url)}">${escape(url)}</a></p>`,
     });
   }
 }

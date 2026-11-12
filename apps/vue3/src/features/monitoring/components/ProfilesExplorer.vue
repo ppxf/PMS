@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Search } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import ProfileFunctionCard from './ProfileFunctionCard.vue'
 import ProfileFlameChart from './ProfileFlameChart.vue'
@@ -50,7 +51,6 @@ const transactions = computed(() =>
   }),
 )
 const rows = computed(() => transactions.value.slice((page.value - 1) * 20, page.value * 20))
-const pages = computed(() => Math.max(1, Math.ceil(transactions.value.length / 20)))
 const columns = [
   { key: 'name', label: 'Transaction' },
   ...PROFILE_DURATION_AGGREGATIONS.map((key) => ({ key, label: key.toUpperCase() })),
@@ -118,12 +118,7 @@ function inspect(name: string) {
         :tabindex="tab === item.id ? 0 : -1"
         :aria-controls="`profile-panel-${item.id}`"
         :data-testid="`${item.id}-tab`"
-        class="shrink-0 border-b-2 px-4 py-3 text-sm transition-colors"
-        :class="
-          tab === item.id
-            ? 'border-violet-500 text-violet-600'
-            : 'border-transparent text-muted-foreground hover:text-foreground'
-        "
+        class="monitoring-tab"
         @click="tab = item.id"
         @keydown="navigateTabs($event, index)"
       >
@@ -150,8 +145,8 @@ function inspect(name: string) {
       <p class="text-xs text-muted-foreground">
         Grouped by profile name. Percentiles measure capture duration across matching profiles.
       </p>
-      <div class="overflow-x-auto rounded-lg border bg-background">
-        <table class="w-full text-left text-sm">
+      <div class="table-surface">
+        <table class="app-table">
           <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th
@@ -209,22 +204,15 @@ function inspect(name: string) {
             </tr>
           </tbody>
         </table>
-        <div
-          v-if="loading || error || !rows.length"
-          class="flex min-h-52 flex-col items-center justify-center gap-3 p-8 text-center text-sm"
+        <p v-if="loading || error" class="grid min-h-52 place-items-center p-8 text-center text-sm">
+          {{ loading ? 'Loading transactions…' : 'Transaction statistics unavailable' }}
+        </p>
+        <EmptyState
+          v-else-if="!rows.length"
+          class="min-h-52 p-8"
+          title="No results found for your query"
         >
-          <Search v-if="!loading" class="size-8 text-muted-foreground" />
-          <p>
-            {{
-              loading
-                ? 'Loading transactions…'
-                : error
-                  ? 'Transaction statistics unavailable'
-                  : 'No results found for your query'
-            }}
-          </p>
           <RouterLink
-            v-if="!loading && !error"
             class="text-xs text-violet-600 hover:underline"
             :to="{
               name: 'project-profiles-setup',
@@ -232,28 +220,20 @@ function inspect(name: string) {
             }"
             >View Profiles setup instructions</RouterLink
           >
-        </div>
+        </EmptyState>
       </div>
-      <nav
+      <TablePagination
         v-if="!error"
-        class="flex items-center justify-end gap-3 text-sm"
-        aria-label="Transactions pagination"
-      >
-        <span>{{ transactions.length }} transactions · Page {{ page }} of {{ pages }}</span
-        ><Button
-          variant="outline"
-          :disabled="loading || page <= 1"
-          aria-label="Previous transactions"
-          @click="page--"
-          >Previous</Button
-        ><Button
-          variant="outline"
-          :disabled="loading || page >= pages"
-          aria-label="Next transactions"
-          @click="page++"
-          >Next</Button
-        >
-      </nav>
+        :page="page"
+        :total="transactions.length"
+        :page-size="20"
+        :busy="loading"
+        unit="transactions"
+        label="Transactions pagination"
+        previous-label="Previous transactions"
+        next-label="Next transactions"
+        @change="page = $event"
+      />
     </div>
     <div
       v-if="tab === 'aggregate'"
@@ -268,18 +248,14 @@ function inspect(name: string) {
         Call stacks merged by function and source location. Width represents estimated sampled time
         across all matching profiles; this is not a timeline.
       </p>
-      <p
-        v-if="loading || error || !overview?.flamegraph.length"
-        class="py-20 text-center text-sm text-muted-foreground"
-      >
-        {{
-          loading
-            ? 'Loading flamegraph…'
-            : error
-              ? 'Flamegraph unavailable'
-              : 'No sampled stacks found'
-        }}
+      <p v-if="loading || error" class="py-20 text-center text-sm text-muted-foreground">
+        {{ loading ? 'Loading flamegraph…' : 'Flamegraph unavailable' }}
       </p>
+      <EmptyState
+        v-else-if="!overview?.flamegraph.length"
+        class="py-20"
+        title="No sampled stacks found"
+      />
       <template v-else
         ><ProfileFlameChart :segments="overview.flamegraph" :duration-ms="overview.durationMs" />
         <p class="mt-4 text-xs text-muted-foreground">

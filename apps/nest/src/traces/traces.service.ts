@@ -118,8 +118,9 @@ export class TracesService {
   }
 
   async fields(userId: string, groupSlug: string, projectSlug: string) {
-    await this.projects.findOwnedBySlug(userId, groupSlug, projectSlug);
-    return SPAN_FIELDS.map((field) => ({
+    await this.projects.findReadableBySlug(userId, groupSlug, projectSlug, 'project:traces:read');
+    const access = await this.projects.getAccess(userId, groupSlug, projectSlug);
+    return SPAN_FIELDS.filter(field => !field.name.startsWith('browser.web_vital.') || access.permissions.includes('project:web-vitals:read')).map((field) => ({
       name: field.name,
       type: field.type,
       unit: field.unit,
@@ -180,11 +181,11 @@ export class TracesService {
     ) => Promise<T>,
   ): Promise<T> {
     const query = new SpanQueryPipe().transform(input);
-    const project = await this.projects.findOwnedBySlug(
+    const project = await this.projects.findReadableBySlug(
       userId,
       groupSlug,
-      projectSlug,
-    );
+      projectSlug, 'project:traces:read');
+    if (JSON.stringify(query).includes('browser.web_vital.')) await this.projects.findReadableBySlug(userId,groupSlug,projectSlug,'project:web-vitals:read');
     const scope = this.scope(project.id, query);
     return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
@@ -436,7 +437,7 @@ export class TracesService {
     const range = Date.parse(query.end) - Date.parse(query.start);
     if (range <= 3 * 3600000) return 60000;
     if (range <= 2 * 24 * 3600000) return 1800000;
-    return 3600000;
+    return range <= 500 * 3600000 ? 3600000 : 10800000;
   }
 
   traceSamples(
@@ -486,11 +487,10 @@ export class TracesService {
     cursor?: string,
   ) {
     if (!validId(traceId, 32)) throw new BadRequestException('Invalid traceId');
-    const project = await this.projects.findOwnedBySlug(
+    const project = await this.projects.findReadableBySlug(
       userId,
       groupSlug,
-      projectSlug,
-    );
+      projectSlug, 'project:traces:read');
     const parameters: unknown[] = [project.id, traceId];
     let continuation = '';
     if (cursor !== undefined) {
@@ -577,3 +577,5 @@ export class TracesService {
     ) as unknown as MonitoringSpan;
   }
 }
+
+

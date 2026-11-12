@@ -1,19 +1,21 @@
 <script setup lang="ts">
+import { useProjectAccessStore } from "../model/project-access.store"
+const projectAccess = useProjectAccessStore()
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { querySuggestions } from '../model/query-suggestions'
 import {
   ChevronLeft,
   ChevronRight,
-  Logs,
   RefreshCw,
   Download,
-  Plus,
   ChevronDown,
   ArrowDown,
   ArrowUp,
   Columns3,
   Code,
 } from '@lucide/vue'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from 'reka-ui'
 import { useRoute } from 'vue-router'
 import { use } from 'echarts/core'
@@ -44,7 +46,11 @@ const fields = ref<LogFields | null>(null),
   result = ref<LogResult | null>(null)
 const range = ref(24)
 const conditions = ref<LogCondition[]>([])
-type Visualization = LogVisualization & { groupBy: string[]; conditions: LogCondition[] }
+type Visualization = LogVisualization & {
+  groupBy: string[]
+  conditions: LogCondition[]
+  addingGroup?: boolean
+}
 const visualizations = ref<Visualization[]>([
   { aggregate: 'count', field: 'logs', groupBy: [], conditions: [] },
 ])
@@ -76,12 +82,27 @@ function changeAggregate(v: Visualization) {
   if (v.field) void load()
 }
 function removeChart(index: number) {
+  const hadGroups = visualizations.value[index]?.groupBy.length
   visualizations.value.splice(index, 1)
+  if (hadGroups) applyGroups()
+  else void load()
+}
+function applyGroups() {
+  activeTab.value = visualizations.value.some((v) => v.groupBy.length) ? 'aggregates' : 'logs'
   void load()
 }
+function selectGroup(v: Visualization, index: number, field: string) {
+  if (index === v.groupBy.length) v.addingGroup = false
+  v.groupBy[index] = field
+  applyGroups()
+}
 function removeGroup(v: Visualization, index: number) {
+  if (index === v.groupBy.length) {
+    v.addingGroup = false
+    return
+  }
   v.groupBy.splice(index, 1)
-  void load()
+  applyGroups()
 }
 function addChart() {
   if (visualizations.value.length >= 3) return
@@ -158,10 +179,6 @@ function chartOption(index: number) {
       })) ?? [],
   }
 }
-const snippet = computed(
-  () =>
-    `import * as PMS from '@pms/monitoring-vue'\n\nPMS.init({ app, dsn: ${JSON.stringify(fields.value?.dsn ?? 'YOUR_PROJECT_DSN')}, enableLogs: true })\nPMS.logger.info('Checkout completed', { orderId: 'order-123', amount: 99 })\nPMS.logger.warn('Payment retry', { attempt: 2 })\nawait PMS.flush()`,
-)
 let generation = 0,
   window: { start: string; end: string } | undefined
 let refreshTimer: ReturnType<typeof setInterval> | undefined
@@ -197,8 +214,9 @@ async function load(reset = true) {
       filters: [],
       conditions: conditions.value.map((c) => ({ ...c })),
       visualizations: visualizations.value.map((v) => ({
-        ...v,
-        groupBy: v.groupBy.filter(Boolean),
+        aggregate: v.aggregate,
+        field: v.field,
+        groupBy: [...v.groupBy],
         conditions: v.conditions.map((c) => ({ ...c })),
       })),
       page: page.value,
@@ -265,11 +283,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="logs-view min-w-0 space-y-4">
     <header class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-      <div class="flex min-w-0 items-center gap-2">
-        <Logs class="size-5 shrink-0 text-cyan-600" />
-        <h2 class="text-xl font-semibold">Logs</h2>
-        <span class="truncate text-sm text-muted-foreground">{{ route.params.projectSlug }}</span>
-      </div>
+      <h2 class="page-title">Logs</h2>
       <div class="flex items-center gap-2">
         <FormSelect
           v-model="range"
@@ -303,19 +317,17 @@ onBeforeUnmount(() => {
     </header>
     <p v-if="fields && !fields.enabled" class="text-sm text-amber-700">
       Log ingestion is disabled for this project.
-      <RouterLink :to="{ name: 'project-detail', params: route.params }" class="underline"
+      <RouterLink v-if="projectAccess.canRoute('project-detail')" :to="{ name: 'project-detail', params: route.params }" class="underline"
         >Project settings</RouterLink
       >
     </p>
-    <div class="rounded-lg border bg-card p-3">
-      <LogConditionBuilder
-        v-model="conditions"
-        :fields="availableFields"
-        :suggestions="querySuggestions(availableFields, result?.items ?? [])"
-        label="Log filters"
-        @change="load()"
-      />
-    </div>
+    <LogConditionBuilder
+      v-model="conditions"
+      :fields="availableFields"
+      :suggestions="querySuggestions(availableFields, result?.items ?? [])"
+      label="Log filters"
+      @change="load()"
+    />
     <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
     <div class="flex min-w-0 flex-col gap-4 lg:flex-row">
       <aside
@@ -334,13 +346,12 @@ onBeforeUnmount(() => {
         <template v-if="!collapsed">
           <div v-for="(v, index) in visualizations" :key="index" class="space-y-3 border-b pb-4">
             <div class="flex items-center justify-between">
-              <h3 class="text-sm font-medium">
+              <h3 class="font-semibold">
                 Visualize {{ visualizations.length > 1 ? index + 1 : '' }}
               </h3>
               <Button
                 v-if="visualizations.length > 1"
-                variant="ghost"
-                size="sm"
+                variant="outline"
                 :aria-label="`Remove chart ${index + 1}`"
                 @click="removeChart(index)"
                 >Remove</Button
@@ -374,43 +385,48 @@ onBeforeUnmount(() => {
               </div>
             </details>
           </div>
-          <Button variant="ghost" size="sm" :disabled="visualizations.length >= 3" @click="addChart"
-            ><Plus class="size-3" />Add chart</Button
+          <Button v-if="visualizations.length < 3" variant="outline" @click="addChart"
+            >Add chart</Button
           >
-          <section aria-label="Group By" class="space-y-4 border-t pt-5">
-            <h3 class="text-sm font-medium">Group By</h3>
+          <section aria-label="Group by" class="space-y-5">
+            <h3 class="font-semibold">Group by</h3>
             <div v-for="(v, index) in visualizations" :key="index" class="space-y-3">
               <h4 v-if="visualizations.length > 1" class="text-xs text-muted-foreground">
                 Chart {{ index + 1 }}
               </h4>
-              <div v-for="(_, groupIndex) in v.groupBy" :key="groupIndex" class="flex gap-1">
-                <LogFieldPicker
-                  :model-value="v.groupBy[groupIndex] ?? ''"
-                  :fields="
-                    availableFields.filter(
-                      (f) => !v.groupBy.includes(f.key) || f.key === v.groupBy[groupIndex],
-                    )
+              <div
+                v-for="i in v.groupBy.length + Number(Boolean(v.addingGroup))"
+                :key="i"
+                class="space-y-3 border-b pb-4"
+              >
+                <FormSelect
+                  :model-value="v.groupBy[i - 1]"
+                  :aria-label="`Group ${index + 1}.${i}`"
+                  placeholder="Select a field"
+                  :options="
+                    availableFields.map(({ key }) => ({
+                      value: key,
+                      label: key,
+                      disabled: v.groupBy.includes(key) && v.groupBy[i - 1] !== key,
+                    }))
                   "
-                  :label="`Group ${index + 1}.${groupIndex + 1}`"
-                  @update:model-value="v.groupBy[groupIndex] = $event"
-                  @change="load()"
+                  @change="selectGroup(v, i - 1, $event)"
                 />
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  :aria-label="`Remove group ${index + 1}.${groupIndex + 1}`"
-                  @click="removeGroup(v, groupIndex)"
-                  >-</Button
+                  variant="outline"
+                  :aria-label="`Remove group ${index + 1}.${i}`"
+                  @click="removeGroup(v, i - 1)"
+                  >Remove group</Button
                 >
               </div>
               <Button
-                variant="ghost"
-                size="sm"
-                :disabled="v.groupBy.length >= 2"
-                @click="v.groupBy.push('')"
-                ><Plus class="size-3" />Add group</Button
+                v-if="!v.addingGroup"
+                variant="outline"
+                :disabled="!availableFields.some(({ key }) => !v.groupBy.includes(key))"
+                @click="v.addingGroup = true"
+                >Add group</Button
               >
-              <p v-if="v.groupBy.some(Boolean)" class="text-xs text-muted-foreground">
+              <p v-if="v.groupBy.length" class="text-xs text-muted-foreground">
                 Showing up to 20 groups by log count.
               </p>
             </div>
@@ -465,22 +481,24 @@ onBeforeUnmount(() => {
               autoresize
               class="h-full w-full"
             />
-            <p v-else class="grid h-full place-items-center text-sm text-muted-foreground">
-              {{ error ? 'Query not completed' : 'No logs match this series' }}
+            <p
+              v-else-if="error"
+              class="grid h-full place-items-center text-sm text-muted-foreground"
+            >
+              Query not completed
             </p>
+            <EmptyState v-else class="h-full" title="No logs match this series" />
           </div>
         </div>
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex gap-1" role="tablist" aria-label="Log results">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b">
+          <div class="flex gap-1 overflow-x-auto" role="tablist" aria-label="Log results">
             <button
               v-for="tab in ['logs', 'aggregates']"
               :key="tab"
+              type="button"
               role="tab"
               :aria-selected="activeTab === tab"
-              :class="
-                activeTab === tab ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
-              "
-              class="rounded-md px-3 py-2 text-sm capitalize"
+              class="monitoring-tab capitalize"
               @click="activeTab = tab"
             >
               {{ tab }}
@@ -529,8 +547,8 @@ onBeforeUnmount(() => {
             </PopoverPortal>
           </PopoverRoot>
         </div>
-        <div v-if="activeTab === 'aggregates'" class="overflow-x-auto rounded-lg border">
-          <table class="w-full text-left text-sm">
+        <div v-if="activeTab === 'aggregates'" class="table-surface">
+          <table class="app-table">
             <thead>
               <tr>
                 <th>Chart</th>
@@ -554,16 +572,15 @@ onBeforeUnmount(() => {
               >
             </tbody>
           </table>
-          <p
-            v-if="!result?.charts?.some((c) => c.groups.length)"
-            class="p-6 text-center text-sm text-muted-foreground"
-          >
-            No aggregate results
-          </p>
+          <EmptyState
+            v-if="!loading && !error && !result?.charts?.some((c) => c.groups.length)"
+            class="p-6"
+            title="No aggregate results"
+          />
         </div>
-        <div v-else class="overflow-x-auto rounded-lg border">
+        <div v-else class="table-surface">
           <table
-            class="w-full table-fixed text-left text-sm"
+            class="app-table table-fixed"
             :style="{
               minWidth: `${560 + (showEnvironment ? 144 : 0) + (showTrace ? 288 : 0) + (showAttributes ? 256 : 0)}px`,
             }"
@@ -699,38 +716,23 @@ onBeforeUnmount(() => {
             </tbody>
           </table>
         </div>
-        <p
+        <EmptyState
           v-if="activeTab === 'logs' && !loading && !error && result?.total === 0"
-          class="py-6 text-center text-sm text-muted-foreground"
-        >
-          No matching logs
-        </p>
-        <footer v-if="activeTab === 'logs'" class="flex items-center justify-end gap-3 text-sm">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            aria-label="Previous page"
-            :disabled="loading || page <= 1"
-            @click="paginate(-1)"
-            ><ChevronLeft aria-hidden="true" /></Button
-          ><span class="min-w-8 text-center tabular-nums" aria-current="page">{{ page }}</span
-          ><Button
-            variant="outline"
-            size="icon-sm"
-            aria-label="Next page"
-            :disabled="loading || !result || page * 20 >= result.total"
-            @click="paginate(1)"
-            ><ChevronRight aria-hidden="true"
-          /></Button>
-        </footer>
+          class="py-6"
+          title="No matching logs"
+        />
+        <TablePagination
+          v-if="activeTab === 'logs'"
+          :page="page"
+          :total="result?.total ?? 0"
+          :page-size="20"
+          :busy="loading"
+          unit="logs"
+          label="Logs pagination"
+          @change="paginate($event - page)"
+        />
       </main>
     </div>
-    <details class="border-t pt-3">
-      <summary class="flex cursor-pointer items-center gap-2 text-sm">
-        <Code class="size-4" />SDK setup
-      </summary>
-      <pre class="mt-3 overflow-x-auto bg-muted/30 p-3 text-xs"><code>{{ snippet }}</code></pre>
-    </details>
   </section>
 </template>
 
@@ -743,15 +745,5 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--muted-foreground);
   min-width: 0;
-}
-.logs-view th {
-  color: var(--muted-foreground);
-  font-weight: 500;
-}
-.logs-view th,
-.logs-view td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
 }
 </style>

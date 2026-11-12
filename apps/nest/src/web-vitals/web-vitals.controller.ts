@@ -47,10 +47,11 @@ export class WebVitalsController {
       ].includes(endpoint)
     )
       throw new BadRequestException('Unknown endpoint');
-    const project = await this.projects.findOwnedBySlug(
+    const project = await this.projects.findReadableBySlug(
       req.user.id,
       group,
       slug,
+      'project:web-vitals:read',
     );
     const end = q.end ? isoTime(q.end) : Date.now(),
       start = q.start

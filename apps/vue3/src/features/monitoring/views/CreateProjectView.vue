@@ -73,7 +73,7 @@ async function submit(): Promise<void> {
 <template>
   <section class="mx-auto max-w-3xl space-y-6">
     <div>
-      <h2 class="text-2xl font-semibold tracking-tight">Create monitoring project</h2>
+      <h2 class="page-title">Create monitoring project</h2>
       <p class="mt-1 text-muted-foreground">
         Choose the features to enable. This step saves your configuration.
       </p>

@@ -3,6 +3,7 @@ import {
   MonitoringSpan,
   SPAN_FIELD_MAP,
   SpanQuery,
+  TRACE_HISTORY_DAYS,
   TransactionEnvelope,
 } from './traces-contract';
 
@@ -252,8 +253,8 @@ export class SpanQueryPipe implements PipeTransform<unknown, SpanQuery> {
     ]);
     const start = isoTime(input.start);
     const end = isoTime(input.end);
-    if (end <= start || end - start > 7 * 24 * 3600000)
-      reject('Query range must be positive and at most 7 days');
+    if (end <= start || end - start > TRACE_HISTORY_DAYS * 24 * 3600000)
+      reject(`Query range must be positive and at most ${TRACE_HISTORY_DAYS} days`);
     const filters = input.filters ?? [];
     const metrics = input.metrics ?? [{ function: 'count', field: 'spans' }];
     const groupBy = input.groupBy ?? [];
@@ -264,7 +265,6 @@ export class SpanQueryPipe implements PipeTransform<unknown, SpanQuery> {
       metrics.length < 1 ||
       metrics.length > 5 ||
       !Array.isArray(groupBy) ||
-      groupBy.length > 2 ||
       new Set(groupBy).size !== groupBy.length
     )
       reject('Query complexity exceeds limits');

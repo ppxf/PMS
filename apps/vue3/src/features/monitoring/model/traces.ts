@@ -216,7 +216,7 @@ export function presetQuery(name: string): Pick<TraceQuery, 'filters' | 'metrics
         { field: 'span.op', operator: 'in', value: ['pageload', 'navigation'] },
       ],
       metrics: [{ function: 'p95', field: 'span.duration' }],
-      groupBy: ['span.name'],
+      groupBy: [],
     }
   if (name === 'versions')
     return {

@@ -62,11 +62,12 @@ describe('Project origins management', () => {
       repository as never,
       groups as never,
       new ConfigService(),
+      { requireOwner: jest.fn(async (userId:string) => { if(userId !== 'owner') throw new Error('not owned'); return {project:{id:'project',publicKey:'key',allowedOrigins:['*']}}; }) } as never,
     );
     await expect(
       service.updateOrigins('owner', 'group', 'project', []),
     ).resolves.toMatchObject({ allowedOrigins: [] });
-    expect(groups.findOwnedBySlug).toHaveBeenCalledWith('owner', 'group');
+    expect(groups.findOwnedBySlug).not.toHaveBeenCalled();
     expect(repository.update).toHaveBeenCalledWith('project', {
       allowedOrigins: [],
     });
@@ -83,8 +84,9 @@ describe('Project origins management', () => {
     };
     const service = new MonitoringProjectsService(
       repository as never,
-      {} as never,
+      { requireOwner: jest.fn(async (userId:string) => { if(userId !== 'owner') throw new Error('not owned'); return {project:{id:'project',publicKey:'key',allowedOrigins:['*']}}; }) } as never,
       new ConfigService(),
+      { requireOwner: jest.fn(async (userId:string) => { if(userId !== 'owner') throw new Error('not owned'); return {project:{id:'project',publicKey:'key',allowedOrigins:['*']}}; }) } as never,
     );
     await expect(
       service.allowsSdkOrigin('project', 'https://new.test'),
@@ -108,3 +110,6 @@ describe('Project origins management', () => {
     ).resolves.toBe(false);
   });
 });
+
+
+

@@ -180,8 +180,12 @@ export class LogQueryPipe implements PipeTransform<unknown, LogQuery> {
         )
           reject('Select a numeric field');
         if (v.groupBy !== undefined) {
-          if (!Array.isArray(v.groupBy) || v.groupBy.length > 2)
-            reject('Maximum 2 groups');
+          if (
+            !Array.isArray(v.groupBy) ||
+            v.groupBy.length > 20 ||
+            new Set(v.groupBy).size !== v.groupBy.length
+          )
+            reject('Select up to 20 distinct group fields');
           for (const key of v.groupBy) queryField(key);
         }
         validateConditions(v.conditions ?? []);

@@ -98,3 +98,4 @@ describe('span query registry validation', () => {
     ).toThrow();
   });
 });
+

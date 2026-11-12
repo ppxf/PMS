@@ -57,6 +57,7 @@ describe('SDK standard setup HTTP origins and credentials', () => {
       repository as never,
       {} as never,
       new ConfigService(),
+      {} as never,
     );
     const module = await Test.createTestingModule({
       controllers: [SdkEnvelopeController, SdkCheckController],
@@ -193,3 +194,4 @@ describe('SDK standard setup HTTP origins and credentials', () => {
     expect(management.headers['access-control-allow-origin']).toBeUndefined();
   });
 });
+

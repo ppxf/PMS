@@ -24,7 +24,7 @@ async function submit() {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="text-2xl font-semibold">Forgot password</h1>
+      <h1 class="page-title">Forgot password</h1>
       <p v-if="message" role="status">{{ message }}</p>
       <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
       <form v-if="!message" class="space-y-4" @submit.prevent="submit">

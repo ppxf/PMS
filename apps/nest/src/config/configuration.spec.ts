@@ -35,7 +35,7 @@ describe('configuration CORS settings', () => {
   });
 
   it('uses the local monitoring address by default', () => {
-    expect(configuration().monitoring.publicUrl).toBe('http://localhost:3001');
+    expect(configuration().monitoring.publicUrl).toBe('http://localhost:3000');
   });
 
   it('uses PUBLIC_URL as the monitoring address', () => {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { LockKeyhole } from '@lucide/vue'
+import { getInvitationRedirect } from "../model/invitation-redirect"
+import { Activity } from '@lucide/vue'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { z } from 'zod'
@@ -9,7 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { AppFormField } from '@/components/forms'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { login as loginRequest } from '@/features/auth/api/auth.api'
 import { useAuthStore } from '@/features/auth'
@@ -48,7 +49,7 @@ const submit = handleSubmit(async (values) => {
   try {
     const session = await loginRequest(values)
     auth.login(session)
-    await router.replace(getSafeRedirect(route.query.redirect))
+    await router.replace(getSafeRedirect(route.query.redirect ?? getInvitationRedirect() ?? sessionStorage.getItem('project-invitation-redirect')))
   } catch (error) {
     submitError.value =
       error instanceof AppError ? error.message : 'Sign in failed. Please try again later.'
@@ -63,9 +64,9 @@ const submit = handleSubmit(async (values) => {
         <div
           class="mx-auto mb-3 grid size-12 place-items-center rounded-xl bg-primary text-primary-foreground"
         >
-          <LockKeyhole class="size-6" />
+          <Activity class="size-6" aria-hidden="true" />
         </div>
-        <CardTitle class="text-2xl">Sign in to PMS</CardTitle>
+        <h1 class="page-title">Sign in to PMS</h1>
         <CardDescription>Enter your email and password to sign in.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -90,7 +91,7 @@ const submit = handleSubmit(async (values) => {
             {{ isSubmitting ? 'Signing in…' : 'Sign in' }}
           </Button>
           <div class="flex justify-between text-sm">
-            <RouterLink class="text-primary" to="/register">Create account</RouterLink>
+            <RouterLink class="text-primary" :to="{ path: '/register', query: route.query }">Create account</RouterLink>
             <RouterLink class="text-primary" to="/forgot-password">Forgot password</RouterLink>
           </div>
         </form>

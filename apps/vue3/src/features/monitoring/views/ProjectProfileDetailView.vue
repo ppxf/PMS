@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useProjectAccessStore } from "../model/project-access.store"
+const projectAccess = useProjectAccessStore()
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -62,7 +65,7 @@ onBeforeUnmount(() => {
     </div>
     <template v-else-if="profile">
       <header class="space-y-3">
-        <h1 class="break-all text-2xl font-semibold">{{ profile.name }}</h1>
+        <h1 class="page-title break-all">{{ profile.name }}</h1>
         <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
           <span>{{ new Date(profile.startedAt).toLocaleString() }}</span
           ><span>{{ profile.durationMs.toFixed(2) }} ms duration</span
@@ -107,8 +110,8 @@ onBeforeUnmount(() => {
             ]"
           />
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
+        <div class="table-surface">
+          <table class="app-table">
             <thead class="bg-muted/40 text-xs text-muted-foreground">
               <tr>
                 <th class="p-3">Function / resource</th>
@@ -131,9 +134,11 @@ onBeforeUnmount(() => {
             </tbody>
           </table>
         </div>
-        <p v-if="!functions.length" class="p-6 text-center text-sm text-muted-foreground">
-          {{ profile.samples.length ? 'No sampled function stacks' : 'No samples recorded' }}
-        </p>
+        <EmptyState
+          v-if="!functions.length"
+          class="p-6"
+          :title="profile.samples.length ? 'No sampled function stacks' : 'No samples recorded'"
+        />
       </section>
     </template>
   </section>

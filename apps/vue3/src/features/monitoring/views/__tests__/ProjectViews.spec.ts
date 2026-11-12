@@ -82,6 +82,18 @@ const RouterLinkStub = defineComponent({
 })
 
 describe('project views', () => {
+  it('shows Logs SDK initialization and test log examples', async () => {
+    getProject.mockResolvedValue({ ...project })
+    routeState.route!.name = 'project-logs-setup'
+    const view = mount(ProjectSetupView, { global: { stubs: { RouterLink: RouterLinkStub } } })
+    await flushPromises()
+    expect(view.get('h2').text()).toBe('Logs setup')
+    expect(view.get('[data-testid="init-snippet"]').text()).toContain('enableLogs: true')
+    expect(view.get('[data-testid="init-snippet"]').text()).toContain('Checkout completed')
+    expect(view.text()).toContain(project.dsn)
+    view.unmount()
+  })
+
   it('provides scoped Metrics setup and copyable usage without changing basic setup', async () => {
     getProject.mockResolvedValue({ ...project })
     routeState.route!.name = 'project-metrics-setup'

@@ -22,11 +22,11 @@ export class GroupsController {
 
   @Get()
   list(@Req() request: AuthenticatedRequest) {
-    return this.groups.listOwned(request.user.id);
+    return this.groups.listAccessible(request.user.id);
   }
 
   @Get(':slug')
   detail(@Req() request: AuthenticatedRequest, @Param('slug') slug: string) {
-    return this.groups.findOwnedBySlug(request.user.id, slug);
+    return this.groups.findAccessibleBySlug(request.user.id, slug);
   }
 }

@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import { getInvitationRedirect, rememberInvitationRedirect } from "../model/invitation-redirect"
 import { ref } from 'vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
+const route = useRoute()
+rememberInvitationRedirect(route.query.redirect)
+const invitationRedirect = getInvitationRedirect()
 import { register } from '@/features/auth/api/auth.api'
 import { AppError } from '@/services/http'
 
@@ -45,7 +49,8 @@ async function submit() {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="text-2xl font-semibold">Create account</h1>
+      <h1 class="page-title">Create account</h1>
+      <p v-if="invitationRedirect">Register with the email address that received the project invitation. After verifying your email, sign in to accept it.</p>
       <p v-if="message" role="status">{{ message }}</p>
       <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
       <form v-if="!message" class="space-y-4" @submit.prevent="submit">
@@ -71,7 +76,7 @@ async function submit() {
           {{ submitting ? 'Submitting…' : 'Register' }}
         </Button>
       </form>
-      <RouterLink to="/login" class="text-sm text-primary">Back to sign in</RouterLink>
+      <RouterLink :to="{ path: '/login', query: invitationRedirect ? { redirect: invitationRedirect } : {} }" class="text-sm text-primary">Back to sign in</RouterLink>
     </section>
   </main>
 </template>

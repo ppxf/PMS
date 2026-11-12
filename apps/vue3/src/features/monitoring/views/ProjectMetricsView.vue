@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useProjectAccessStore } from "../model/project-access.store"
+const projectAccess = useProjectAccessStore()
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ChartNoAxesCombined, RefreshCw, Plus } from '@lucide/vue'
+import { RefreshCw, Plus } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import MetricPanel from '../components/MetricPanel.vue'
@@ -71,11 +73,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="space-y-4">
     <header class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-      <div class="flex items-center gap-2">
-        <ChartNoAxesCombined class="size-5 text-cyan-600" />
-        <h2 class="text-xl font-semibold">Metrics</h2>
-        <span class="text-sm text-muted-foreground">{{ route.params.projectSlug }}</span>
-      </div>
+      <h2 class="page-title">Metrics</h2>
       <div class="flex flex-wrap items-center gap-2">
         <FormSelect
           v-model="range"
@@ -94,6 +92,7 @@ onBeforeUnmount(() => {
           variant="outline"
           size="icon"
           aria-label="Refresh"
+          title="Refresh"
           :disabled="loading"
           @click="refresh"
           ><RefreshCw class="size-4"
@@ -105,7 +104,7 @@ onBeforeUnmount(() => {
     </header>
     <p v-if="catalog && !catalog.enabled" class="text-sm text-amber-700">
       Custom metric ingestion is disabled for this project. Automatic Web Vitals remain available.
-      <RouterLink :to="{ name: 'project-detail', params: route.params }" class="underline"
+      <RouterLink v-if="projectAccess.canRoute('project-detail')" :to="{ name: 'project-detail', params: route.params }" class="underline"
         >Project settings</RouterLink
       >
     </p>

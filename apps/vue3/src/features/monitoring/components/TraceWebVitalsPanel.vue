@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { webVitalsQuery } from '../api/web-vitals.api'
@@ -69,9 +71,11 @@ onBeforeUnmount(() => {
     <p v-else-if="error" role="alert">
       {{ error }} <Button variant="outline" @click="load">Retry</Button>
     </p>
-    <p v-else-if="!items.length" class="text-sm text-muted-foreground">
-      No page experience is retained for this trace in the last 30 days.
-    </p>
+    <EmptyState
+      v-else-if="!items.length"
+      class="py-8"
+      title="No page experience is retained for this trace in the last 30 days."
+    />
     <article v-for="sample in items" :key="sample.pageViewId" class="border-t pt-3 space-y-2">
       <p class="text-sm font-medium">
         {{ sample.route }} · {{ new Date(sample.startedAt).toLocaleString() }}
@@ -94,14 +98,15 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </article>
-    <div v-if="total > 10" class="flex items-center justify-end gap-3">
-      <Button variant="outline" :disabled="page === 1 || loading" @click="paginate(-1)"
-        >Previous</Button
-      >
-      <span>{{ page }} / {{ Math.ceil(total / 10) }}</span>
-      <Button variant="outline" :disabled="page * 10 >= total || loading" @click="paginate(1)"
-        >Next</Button
-      >
-    </div>
+    <TablePagination
+      v-if="total > 10"
+      :page="page"
+      :total="total"
+      :page-size="10"
+      :busy="loading"
+      unit="samples"
+      label="Trace Web Vitals pagination"
+      @change="paginate($event - page)"
+    />
   </section>
 </template>

@@ -90,7 +90,8 @@ describe('profiles storage and ownership', () => {
     };
     const projects = {
       findForIngestion: jest.fn().mockResolvedValue({ profilesEnabled: true }),
-      findOwnedBySlug: jest
+      findOwnedBySlug: jest.fn(async(user:string) => {if(user !== 'owner') throw new ForbiddenException(); return {id:'project',profilesEnabled:true,dsn:'https://key@example.test/api/sdk/project'};}),
+      findReadableBySlug: jest
         .fn()
         .mockImplementation(
           async (user: string, group: string, slug: string) => {
@@ -205,3 +206,5 @@ describe('profiles storage and ownership', () => {
     );
   });
 });
+
+

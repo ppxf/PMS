@@ -43,7 +43,7 @@ onBeforeUnmount(() => {
     <p v-else-if="error" role="alert" class="text-destructive">{{ error }}</p>
     <template v-else-if="project">
       <header>
-        <h1 class="text-2xl font-semibold tracking-tight">Profiles setup</h1>
+        <h1 class="page-title">Profiles setup</h1>
         <p class="mt-1 text-muted-foreground">
           {{ project.name }} · Set up browser profiling from sampled call stacks.
         </p>

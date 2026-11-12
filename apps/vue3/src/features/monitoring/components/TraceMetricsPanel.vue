@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight } from '@lucide/vue'
+import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
+import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -74,7 +75,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section aria-label="Related application metrics" class="trace-metrics space-y-4">
+  <section aria-label="Related application metrics" class="space-y-4">
     <form class="flex flex-wrap items-center gap-3" @submit.prevent="applySearch">
       <Input
         v-model="search"
@@ -98,8 +99,8 @@ onBeforeUnmount(() => {
     <p v-if="error" role="alert">
       {{ error }} <Button variant="outline" @click="load">Retry</Button>
     </p>
-    <div class="overflow-x-auto">
-      <table class="w-full text-left text-sm">
+    <div class="table-surface">
+      <table class="app-table">
         <thead>
           <tr>
             <th class="p-3">Application Metric</th>
@@ -149,43 +150,23 @@ onBeforeUnmount(() => {
           </tr>
         </tbody>
       </table>
-      <p v-if="result && !result.samples.length" class="p-8 text-center text-muted-foreground">
-        No matching related metrics
-      </p>
+      <EmptyState
+        v-if="!loading && !error && result && !result.samples.length"
+        class="p-8"
+        title="No matching related metrics"
+      />
     </div>
-    <div v-if="result" class="flex flex-wrap items-center justify-end gap-3 text-sm">
-      <span class="mr-auto text-muted-foreground">{{ result.total }} metrics</span>
-      <div class="flex gap-2">
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label="Previous metrics page"
-          :disabled="loading || result.page <= 1"
-          @click="changePage(result.page - 1)"
-          ><ChevronLeft aria-hidden="true"
-        /></Button>
-        <span class="min-w-8 text-center tabular-nums" aria-current="page">{{ result.page }}</span>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label="Next metrics page"
-          :disabled="loading || result.page * result.pageSize >= result.total"
-          @click="changePage(result.page + 1)"
-          ><ChevronRight aria-hidden="true"
-        /></Button>
-      </div>
-    </div>
+    <TablePagination
+      v-if="result"
+      :page="result.page"
+      :total="result.total"
+      :page-size="result.pageSize"
+      :busy="loading"
+      unit="metrics"
+      label="Related metrics pagination"
+      previous-label="Previous metrics page"
+      next-label="Next metrics page"
+      @change="changePage"
+    />
   </section>
 </template>
-
-<style scoped>
-.trace-metrics th {
-  color: var(--muted-foreground);
-  font-weight: 500;
-}
-.trace-metrics th,
-.trace-metrics td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--border);
-}
-</style>

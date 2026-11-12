@@ -16,6 +16,16 @@ const { listGroups } = vi.hoisted(() => ({
 }))
 vi.mock('@/features/auth/api/auth.api', () => ({ getCurrentUser }))
 vi.mock('@/features/monitoring/api/monitoring.api', () => ({ listGroups }))
+vi.mock('@/services/http', () => ({
+  http: {
+    get: () =>
+      Promise.resolve({
+        projectId: 'project',
+        role: 'member',
+        permissions: ['project:audit:read'],
+      }),
+  },
+}))
 
 function createTestRouter(pinia: Pinia): Router {
   const router = createRouter({
@@ -57,6 +67,30 @@ function createTestRouter(pinia: Pinia): Router {
 }
 
 describe('authorization guard', () => {
+  it('takes audit-only members to the audit workbench after project entry', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useAuthStore().login({
+      accessToken: 'token',
+      user: { id: '1', name: 'Auditor', email: 'audit@example.com' },
+      permissions: [],
+    })
+    const router = createTestRouter(pinia)
+    router.addRoute({
+      path: '/workspace/audit',
+      name: 'workspace-audit',
+      component: { template: '<div />' },
+      meta: { requiresAuth: true },
+    })
+    router.addRoute({
+      path: '/groups/:groupSlug/projects/:projectSlug/setup',
+      name: 'project-setup',
+      component: { template: '<div />' },
+      meta: { requiresAuth: true },
+    })
+    await router.push('/groups/team/projects/web/setup')
+    expect(router.currentRoute.value.name).toBe('workspace-audit')
+  })
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()

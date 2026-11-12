@@ -102,3 +102,4 @@ describe('SdkEnvelopeController', () => {
     expect(ingest).not.toHaveBeenCalled();
   });
 });
+

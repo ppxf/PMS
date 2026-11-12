@@ -98,3 +98,4 @@ describe('MonitoringIssuesController', () => {
     expect(validateSync(query)).toHaveLength(errors);
   });
 });
+
