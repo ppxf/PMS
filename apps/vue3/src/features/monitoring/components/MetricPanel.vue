@@ -108,7 +108,16 @@ const chart = computed(() => ({
   tooltip: { trigger: 'axis' },
   legend: { type: 'scroll', bottom: 0 },
   grid: { left: 55, right: 20, top: 20, bottom: 60 },
-  xAxis: { type: 'time' },
+  xAxis: {
+    type: 'time',
+    axisLabel: {
+      formatter: {
+        year: '{yyyy}-{MM}-{dd}\n{HH}:{mm}',
+        month: '{MM}-{dd}\n{HH}:{mm}',
+        day: '{MM}-{dd}\n{HH}:{mm}',
+      },
+    },
+  },
   yAxis: { type: 'value', name: aggregateUnit.value === 'none' ? '' : aggregateUnit.value },
   series:
     result.value?.series.map((series) => ({
@@ -116,8 +125,11 @@ const chart = computed(() => ({
         ? metricGroupLabel(series.groupValue)
         : `${aggregation.value}(${identity.value?.name ?? ''})`,
       type: chartType.value,
-      showSymbol: false,
-      connectNulls: false,
+      // Keep single samples visible and connect observed buckets across gaps.
+      showSymbol: true,
+      showAllSymbol: true,
+      symbolSize: 6,
+      connectNulls: true,
       data: series.points.map((point) => [point.timestamp, point.value]),
     })) ?? [],
 }))

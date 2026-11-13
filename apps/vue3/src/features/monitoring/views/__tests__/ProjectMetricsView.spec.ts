@@ -11,6 +11,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { openSelect, selectValue } from '@/test/select'
 import { DOMWrapper } from '@vue/test-utils'
 import { metricCsv } from '../../model/metrics'
+import VChart from 'vue-echarts'
 enableAutoUnmount(afterEach)
 const api = vi.hoisted(() => ({ metricCatalog: vi.fn(), metricQuery: vi.fn() }))
 vi.mock('../../api/metrics.api', () => api)
@@ -44,6 +45,35 @@ const result = {
   series: [],
 }
 describe('Metrics explorer', () => {
+  it('shows isolated metric buckets and connects valid points across empty buckets', async () => {
+    api.metricCatalog.mockResolvedValue({
+      items: [{ name: 'orders', type: 'count', unit: 'none' }],
+      attributes: [],
+      enabled: true,
+    })
+    const points = [
+      { timestamp: '2026-11-13T01:00:00Z', value: null, sampleCount: 0 },
+      { timestamp: '2026-11-13T02:00:00Z', value: 1, sampleCount: 1 },
+      { timestamp: '2026-11-13T03:00:00Z', value: null, sampleCount: 0 },
+      { timestamp: '2026-11-13T04:00:00Z', value: 0, sampleCount: 1 },
+    ]
+    api.metricQuery.mockResolvedValue({
+      ...result,
+      series: [{ groupValue: 'all', points }],
+    })
+    const view = mount(ProjectMetricsView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(view.getComponent(VChart).props('option')).toMatchObject({
+      series: [
+        {
+          showSymbol: true,
+          showAllSymbol: true,
+          connectNulls: true,
+          data: points.map((point) => [point.timestamp, point.value]),
+        },
+      ],
+    })
+  })
   it('queries canonical Web Vitals with p75 while custom metric ingestion is disabled', async () => {
     api.metricCatalog.mockResolvedValue({
       items: [
