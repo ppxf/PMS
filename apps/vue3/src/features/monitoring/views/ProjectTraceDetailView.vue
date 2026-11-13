@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { useProjectAccessStore } from "../model/project-access.store"
+import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ArrowLeft, GitBranch, Clock3, Layers } from '@lucide/vue'
+import { ArrowLeft, GitBranch, Clock3, Layers, ChevronRight } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { traceDetail } from '../api/traces.api'
 import { waterfallRows, matchesSpanFilters } from '../model/traces'
 import type { Span, TraceFilter } from '../model/traces'
 import TraceMetricsPanel from '../components/TraceMetricsPanel.vue'
 import TraceWebVitalsPanel from '../components/TraceWebVitalsPanel.vue'
+import { traceVitalMarkers, resourceDetails, spanCategory } from '../model/trace-performance'
+import { formatVital, type VitalSample } from '../model/web-vitals'
 const route = useRoute(),
   spans = ref<Span[]>([]),
   selected = ref<Span | null>(null),
@@ -19,6 +21,61 @@ const route = useRoute(),
   loading = ref(false),
   error = ref('')
 const rows = computed(() => waterfallRows(spans.value))
+const search = ref('')
+const category = ref('all')
+const collapsed = ref(new Set<string>())
+const vitalSamples = ref<VitalSample[]>([])
+const childParents = computed(() => new Set(spans.value.map((span) => span.parentSpanId)))
+const visibleRows = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  const filtering = Boolean(query || category.value !== 'all')
+  const byId = new Map(spans.value.map((span) => [span.spanId, span]))
+  const keep = new Set<string>()
+  for (const { span } of rows.value) {
+    if (category.value !== 'all' && spanCategory(span.op) !== category.value) continue
+    if (
+      query &&
+      !`${span.name} ${span.op} ${JSON.stringify(span.attributes)}`.toLowerCase().includes(query)
+    )
+      continue
+    let current: Span | undefined = span
+    const visited = new Set<string>()
+    while (current && !visited.has(current.spanId)) {
+      keep.add(current.spanId)
+      visited.add(current.spanId)
+      current = current.parentSpanId ? byId.get(current.parentSpanId) : undefined
+    }
+  }
+  return rows.value.filter(({ span }) => {
+    if (filtering) return keep.has(span.spanId)
+    let parent = span.parentSpanId
+    const visited = new Set<string>()
+    while (parent && !visited.has(parent)) {
+      if (collapsed.value.has(parent)) return false
+      visited.add(parent)
+      parent = byId.get(parent)?.parentSpanId
+    }
+    return true
+  })
+})
+function toggleBranch(spanId: string) {
+  const next = new Set(collapsed.value)
+  if (next.has(spanId)) next.delete(spanId)
+  else next.add(spanId)
+  collapsed.value = next
+}
+function vitalsLoaded(samples: VitalSample[]) {
+  if (!samples.length) {
+    vitalSamples.value = []
+    return
+  }
+  const merged = new Map(vitalSamples.value.map((sample) => [sample.pageViewId, sample]))
+  for (const sample of samples) merged.set(sample.pageViewId, sample)
+  vitalSamples.value = [...merged.values()]
+}
+const markers = computed(() =>
+  projectAccess.canRoute('project-web-vitals') ? traceVitalMarkers(vitalSamples.value) : [],
+)
 const tab = ref<'waterfall' | 'metrics'>(route.query?.tab === 'metrics' ? 'metrics' : 'waterfall')
 let preferMetrics = route.query?.tab === 'metrics'
 function selectTab(value: string) {
@@ -39,6 +96,20 @@ const waterfall = ref<HTMLElement>()
 async function selectTarget() {
   const target = spans.value.find((s) => s.spanId === targetSpanId.value)
   if (target) {
+    if (!visibleRows.value.some((row) => row.span.spanId === target.spanId)) {
+      search.value = ''
+      category.value = 'all'
+      const expanded = new Set(collapsed.value)
+      const byId = new Map(spans.value.map((span) => [span.spanId, span]))
+      const visited = new Set<string>()
+      let parent = target.parentSpanId
+      while (parent && !visited.has(parent)) {
+        visited.add(parent)
+        expanded.delete(parent)
+        parent = byId.get(parent)?.parentSpanId
+      }
+      collapsed.value = expanded
+    }
     selected.value = target
     await nextTick()
     waterfall.value?.querySelector('.is-selected')?.scrollIntoView?.({ block: 'nearest' })
@@ -70,9 +141,15 @@ const highlights = computed<TraceFilter[]>(() => {
 const origin = computed(() =>
   spans.value.length ? Math.min(...spans.value.map((s) => Date.parse(s.startTime))) : 0,
 )
-const extent = computed(() =>
+const spanExtent = computed(() =>
   Math.max(1, Math.max(...spans.value.map((s) => new Date(s.endTime).getTime())) - origin.value),
 )
+const extent = computed(() =>
+  Math.max(spanExtent.value, ...markers.value.map((marker) => marker.at - origin.value)),
+)
+function markerLeft(at: number) {
+  return `${Math.max(0, Math.min(100, ((at - origin.value) / extent.value) * 100))}%`
+}
 function bar(span: Span) {
   const left = Math.max(
     0,
@@ -92,6 +169,8 @@ function formatDuration(value: number) {
 function spanColor(span: Span) {
   if (span.status === 'error' || span.status === 'deadline_exceeded') return '#e05260'
   if (span.op.startsWith('http')) return '#3b9c92'
+  if (span.op.startsWith('resource.')) return '#e98166'
+  if (span.op.startsWith('browser.')) return '#a16bd0'
   if (span.op === 'pageload' || span.op === 'navigation') return '#7c6cda'
   return '#5b8def'
 }
@@ -144,6 +223,10 @@ watch(
   [() => route.params.groupSlug, () => route.params.projectSlug, () => route.params.traceId],
   () => {
     spans.value = []
+    vitalSamples.value = []
+    search.value = ''
+    category.value = 'all'
+    collapsed.value = new Set()
     selected.value = null
     hasMore.value = false
     cursor.value = undefined
@@ -176,7 +259,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="trace-summary">
         <span><Layers class="size-4" /> {{ spans.length }} spans</span>
-        <span><Clock3 class="size-4" /> {{ spans.length ? formatDuration(extent) : '—' }}</span>
+        <span><Clock3 class="size-4" /> {{ spans.length ? formatDuration(spanExtent) : '—' }}</span>
       </div>
     </div>
     <nav class="flex gap-4 border-b" aria-label="Trace detail views">
@@ -225,10 +308,12 @@ onBeforeUnmount(() => {
           : 'The target span is not retained. It may not have been collected or may have expired.'
       }}
     </p>
-    <TraceWebVitalsPanel v-if="projectAccess.canRoute('project-web-vitals')"
+    <TraceWebVitalsPanel
+      v-if="projectAccess.canRoute('project-web-vitals')"
       :group="String(route.params.groupSlug)"
       :project="String(route.params.projectSlug)"
       :trace-id="String(route.params.traceId)"
+      @loaded="vitalsLoaded"
     />
     <TraceMetricsPanel
       v-if="tab === 'metrics' && projectAccess.canRoute('project-metrics')"
@@ -245,6 +330,49 @@ onBeforeUnmount(() => {
           <GitBranch class="size-4" /> Trace timeline
           <span>Select a span to view its attributes</span>
         </div>
+        <div class="flex flex-wrap items-center gap-3 border-b p-3">
+          <input
+            v-model="search"
+            type="search"
+            aria-label="Search in trace"
+            placeholder="Search in trace"
+            class="min-w-40 flex-1 rounded-md border bg-background px-3 py-2 text-sm"
+          />
+          <select
+            v-model="category"
+            aria-label="Span type"
+            class="rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            <option value="all">All span types</option>
+            <option value="resource">Static resources</option>
+            <option value="browser">Browser phases</option>
+            <option value="http">HTTP requests</option>
+            <option value="operation">Operations</option>
+          </select>
+          <Button v-if="collapsed.size" variant="outline" size="sm" @click="collapsed = new Set()"
+            >Expand all</Button
+          >
+        </div>
+        <div
+          v-if="markers.length && spans.length"
+          class="waterfall-row vital-marker-row"
+          aria-label="Web Vitals timeline markers"
+        >
+          <span class="px-4 text-xs text-muted-foreground">Paint milestones</span>
+          <span class="relative h-12">
+            <span
+              v-for="marker in markers"
+              :key="marker.key"
+              class="vital-marker"
+              :style="{ left: markerLeft(marker.at) }"
+              :title="`${marker.name}: ${formatVital(marker.name, marker.value)}`"
+              :aria-label="`${marker.name} at ${formatVital(marker.name, marker.value)}`"
+            >
+              <span>{{ marker.name }}</span>
+            </span>
+          </span>
+          <span />
+        </div>
         <div class="waterfall-axis waterfall-row">
           <span class="px-4">Operation / Span</span>
           <span class="axis-ticks"
@@ -255,46 +383,78 @@ onBeforeUnmount(() => {
           <span class="duration-cell">Duration</span>
         </div>
         <div class="waterfall-body">
-          <button
-            v-for="row in rows"
-            :key="row.span.spanId"
-            class="waterfall-row span-row"
-            :class="{
-              'is-selected': selected?.spanId === row.span.spanId,
-              'is-highlighted': highlights.length > 0 && matchesSpanFilters(row.span, highlights),
-            }"
-            :aria-pressed="selected?.spanId === row.span.spanId"
-            :aria-label="`View span ${row.span.name}`"
-            @click="selectMetricSpan(row.span.spanId)"
-          >
-            <span
-              class="span-label"
-              :style="{ paddingLeft: `${16 + Math.min(row.depth, 6) * 14}px` }"
+          <div v-for="row in visibleRows" :key="row.span.spanId" class="relative">
+            <button
+              v-if="childParents.has(row.span.spanId)"
+              type="button"
+              class="branch-toggle"
+              :style="{ left: `${8 + Math.min(row.depth, 6) * 14}px` }"
+              :aria-label="`${collapsed.has(row.span.spanId) ? 'Expand' : 'Collapse'} ${row.span.name}`"
+              :aria-expanded="
+                !collapsed.has(row.span.spanId) || Boolean(search.trim() || category !== 'all')
+              "
+              @click="toggleBranch(row.span.spanId)"
             >
-              <span v-if="row.depth" class="tree-connector" aria-hidden="true" />
-              <span class="op-dot" :style="{ background: spanColor(row.span) }" />
-              <span class="span-text">
-                <span class="span-name" :title="row.span.name">{{ row.span.name }}</span>
-                <span class="span-op"
-                  >{{ row.span.op }} {{ row.missingParent ? 'Missing parent' : '' }}
-                  {{ row.span.truncated ? 'Truncated' : '' }}</span
-                >
-              </span>
-            </span>
-            <span class="timeline-cell">
-              <span
-                class="timeline-bar"
-                :style="{ ...bar(row.span), background: spanColor(row.span) }"
+              <ChevronRight
+                class="size-3"
+                :class="{
+                  'rotate-90':
+                    !collapsed.has(row.span.spanId) || search.trim() || category !== 'all',
+                }"
               />
-            </span>
-            <span class="duration-cell">{{ formatDuration(row.span.durationMs) }}</span>
-          </button>
+            </button>
+            <button
+              class="waterfall-row span-row"
+              :class="{
+                'is-selected': selected?.spanId === row.span.spanId,
+                'is-highlighted': highlights.length > 0 && matchesSpanFilters(row.span, highlights),
+              }"
+              :aria-pressed="selected?.spanId === row.span.spanId"
+              :aria-label="`View span ${row.span.name}`"
+              @click="selectMetricSpan(row.span.spanId)"
+            >
+              <span
+                class="span-label"
+                :style="{ paddingLeft: `${28 + Math.min(row.depth, 6) * 14}px` }"
+              >
+                <span v-if="row.depth" class="tree-connector" aria-hidden="true" />
+                <span class="op-dot" :style="{ background: spanColor(row.span) }" />
+                <span class="span-text">
+                  <span class="span-name" :title="row.span.name">{{ row.span.name }}</span>
+                  <span class="span-op"
+                    >{{ row.span.op }} {{ row.missingParent ? 'Missing parent' : '' }}
+                    {{ row.span.truncated ? 'Truncated' : '' }}</span
+                  >
+                </span>
+              </span>
+              <span class="timeline-cell">
+                <span
+                  v-for="marker in markers"
+                  :key="marker.key"
+                  class="timeline-milestone"
+                  :style="{ left: markerLeft(marker.at) }"
+                  aria-hidden="true"
+                />
+                <span
+                  class="timeline-bar"
+                  :style="{ ...bar(row.span), background: spanColor(row.span) }"
+                />
+              </span>
+              <span class="duration-cell">{{ formatDuration(row.span.durationMs) }}</span>
+            </button>
+          </div>
+          <p
+            v-if="spans.length && !visibleRows.length"
+            class="p-10 text-center text-muted-foreground"
+          >
+            No spans match your search.
+          </p>
           <p v-if="!loading && !spans.length" class="p-10 text-center text-muted-foreground">
             No trace spans
           </p>
         </div>
         <div class="waterfall-footer">
-          Loaded {{ spans.length }} spans
+          Loaded {{ spans.length }} spans · Showing {{ visibleRows.length }}
           {{ hasMore ? '(more pages available)' : '(all retained records)' }}
         </div>
       </div>
@@ -311,6 +471,26 @@ onBeforeUnmount(() => {
           >
         </div>
         <p class="selected-name">{{ selected.name }}</p>
+        <section
+          v-if="selected.op.startsWith('resource.')"
+          class="mt-4"
+          aria-label="Resource details"
+        >
+          <h4 class="text-sm font-semibold">Resource details</h4>
+          <dl class="properties">
+            <div v-for="item in resourceDetails(selected)" :key="item.label" class="property">
+              <dt>{{ item.label }}</dt>
+              <dd>{{ item.value }}</dd>
+            </div>
+          </dl>
+          <p
+            v-if="selected.attributes['resource.timing_available'] === false"
+            class="mt-3 text-xs text-muted-foreground"
+          >
+            Detailed timing and sizes are unavailable. Cross-origin resources may require a
+            Timing-Allow-Origin response header.
+          </p>
+        </section>
         <dl class="properties">
           <div v-for="(value, key) in selected" :key="key" class="property">
             <dt>{{ key }}</dt>
@@ -429,6 +609,45 @@ onBeforeUnmount(() => {
 }
 .waterfall-body {
   min-height: 300px;
+}
+.branch-toggle {
+  position: absolute;
+  top: 15px;
+  z-index: 2;
+  padding: 3px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.branch-toggle:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.vital-marker-row {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.vital-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed #d18c12;
+}
+.vital-marker > span {
+  position: absolute;
+  bottom: 3px;
+  right: 2px;
+  color: #926009;
+  font-size: 10px;
+  background: var(--background);
+}
+.vital-marker:nth-child(even) > span {
+  bottom: 22px;
+}
+.timeline-milestone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed #d18c1266;
+  pointer-events: none;
 }
 .span-row {
   text-align: left;

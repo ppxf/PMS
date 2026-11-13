@@ -60,6 +60,18 @@ await startSpan({ name: 'load-orders', op: 'task' }, async (parent) => {
 
 ## 3. 浏览器上报与跨域测量
 
+### 浏览器资源瀑布图
+
+启用 `browserTracingIntegration()` 后，页面加载事务会自动记录 Navigation Timing 阶段（DNS、连接、TLS、请求、响应、DOMContentLoaded 和 load 事件），以及事务窗口内已经完成的脚本、样式、图片、字体等静态资源。资源使用浏览器原始起止时间，包含 SDK 初始化前仍保留在 Performance 缓冲区的记录。`fetch`/XHR 保留原来的 `http.client` Span，不重复生成静态资源 Span。
+
+Trace 详情支持按资源类型筛选、搜索和折叠子节点；选中资源可查看大小、协议和网络阶段计时。LCP/FCP 使用现有 Web Vitals 数据展示时间线标记，可点击 Refresh Web Vitals 获取事务结束后的更新。CLS 仍为无单位分数，INP 仍为交互耗时，不根据观测上报时间伪造它们在时间线上的位置。
+
+跨域资源需在资源响应中配置 `Timing-Allow-Origin: https://你的业务站点`，浏览器才会暴露受限的详细计时/大小；普通 CORS 允许来源不能替代这个响应头。缺失字段显示 Unavailable，不将受限的零值当成真实大小或缓存命中。资源地址默认去除 query/hash，保留 origin 和 path。
+
+每个事务最多记录 150 个静态资源，并继续遵守总计 200 个 Span / 256 KiB 的限制；超量会记录丢弃数量和截断状态。第一阶段只包含事务结束前已观察到且位于该事务窗口的完整资源记录；事务结束后的懒加载/迟到资源不会追加到已经封包的 Trace。普通 SPA 导航不重复生成文档级 Navigation Timing 或 LCP/FCP。
+
+接入已有业务应用时，需要重新构建并更新使用中的 SDK 包，完整刷新业务页面后验证；历史 Trace 不会补生成资源记录。
+
 当前仅采集浏览器 spans，不支持 tracePropagationTargets，不注入 traceparent/tracestate/baggage，不实现服务端 Span 或分布式追踪。
 
 PMS 仅对 SDK 上报及连接检查接口开放 CORS，允许任意来源的 POST/OPTIONS 请求；管理接口仍按 Nest CORS_ORIGINS 配置来源。接收数据时另行校验项目 key 和允许来源：`["*"]` 表示任意来源，精确 HTTP(S) Origin 列表表示限制来源，空列表禁止携带 Origin 的浏览器上报。已有非空白名单在迁移后保留，默认开放仅适用于新项目及旧空配置。

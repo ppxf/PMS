@@ -97,10 +97,11 @@ export function createTracing() {
     const recording = existing && !existing.sealed && !existing.root.ended ? existing : undefined
     const sampled = Boolean(config) && (parent?.sampled ?? Math.random() < (config?.tracesSampleRate ?? 0))
     const started = Number.isFinite(options.startTime) ? Math.max(0, Math.min(now(), options.startTime!)) : now()
+    const timeOrigin = Number.isFinite(performance.timeOrigin) ? performance.timeOrigin : Date.now() - now()
     const span: MonitoringSpan = {
       traceId: parent?.traceId ?? id(16), spanId: id(8), ...(parent ? { parentSpanId: parent.spanId } : {}),
       isTransaction: !recording, name: safeText(options.name), op: safeText(options.op ?? 'business', 64),
-      startTime: new Date(Date.now() - (now() - started)).toISOString(), endTime: new Date().toISOString(), durationMs: 0, status: 'unknown',
+      startTime: new Date(timeOrigin + started).toISOString(), endTime: new Date().toISOString(), durationMs: 0, status: 'unknown',
       ...(config?.environment ? { environment: safeText(config.environment, 128) } : {}),
       ...(config?.release ? { release: safeText(config.release, 128) } : {}),
       ...(options.pageRoute ? { pageRoute: safeText(options.pageRoute, 512) } : {}),
@@ -111,11 +112,12 @@ export function createTracing() {
     const handle: SpanHandle = {
       context: Object.freeze({ traceId: span.traceId, spanId: span.spanId, sampled }), span,
       get ended() { return ended },
-      end(status = 'ok', reason = 'completed') {
+      end(status = 'ok', reason = 'completed', endTime) {
         if (ended) return
         ended = true
-        span.durationMs = Math.max(0, now() - started)
-        span.endTime = new Date(Date.parse(span.startTime) + span.durationMs).toISOString()
+        const finished = Number.isFinite(endTime) ? Math.max(started, Math.min(now(), endTime!)) : now()
+        span.durationMs = Math.max(0, finished - started)
+        span.endTime = new Date(timeOrigin + finished).toISOString()
         span.status = status; span.endReason = safeText(reason, 64)
         span.truncated ||= status === 'deadline_exceeded' || (status === 'unknown' && reason !== 'completed')
         if (owner?.root === handle && !owner.sealed) {

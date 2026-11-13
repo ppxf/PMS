@@ -29,7 +29,10 @@ const chart = computed(() => {
     series: [
       {
         type: 'line',
-        connectNulls: false,
+        connectNulls: true,
+        showSymbol: true,
+        showAllSymbol: true,
+        symbolSize: 6,
         data: rows.map((x) => x.p75),
         markLine: {
           silent: true,

@@ -40,10 +40,7 @@ const chart = computed(() => {
     let connected = false
     const path = points
       .map((v, i) => {
-        if (v === null) {
-          connected = false
-          return ''
-        }
+        if (v === null) return ''
         const command = connected ? 'L' : 'M'
         connected = true
         return `${command}${40 + (i * 460) / 24},${145 - (v / max) * 120}`
@@ -145,7 +142,7 @@ const chart = computed(() => {
     </svg>
     <EmptyState v-if="!series.length" class="py-4" title="No trend samples available" />
     <p class="text-right text-[10px] text-muted-foreground">
-      {{ aggregation.toUpperCase() }} {{ metric }} time · Gaps indicate no samples
+      {{ aggregation.toUpperCase() }} {{ metric }} time · Lines connect observed samples
     </p>
   </div>
 </template>

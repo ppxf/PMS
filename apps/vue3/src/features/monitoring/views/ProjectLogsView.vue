@@ -174,7 +174,10 @@ function chartOption(index: number) {
       result.value?.charts?.[index]?.groups.map((group) => ({
         name: group.name,
         type: chartType.value,
-        showSymbol: false,
+        connectNulls: true,
+        showSymbol: chartType.value === 'line',
+        showAllSymbol: true,
+        symbolSize: 6,
         data: group.points.map((p) => [p.timestamp, p.value]),
       })) ?? [],
   }

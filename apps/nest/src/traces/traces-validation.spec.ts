@@ -1,10 +1,97 @@
 import { TransactionEnvelopePipe, SpanQueryPipe } from './traces-validation';
 
-import { transactionFixture } from './traces-test.fixture';
+import {
+  browserTransactionFixture,
+  transactionFixture,
+} from './traces-test.fixture';
 import { SPAN_FIELD_MAP } from './traces-contract';
 
 describe('tracing ingestion boundary', () => {
   const pipe = new TransactionEnvelopePipe();
+  it('preserves historical resource timings, measurements and zero-duration browser events', () => {
+    const input = browserTransactionFixture();
+    const spans = pipe.transform(input).transaction.spans;
+    expect(spans[1]).toMatchObject({
+      parentSpanId: spans[0].spanId,
+      traceId: spans[0].traceId,
+      isTransaction: false,
+      op: 'resource.script',
+      name: 'https://app.test/assets/app.js',
+      startTime: input.transaction.spans[1].startTime,
+      endTime: input.transaction.spans[1].endTime,
+      durationMs: 150.25,
+      ttfbMs: 30.5,
+      transferSize: 1234,
+      encodedBodySize: 1000,
+      decodedBodySize: 3000,
+      attributes: { 'resource.timing_available': true },
+    });
+    expect(spans[2]).toMatchObject({
+      op: 'browser.dom_content_loaded_event',
+      durationMs: 0,
+      parentSpanId: spans[0].spanId,
+    });
+    expect(spans[2].startTime).toBe(spans[2].endTime);
+  });
+  it('allows unavailable cross-origin measurements to remain absent', () => {
+    const input = browserTransactionFixture();
+    Object.assign(input.transaction.spans[1], {
+      ttfbMs: undefined,
+      transferSize: undefined,
+      encodedBodySize: undefined,
+      decodedBodySize: undefined,
+      attributes: { 'resource.timing_available': false },
+    });
+    const resource = pipe.transform(input).transaction.spans[1];
+    expect(resource.ttfbMs).toBeUndefined();
+    expect(resource.transferSize).toBeUndefined();
+    expect(resource.attributes['resource.timing_available']).toBe(false);
+  });
+  it.each(['ttfbMs', 'transferSize', 'encodedBodySize', 'decodedBodySize'])(
+    'rejects invalid resource measurement %s',
+    (field) => {
+      const input = browserTransactionFixture();
+      Object.assign(input.transaction.spans[1], { [field]: -1 });
+      expect(() => pipe.transform(input)).toThrow(
+        'Invalid nonnegative finite number',
+      );
+    },
+  );
+  it('keeps the 200-span and 256 KiB limits for resource-heavy pages', () => {
+    const input = transactionFixture();
+    const root = input.transaction.spans[0];
+    for (let index = 1; index < 200; index++) {
+      input.transaction.spans.push(
+        Object.assign(
+          { ...root },
+          {
+            spanId: (index + 32).toString(16).padStart(16, '0'),
+            parentSpanId: root.spanId,
+            isTransaction: false,
+            op: 'resource.img',
+            name: `/assets/${index}.png`,
+          },
+        ),
+      );
+    }
+    expect(pipe.transform(input).transaction.spans).toHaveLength(200);
+    const oversized = structuredClone(input);
+    for (const span of oversized.transaction.spans) {
+      span.attributes = Object.fromEntries(
+        Array.from({ length: 10 }, (_, index) => [
+          `resource.detail_${index}`,
+          'x'.repeat(256),
+        ]),
+      );
+    }
+    expect(() => pipe.transform(oversized)).toThrow(
+      'Transaction exceeds 256 KiB',
+    );
+    input.transaction.spans.push({ ...root, spanId: 'f'.repeat(16) });
+    expect(() => pipe.transform(input)).toThrow(
+      'A batch must contain 1 to 200 spans',
+    );
+  });
   it('accepts remote parents and preserves monotonic duration', () => {
     const input = transactionFixture();
     Object.assign(input.transaction.spans[0], {
@@ -98,4 +185,3 @@ describe('span query registry validation', () => {
     ).toThrow();
   });
 });
-

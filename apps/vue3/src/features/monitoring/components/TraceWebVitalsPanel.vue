@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { webVitalsQuery } from '../api/web-vitals.api'
 import { formatVital, type VitalSample } from '../model/web-vitals'
 const props = defineProps<{ group: string; project: string; traceId: string }>()
+const emit = defineEmits<{ loaded: [samples: VitalSample[]] }>()
 const items = ref<VitalSample[]>([])
 const loading = ref(false),
   error = ref(''),
@@ -27,9 +28,13 @@ async function load() {
     if (current === generation) {
       items.value = result.items
       total.value = result.total
+      emit('loaded', result.items)
     }
   } catch {
-    if (current === generation) error.value = 'Unable to load Web Vitals.'
+    if (current === generation) {
+      error.value = 'Unable to load Web Vitals.'
+      emit('loaded', [])
+    }
   } finally {
     if (current === generation) loading.value = false
   }
@@ -38,6 +43,7 @@ watch(
   () => [props.group, props.project, props.traceId],
   () => {
     page.value = 1
+    emit('loaded', [])
     void load()
   },
   { immediate: true },
@@ -54,6 +60,9 @@ onBeforeUnmount(() => {
   <section class="rounded-xl border bg-background p-5 space-y-3" aria-label="Trace Web Vitals">
     <div class="flex items-center justify-between gap-3">
       <h2 class="font-semibold">Web Vitals</h2>
+      <Button variant="outline" size="sm" :disabled="loading" @click="load"
+        >Refresh Web Vitals</Button
+      >
       <RouterLink
         :to="{
           name: 'project-web-vitals',

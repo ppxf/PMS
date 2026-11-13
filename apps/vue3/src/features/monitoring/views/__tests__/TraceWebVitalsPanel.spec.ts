@@ -31,6 +31,16 @@ describe('Trace page experience', () => {
     expect(view.text()).toContain('4200 ms')
     expect(view.text()).toContain('img')
     expect(view.text()).not.toContain('INP: 0')
+    const loaded = view.emitted('loaded') ?? []
+    expect(loaded[loaded.length - 1]?.[0]).toMatchObject([
+      {
+        pageViewId: 'page',
+        measurements: [
+          { name: 'CLS', value: 0 },
+          { name: 'LCP', value: 4200 },
+        ],
+      },
+    ])
   })
   it('reports unavailable data and supports retry', async () => {
     api.webVitalsQuery

@@ -1,5 +1,6 @@
 import type { SpanHandle, SpanOptions } from './tracing-types.js'
 import { matchesPropagationTarget, traceparent } from './propagation.js'
+import { createBrowserPerformance } from './browser-performance.js'
 
 interface Client {
   startInactiveSpan(options: SpanOptions): SpanHandle
@@ -21,6 +22,7 @@ export function createBrowserTracing(client: Client) {
   let pending = 0
   const resources = new WeakSet<PerformanceResourceTiming>()
   const requestStarts = new Map<string, number[]>()
+  let performanceWindow: Window | undefined
 
   function safe(action: () => void) { try { action() } catch { /* Telemetry must not affect business. */ } }
   function later(action: () => void, ms: number) {
@@ -40,7 +42,25 @@ export function createBrowserTracing(client: Client) {
   }
   function startNavigation(name: string, op = 'navigation', startTime?: number) {
     endRoot('navigation')
-    root = client.startInactiveSpan({ name, op, pageRoute: name, startTime })
+    const started = startTime ?? performanceWindow?.performance.now()
+    root = client.startInactiveSpan({ name, op, pageRoute: name, startTime: started })
+    if (performanceWindow && root.context.sampled) {
+      const w = performanceWindow
+      const collector = createBrowserPerformance(client, w, url => excluded(url, w))
+      const page = root
+      const end = page.end
+      // Wrap the handle itself so deadline endings also drain entries before sealing.
+      page.end = (status, reason, endTime) => {
+        if (page.ended) return
+        const finished = endTime ?? w.performance.now()
+        try {
+          safe(() => collector.collect(page, started ?? 0, finished, op === 'pageload'))
+        } finally {
+          safe(() => collector.disconnect())
+          end(status, reason, finished)
+        }
+      }
+    }
     client.setPageSpan?.(root)
     pending = 0
     if (op === 'navigation') pending++
@@ -109,6 +129,7 @@ export function createBrowserTracing(client: Client) {
   function install(w: Window): void {
     if (windows.has(w)) return
     windows.add(w)
+    performanceWindow = w
     const navigation = w.performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
     startNavigation(w.location.pathname, 'pageload', navigation?.startTime)
     if (w.document.readyState !== 'complete') {

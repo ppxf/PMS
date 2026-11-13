@@ -13,6 +13,20 @@ function fixture(rate = 1) {
 }
 
 describe('instance tracing', () => {
+  it('records historical spans using exact monotonic start and end times', async () => {
+    const { client, envelopes } = fixture()
+    const current = performance.now()
+    const root = client.startInactiveSpan({ name: 'page', startTime: Math.max(0, current - 100) })
+    const start = Math.max(0, current - 60)
+    const child = client.startInactiveSpan({ name: 'asset', op: 'resource.script', parent: root, startTime: start })
+    child.end('ok', 'completed', start + 12.5)
+    root.end()
+    await client.flush()
+    const spans = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+    expect(spans[1]).toMatchObject({ durationMs: 12.5, parentSpanId: root.context.spanId, isTransaction: false })
+    expect(Date.parse(spans[1].startTime)).toBe(Math.trunc(performance.timeOrigin + start))
+    expect(Date.parse(spans[1].endTime)).toBe(Math.trunc(performance.timeOrigin + start + 12.5))
+  })
   it('returns business objects unchanged even when observing then throws', async () => {
     const { client } = fixture()
     const value = Object.defineProperty({}, 'then', { get() { throw new Error('getter') } })

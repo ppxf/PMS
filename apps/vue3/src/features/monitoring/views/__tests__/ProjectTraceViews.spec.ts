@@ -37,11 +37,17 @@ vi.mock('vue-router', async (original) => {
     params: { groupSlug: 'team', projectSlug: 'web', traceId: 'trace' },
     query: state.query,
   })
-  return { ...(await original<typeof import('vue-router')>()), useRoute: () => state.route }
+  return {
+    ...(await original<typeof import('vue-router')>()),
+    useRoute: () => state.route,
+    useRouter: () => ({ push: vi.fn() }),
+  }
 })
 import VChart from 'vue-echarts'
 import ProjectTracesView from '../ProjectTracesView.vue'
 import ProjectTraceDetailView from '../ProjectTraceDetailView.vue'
+import TraceWebVitalsPanel from '../../components/TraceWebVitalsPanel.vue'
+import TraceMetricsPanel from '../../components/TraceMetricsPanel.vue'
 const root = {
   traceId: 'trace',
   spanId: 'root',
@@ -58,6 +64,73 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
+  it('filters resources while keeping their parent, collapses branches and positions late paint markers', async () => {
+    api.traceDetail.mockResolvedValue({
+      items: [
+        root,
+        {
+          ...root,
+          spanId: 'script',
+          parentSpanId: 'root',
+          name: '/assets/app.js',
+          op: 'resource.script',
+          isTransaction: false,
+          transferSize: 0,
+          attributes: {
+            'resource.url': 'https://cdn.test/assets/app.js',
+            'resource.timing_available': true,
+          },
+        },
+        {
+          ...root,
+          spanId: 'dns',
+          parentSpanId: 'root',
+          name: 'DNS',
+          op: 'browser.dns',
+          isTransaction: false,
+        },
+      ],
+      hasMore: false,
+    })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(view.findAll('.span-row')).toHaveLength(3)
+    await view.get('[aria-label="Collapse Home"]').trigger('click')
+    expect(view.findAll('.span-row')).toHaveLength(1)
+    await view.get('[aria-label="Span type"]').setValue('resource')
+    expect(view.findAll('.span-row')).toHaveLength(2)
+    expect(view.find('.span-row').text()).toContain('Home')
+    await view.get('[aria-label="View span /assets/app.js"]').trigger('click')
+    expect(view.get('[aria-label="Resource details"]').text()).toContain('0 B')
+    await view.get('[aria-label="Search in trace"]').setValue('missing.js')
+    expect(view.text()).toContain('No spans match your search')
+    view.getComponent(TraceWebVitalsPanel).vm.$emit('loaded', [
+      {
+        pageViewId: 'page',
+        startedAt: root.startTime,
+        route: '/',
+        traceAvailable: true,
+        measurements: [
+          { name: 'LCP', value: 1500 },
+          { name: 'CLS', value: 0.01 },
+        ],
+      },
+    ])
+    await flushPromises()
+    expect(view.get('[aria-label="LCP at 1500 ms"]').attributes('style')).toContain('left: 100%')
+    expect(view.findAll('.vital-marker')).toHaveLength(1)
+    expect(view.get('.trace-summary').text()).toContain('1 s')
+    const metricsTab = view
+      .findAll('button')
+      .find((button) => button.text() === 'Application Metrics')!
+    await metricsTab.trigger('click')
+    await flushPromises()
+    view.getComponent(TraceMetricsPanel).vm.$emit('select-span', 'dns')
+    await flushPromises()
+    expect(view.get('[aria-label="Search in trace"]').element).toHaveProperty('value', '')
+    expect(view.get('[aria-label="Span type"]').element).toHaveProperty('value', 'all')
+    expect(view.get('[aria-label="View span DNS"]').attributes('aria-pressed')).toBe('true')
+  })
   it('uses backend Web Vitals fields in metric and group selectors', async () => {
     const vital = 'browser.web_vital.lcp.value'
     api.traceFields.mockResolvedValueOnce([

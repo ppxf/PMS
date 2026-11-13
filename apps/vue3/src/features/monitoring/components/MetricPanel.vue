@@ -72,13 +72,14 @@ const identity = computed(() =>
   catalog.value?.items.find((item) => metricKey(item) === selected.value),
 )
 const aggregations = computed(() => metricAggregations(identity.value?.type ?? 'count'))
+const displayUnit = (unit: string) => (unit === 'millisecond' ? 'ms' : unit)
 const metricOptions = computed(
   () =>
     catalog.value?.items.map((item) => ({
       key: metricKey(item),
       label: item.source === 'web_vitals' ? item.name.replace(/\.value$/, '') : item.name,
       type: metricTypeLabel(item.type),
-      unit: item.unit,
+      unit: displayUnit(item.unit),
     })) ?? [],
 )
 const groupOptions = computed(() => catalogGroupFields(catalog.value))
@@ -100,7 +101,7 @@ const groupLabel = computed(() =>
     .join(' / '),
 )
 const aggregateUnit = computed(() =>
-  aggregation.value === 'count' ? 'none' : (identity.value?.unit ?? 'none'),
+  aggregation.value === 'count' ? 'none' : displayUnit(identity.value?.unit ?? 'none'),
 )
 const chart = computed(() => ({
   animation: false,
@@ -448,7 +449,7 @@ onBeforeUnmount(() => {
             <thead class="sticky top-0 z-10">
               <tr>
                 <th>Trace ID</th>
-                <th>Value ({{ identity?.unit ?? 'none' }})</th>
+                <th>Value ({{ displayUnit(identity?.unit ?? 'none') }})</th>
                 <th>Timestamp</th>
                 <th>Environment</th>
                 <th>Attributes</th>

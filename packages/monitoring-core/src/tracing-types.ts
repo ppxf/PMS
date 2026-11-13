@@ -44,7 +44,8 @@ export interface SpanHandle {
   readonly context: TraceContext
   readonly span: MonitoringSpan
   readonly ended: boolean
-  end(status?: SpanStatus, reason?: string): void
+  /** endTime is a performance.now() timestamp, used for historical browser entries. */
+  end(status?: SpanStatus, reason?: string, endTime?: number): void
   setAttribute(key: string, value: string | number | boolean): void
   setMeasurements(values: Partial<Pick<MonitoringSpan, 'ttfbMs' | 'transferSize' | 'encodedBodySize' | 'decodedBodySize' | 'httpMethod' | 'httpRoute' | 'httpStatusCode'>>): void
 }

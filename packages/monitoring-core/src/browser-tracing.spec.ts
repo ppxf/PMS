@@ -5,7 +5,7 @@ import type { MonitoringEnvelope } from './types.js'
 
 afterEach(() => vi.useRealTimers())
 
-function setup() {
+function setup(navigationStart?: number) {
   const envelopes: MonitoringEnvelope[] = []
   const client = createMonitoringClient()
   client.init({ dsn: 'https://key@monitor.test/api/sdk/project', tracesSampleRate: 1, transport: { send: (e) => { envelopes.push(e); return Promise.resolve() } } })
@@ -15,7 +15,7 @@ function setup() {
   const requests: Promise<Response>[] = []
   Object.assign(w, {
     document: doc, location: new URL('https://app.test/page'),
-    performance: { now: () => performance.now(), getEntriesByType: () => [] },
+    performance: { now: () => performance.now(), getEntriesByType: (type: string) => type === 'navigation' && navigationStart !== undefined ? [{ startTime: navigationStart }] : [] },
     fetch: () => { const response = Promise.resolve(new Response('', { status: 200 })); requests.push(response); return response },
   })
   const tracing = createBrowserTracing(client)
@@ -24,6 +24,25 @@ function setup() {
 }
 
 describe('browser tracing instrumentation', () => {
+  it('collects completed static assets before sealing the page without duplicating HTTP entries', async () => {
+    const { client, tracing, envelopes, w } = setup(0)
+    const entry = {
+      entryType: 'resource',
+      name: 'https://app.test/assets/app.js?token=private#fragment', initiatorType: 'script',
+      startTime: 0, duration: 10, responseEnd: 10, requestStart: 2, responseStart: 5,
+      domainLookupStart: 0, domainLookupEnd: 0, connectStart: 0, connectEnd: 0,
+      secureConnectionStart: 0, transferSize: 150, encodedBodySize: 100, decodedBodySize: 200,
+    }
+    Object.assign(w.performance, { getEntriesByType: (type: string) => type === 'resource' ? [entry, { ...entry, initiatorType: 'fetch', name: 'https://app.test/api/data' }] : [] })
+    tracing.endNavigation()
+    await client.flush()
+    const spans = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+    const resource = spans.find(s => s.op === 'resource.script')
+    expect(resource).toMatchObject({ durationMs: 10, isTransaction: false, parentSpanId: spans[0].spanId, transferSize: 150 })
+    expect(spans.filter(s => s.op.startsWith('resource.'))).toHaveLength(1)
+    expect(JSON.stringify(spans)).not.toContain('private')
+    client.resetClientForTests()
+  })
   it('does not re-coerce native XHR open inputs or introduce new business exceptions', async () => {
     const { client, tracing, w } = setup()
     class NativeBoundary extends EventTarget {

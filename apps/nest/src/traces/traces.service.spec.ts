@@ -3,7 +3,10 @@ import { DataSource, EntityManager } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { MonitoringSpanEntity } from './entities/monitoring-span.entity';
 import { SpanQueryPipe } from './traces-validation';
-import { transactionFixture } from './traces-test.fixture';
+import {
+  browserTransactionFixture,
+  transactionFixture,
+} from './traces-test.fixture';
 import { contentHash, TracesService } from './traces.service';
 import { TracesRetentionService } from './traces-retention.service';
 
@@ -86,6 +89,30 @@ describe('traces atomic ingestion', () => {
     ).rejects.toBeInstanceOf(ConflictException);
     expect(f.storedSpans.size).toBe(1);
     expect(f.storedBatches.size).toBe(1);
+  });
+  it('retains resource children and event timings atomically without duplicating retries', async () => {
+    const f = fixture();
+    const input = browserTransactionFixture();
+    await f.service.ingest(projectId, 'key', input as never);
+    await f.service.ingest(projectId, 'key', input as never);
+    expect(f.storedSpans.size).toBe(3);
+    expect(f.spans.insert).toHaveBeenCalledTimes(3);
+    expect(f.storedSpans.get('3'.repeat(16))).toMatchObject({
+      parentSpanId: '2'.repeat(16),
+      op: 'resource.script',
+      durationMs: 150.25,
+      ttfbMs: 30.5,
+      transferSize: 1234,
+      encodedBodySize: 1000,
+      decodedBodySize: 3000,
+      attributes: { 'resource.url': 'https://app.test/assets/app.js' },
+    });
+    const event = f.storedSpans.get('4'.repeat(16));
+    expect(event).toMatchObject({
+      parentSpanId: '2'.repeat(16),
+      durationMs: 0,
+    });
+    expect(event?.startTime).toEqual(event?.endTime);
   });
   it('deduplicates matching spans across batches and rolls back the whole conflicting batch', async () => {
     const f = fixture();

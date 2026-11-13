@@ -5,7 +5,7 @@ import { querySuggestions } from '../model/query-suggestions'
 import QuerySearchBar from '../components/QuerySearchBar.vue'
 import { ArrowDown, ArrowUp, ArrowUpDown } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { use } from 'echarts/core'
 import { LineChart, BarChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -34,6 +34,7 @@ import type {
 } from '../model/traces'
 use([LineChart, BarChart, CanvasRenderer, GridComponent, TooltipComponent, LegendComponent])
 const route = useRoute()
+const router = useRouter()
 const group = computed(() => String(route.params.groupSlug)),
   project = computed(() => String(route.params.projectSlug))
 const preset = ref('pages')
@@ -344,8 +345,10 @@ function chartOptions(metric: TraceMetric, chart: MetricChart) {
       return {
         type: chart.type,
         smooth: false,
-        connectNulls: false,
+        connectNulls: true,
         showSymbol: chart.type === 'line',
+        showAllSymbol: true,
+        symbolSize: 6,
         name: `${group?.values.map((v) => (v == null ? 'Unknown' : JSON.stringify(v))).join(' / ') || 'All'} · ${metric.function}(${metric.field})`,
         data: s.points.map((p) => ({
           value: [
@@ -724,11 +727,23 @@ onMounted(async () => {
             </td>
           </tr>
           <template v-else-if="tab === 'Span Samples'">
-            <tr v-for="s in spans" :key="s.spanId">
+            <tr
+              v-for="s in spans"
+              :key="s.spanId"
+              class="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary"
+              tabindex="0"
+              role="link"
+              :aria-label="`View trace for ${s.name}`"
+              @click="router.push(detailLink(s.traceId))"
+              @keydown.enter.self="router.push(detailLink(s.traceId))"
+            >
               <td>
-                <RouterLink class="text-primary hover:underline" :to="detailLink(s.traceId)">{{
-                  s.name
-                }}</RouterLink>
+                <RouterLink
+                  class="text-primary hover:underline"
+                  :to="detailLink(s.traceId)"
+                  @click.stop
+                  >{{ s.name }}</RouterLink
+                >
               </td>
               <td>{{ s.op }}</td>
               <td>{{ s.isTransaction }}</td>

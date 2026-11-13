@@ -14,14 +14,20 @@ const props = {
   ],
 }
 describe('function trend chart', () => {
-  it('aggregates real observations and keeps missing buckets disconnected', () => {
-    const view = mount(ProfileTrendChart, { props })
+  it('aggregates real observations and connects samples across empty buckets', () => {
+    const view = mount(ProfileTrendChart, {
+      props: {
+        ...props,
+        series: [...props.series, { at: '2026-11-05T16:00:00Z', self: 20, total: 30 }],
+      },
+    })
     expect(view.findAll('circle title').map((node) => node.text())).toContain(
       '40.00 ms · bucket 13',
     )
     expect(
       (view.get('[data-testid="current-trend"]').attributes('d') ?? '').match(/M/g),
     ).toHaveLength(1)
+    expect(view.get('[data-testid="current-trend"]').attributes('d')).toContain('L')
     expect(view.text()).toContain('Previous period')
     expect(view.text()).toContain('Current period')
     expect(view.findAll('svg > text').slice(-7)).toHaveLength(7)
