@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useProjectAccessStore } from "../model/project-access.store"
+import { formatDateTime } from '@/lib/date-time'
+import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onMounted, ref } from 'vue'
@@ -51,11 +52,7 @@ const archiveMode = ref<'permanent' | 'until_count'>('permanent')
 const archiveThreshold = ref<10 | 100 | 1000>(10)
 const defaultRequestEntryCount = 5
 
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('en-US')
-}
+const formatDate = formatDateTime
 
 const tags = computed(() => Object.entries(issue.value?.latestEvent?.tags ?? {}))
 const requestHeaders = computed(() =>
@@ -217,7 +214,8 @@ onMounted(loadIssue)
             {{ issue.eventCount === 1 ? 'event' : 'events' }}</Badge
           >
           <Button
-            v-if="projectAccess.access?.role === 'owner'" data-testid="issue-status-action"
+            v-if="projectAccess.access?.role === 'owner'"
+            data-testid="issue-status-action"
             type="button"
             size="sm"
             variant="outline"
@@ -227,7 +225,8 @@ onMounted(loadIssue)
           >
           <template v-if="issue.visibility === 'active'">
             <Button
-              v-if="projectAccess.access?.role === 'owner'" data-testid="archive-issue"
+              v-if="projectAccess.access?.role === 'owner'"
+              data-testid="archive-issue"
               type="button"
               size="sm"
               variant="outline"
@@ -235,7 +234,8 @@ onMounted(loadIssue)
               >Archive</Button
             >
             <Button
-              v-if="projectAccess.access?.role === 'owner'" data-testid="delete-issue"
+              v-if="projectAccess.access?.role === 'owner'"
+              data-testid="delete-issue"
               type="button"
               size="sm"
               variant="destructive"
@@ -333,7 +333,7 @@ onMounted(loadIssue)
           </div>
           <div>
             <h3 class="mb-2 text-sm font-medium">Stack trace</h3>
-            <pre class="whitespace-pre-wrap break-words rounded-lg bg-muted p-4 text-sm">{{
+            <pre class="code-block" tabindex="0">{{
               issue.latestEvent.stacktrace ?? 'No stack trace'
             }}</pre>
           </div>

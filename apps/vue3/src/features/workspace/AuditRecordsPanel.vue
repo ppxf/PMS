@@ -253,9 +253,9 @@ function projectName(record: AuditRecord) {
                     />View change details
                   </summary>
                   <div class="mt-2 space-y-3 rounded-lg border bg-muted/30 p-3">
-                    <pre
-                      class="max-w-sm whitespace-pre-wrap break-all text-[11px] leading-5 text-foreground"
-                      >{{ JSON.stringify(record.summary, null, 2) }}</pre>
+                    <pre class="code-block w-80" tabindex="0">{{
+                      JSON.stringify(record.summary, null, 2)
+                    }}</pre>
                     <p class="break-all font-mono text-[10px]">Request {{ record.requestId }}</p>
                     <p>HTTP {{ record.statusCode }}</p>
                   </div>

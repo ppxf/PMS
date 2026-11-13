@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { useProjectAccessStore } from "../model/project-access.store"
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
@@ -609,7 +610,7 @@ onBeforeUnmount(() => {
               <template v-for="log in result?.items" :key="log.logId"
                 ><tr>
                   <td class="whitespace-nowrap">
-                    {{ new Date(log.timestamp).toLocaleString('en-US') }}
+                    {{ formatDateTime(log.timestamp) }}
                   </td>
                   <td>
                     <span

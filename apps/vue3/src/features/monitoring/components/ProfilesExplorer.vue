@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { computed, ref, watch } from 'vue'
@@ -103,8 +104,8 @@ function inspect(name: string) {
       was observed.
       <span v-if="overview"
         >{{ overview.profileCount }} profiles · {{ overview.baselineProfileCount }} comparison
-        profiles · Comparison: {{ new Date(overview.comparisonStart).toLocaleString() }} –
-        {{ new Date(overview.comparisonEnd).toLocaleString() }}</span
+        profiles · Comparison: {{ formatDateTime(overview.comparisonStart) }} –
+        {{ formatDateTime(overview.comparisonEnd) }}</span
       >
     </p>
     <div class="flex gap-1 overflow-x-auto border-b" role="tablist" aria-label="Profile analysis">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
@@ -120,7 +121,7 @@ onBeforeUnmount(() => {
               {{ sample.unit === 'none' ? '' : sample.unit }}
             </td>
             <td class="whitespace-nowrap p-3">
-              {{ new Date(sample.timestamp).toLocaleString('en-US') }}
+              {{ formatDateTime(sample.timestamp) }}
             </td>
             <td class="p-3">
               <button

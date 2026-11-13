@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
@@ -87,22 +88,34 @@ onBeforeUnmount(() => {
     />
     <article v-for="sample in items" :key="sample.pageViewId" class="border-t pt-3 space-y-2">
       <p class="text-sm font-medium">
-        {{ sample.route }} · {{ new Date(sample.startedAt).toLocaleString() }}
+        {{ sample.route }} · {{ formatDateTime(sample.startedAt) }}
       </p>
-      <div class="flex flex-wrap gap-4 text-sm">
-        <div v-for="measurement in sample.measurements" :key="measurement.name">
-          <p>
-            {{ measurement.name }}:
-            <strong>{{ formatVital(measurement.name, measurement.value) }}</strong>
+      <div class="grid min-w-0 grid-cols-1 items-stretch gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+        <div
+          v-for="measurement in sample.measurements"
+          :key="measurement.name"
+          class="min-w-0 rounded-lg border bg-muted/20 p-3"
+        >
+          <p class="flex items-center justify-between gap-3">
+            <span class="text-xs font-medium text-muted-foreground">{{ measurement.name }}</span>
+            <strong class="tabular-nums">{{
+              formatVital(measurement.name, measurement.value)
+            }}</strong>
           </p>
           <details
             v-if="measurement.attribution && Object.keys(measurement.attribution).length"
-            class="max-w-lg"
+            class="mt-3 min-w-0 border-t pt-2"
           >
-            <summary class="cursor-pointer text-muted-foreground">Attribution</summary>
-            <pre class="whitespace-pre-wrap break-all text-xs">{{
-              JSON.stringify(measurement.attribution, null, 2)
-            }}</pre>
+            <summary
+              class="cursor-pointer rounded text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              Attribution
+            </summary>
+            <div class="mt-2 min-w-0">
+              <pre class="code-block" tabindex="0">{{
+                JSON.stringify(measurement.attribution, null, 2)
+              }}</pre>
+            </div>
           </details>
         </div>
       </div>

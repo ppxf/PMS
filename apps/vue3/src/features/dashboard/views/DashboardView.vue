@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
@@ -436,7 +437,7 @@ function connection(p: DashboardProject) {
                   </td>
                   <td
                     class="whitespace-nowrap px-4 py-4 text-xs text-muted-foreground"
-                    :title="project.lastSeenAt ? new Date(project.lastSeenAt).toLocaleString() : ''"
+                    :title="project.lastSeenAt ? formatDateTime(project.lastSeenAt) : ''"
                   >
                     {{ relative(project.lastSeenAt) }}
                   </td>

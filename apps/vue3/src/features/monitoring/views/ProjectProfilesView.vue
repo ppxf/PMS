@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { useProjectAccessStore } from "../model/project-access.store"
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
@@ -204,7 +205,7 @@ onBeforeUnmount(() => {
                   >{{ item.name }}</RouterLink
                 ><span v-if="item.truncated" class="ml-2 text-xs text-amber-700">Truncated</span>
               </td>
-              <td class="whitespace-nowrap p-3">{{ new Date(item.startedAt).toLocaleString() }}</td>
+              <td class="whitespace-nowrap p-3">{{ formatDateTime(item.startedAt) }}</td>
               <td class="p-3">{{ item.durationMs.toFixed(2) }} ms</td>
               <td class="p-3">{{ item.sampleCount }}</td>
               <td class="p-3">{{ item.environment ?? '—' }}</td>

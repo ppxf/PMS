@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { useProjectAccessStore } from "../model/project-access.store"
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
@@ -67,7 +68,7 @@ onBeforeUnmount(() => {
       <header class="space-y-3">
         <h1 class="page-title break-all">{{ profile.name }}</h1>
         <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-          <span>{{ new Date(profile.startedAt).toLocaleString() }}</span
+          <span>{{ formatDateTime(profile.startedAt) }}</span
           ><span>{{ profile.durationMs.toFixed(2) }} ms duration</span
           ><span
             >{{ profile.samples.length }} samples · {{ profile.sampleIntervalMs }} ms interval</span

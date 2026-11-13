@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { computed, ref, useId } from 'vue'
 import { useElementSize } from '@vueuse/core'
 const props = defineProps<{
@@ -51,7 +52,7 @@ const labels = computed(() =>
     >
       <span>{{ range === '24h' ? 'Hourly' : 'Every 6 hours' }} · local time</span>
       <span v-if="active" class="font-medium text-foreground"
-        >{{ new Date(active.at).toLocaleString() }} ·
+        >{{ formatDateTime(active.at) }} ·
         {{ active.count.toLocaleString() }} events</span
       >
       <span v-else>Hover to inspect</span>
@@ -118,12 +119,12 @@ const labels = computed(() =>
         height="180"
         fill="transparent"
         tabindex="0"
-        :aria-label="`${new Date(point.at).toLocaleString()}: ${point.count} events`"
+        :aria-label="`${formatDateTime(point.at)}: ${point.count} events`"
         @mouseenter="hovered = i"
         @focus="hovered = i"
         @blur="hovered = null"
       >
-        <title>{{ new Date(point.at).toLocaleString() }}: {{ point.count }} events</title>
+        <title>{{ formatDateTime(point.at) }}: {{ point.count }} events</title>
       </rect>
       <text
         v-for="label in labels"

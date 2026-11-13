@@ -214,7 +214,7 @@ watch(
           >
         </CardHeader>
         <CardContent class="space-y-3">
-          <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ installSnippet }}</pre>
+          <pre class="code-block" tabindex="0">{{ installSnippet }}</pre>
           <Button variant="outline" @click="copy(installSnippet, 'install command')"
             >Copy install command</Button
           >
@@ -229,11 +229,11 @@ watch(
           >
         </CardHeader>
         <CardContent class="space-y-3">
-          <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ project.dsn }}</pre>
+          <pre class="code-block" tabindex="0">{{ project.dsn }}</pre>
           <Button data-testid="copy-dsn" variant="outline" @click="copy(project.dsn, 'DSN')"
             >Copy DSN</Button
           >
-          <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ envSnippet }}</pre>
+          <pre class="code-block" tabindex="0">{{ envSnippet }}</pre>
           <Button variant="outline" @click="copy(envSnippet, 'environment variables')"
             >Copy environment variables</Button
           >
@@ -270,10 +270,7 @@ watch(
           </CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
-          <pre
-            data-testid="init-snippet"
-            class="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-4 text-xs text-slate-100"
-            >{{ initSnippet }}</pre>
+          <pre data-testid="init-snippet" class="code-block" tabindex="0">{{ initSnippet }}</pre>
           <div class="flex flex-wrap gap-2">
             <Button
               data-testid="copy-init"
@@ -326,10 +323,9 @@ watch(
             Enable Traces in the project settings and complete the SDK initialization above. Set
             tracesSampleRate to 1 for testing. Manual traces also follow the sampling configuration.
           </p>
-          <pre
-            data-testid="manual-trace-snippet"
-            class="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-4 text-xs text-slate-100"
-            >{{ manualTraceSnippet }}</pre>
+          <pre data-testid="manual-trace-snippet" class="code-block" tabindex="0">{{
+            manualTraceSnippet
+          }}</pre>
           <Button
             data-testid="copy-manual-trace"
             variant="outline"

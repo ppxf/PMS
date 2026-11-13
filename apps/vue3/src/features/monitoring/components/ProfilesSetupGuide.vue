@@ -43,9 +43,7 @@ add_header Document-Policy "js-profiling" always;`
         requires Chromium with the JS Self-Profiling API and the HTML document response header
         <code>Document-Policy: js-profiling</code>. Unsupported browsers safely skip collection.
       </p>
-      <pre class="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{{
-        snippet
-      }}</pre>
+      <pre class="code-block" tabindex="0">{{ snippet }}</pre>
       <p>
         Trace mode collects during sampled root spans and requires browserTracingIntegration. Manual
         mode works independently of trace sampling. Session sampling is decided once at SDK
@@ -64,9 +62,7 @@ add_header Document-Policy "js-profiling" always;`
         For Vite development and local preview, merge these options into your existing
         configuration, then restart the server and reload the application page:
       </p>
-      <pre class="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{{
-        headers
-      }}</pre>
+      <pre class="code-block" tabindex="0">{{ headers }}</pre>
       <p>
         Vite's server and preview settings apply to their respective servers. A production
         <code>vite build</code> requires the deployed web server, CDN or reverse proxy to send the
@@ -74,9 +70,7 @@ add_header Document-Policy "js-profiling" always;`
         refresh cached HTML at the CDN when applicable. If a location block has its own
         <code>add_header</code> directives, ensure the document response still includes this policy.
       </p>
-      <pre class="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">{{
-        productionHeaders
-      }}</pre>
+      <pre class="code-block" tabindex="0">{{ productionHeaders }}</pre>
     </div>
   </div>
 </template>

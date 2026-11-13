@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { querySuggestions } from '../model/query-suggestions'
@@ -747,7 +748,7 @@ onMounted(async () => {
               </td>
               <td>{{ s.op }}</td>
               <td>{{ s.isTransaction }}</td>
-              <td>{{ new Date(s.startTime).toLocaleString('en-US') }}</td>
+              <td>{{ formatDateTime(s.startTime) }}</td>
               <td>{{ s.durationMs }} ms</td>
               <td>{{ s.status }} {{ s.truncated ? 'Truncated' : '' }}</td>
             </tr>
@@ -759,7 +760,7 @@ onMounted(async () => {
                   t.traceId
                 }}</RouterLink>
               </td>
-              <td>{{ new Date(t.startTime).toLocaleString('en-US') }}</td>
+              <td>{{ formatDateTime(t.startTime) }}</td>
               <td>{{ t.durationMs }} ms</td>
               <td>{{ t.spanCount }}</td>
               <td>{{ t.truncated ? 'Truncated' : 'Retained records' }}</td>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { RouterLink, useRoute } from 'vue-router'
@@ -24,11 +25,7 @@ const searchInput = ref('')
 const search = ref('')
 const view = ref<'active' | 'archived'>('active')
 
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '-'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('en-US')
-}
+const formatDate = formatDateTime
 
 const columnHelper = createColumnHelper<DataTableFeatures, MonitoringIssueSummary>()
 const baseColumns = [

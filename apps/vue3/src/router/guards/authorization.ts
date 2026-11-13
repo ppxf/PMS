@@ -21,7 +21,9 @@ export function installAuthorizationGuards(router: Router, pinia: Pinia): void {
     void router.replace({ name: 'forbidden' })
   })
 
+  let navigationGeneration = 0
   router.beforeEach(async (to) => {
+    const currentGeneration = ++navigationGeneration
     if (to.name === 'project-invitation-accept') {
       rememberInvitationRedirect(to.fullPath)
       sessionStorage.setItem('project-invitation-redirect', to.fullPath)
@@ -56,6 +58,7 @@ export function installAuthorizationGuards(router: Router, pinia: Pinia): void {
           to.params.groupSlug,
           to.params.projectSlug,
         )
+        if (currentGeneration !== navigationGeneration) return false
         if (!access.canRoute(String(to.name ?? ''))) {
           const module = projectModules.find((module) =>
             value.permissions.includes(`project:${module}:read`),
@@ -67,6 +70,7 @@ export function installAuthorizationGuards(router: Router, pinia: Pinia): void {
           return { name: 'forbidden' }
         }
       } catch {
+        if (currentGeneration !== navigationGeneration) return false
         access.clear()
         return { name: 'forbidden' }
       }

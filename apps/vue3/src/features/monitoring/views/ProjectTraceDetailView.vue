@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
@@ -176,6 +177,9 @@ function spanColor(span: Span) {
 }
 function propertyValue(value: unknown, key: string) {
   if (value == null) return '—'
+  if ((key === 'startTime' || key === 'endTime') && typeof value === 'string') {
+    return formatDateTime(value, { milliseconds: true })
+  }
   if (key === 'durationMs' && typeof value === 'number') return formatDuration(value)
   if (typeof value === 'string') return value
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)

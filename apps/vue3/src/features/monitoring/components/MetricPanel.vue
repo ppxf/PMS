@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { querySuggestions } from '../model/query-suggestions'
@@ -481,7 +482,7 @@ onBeforeUnmount(() => {
                 </td>
                 <td class="tabular-nums">{{ format(sample.value) }}</td>
                 <td class="whitespace-nowrap">
-                  {{ new Date(sample.timestamp).toLocaleString('en-US') }}
+                  {{ formatDateTime(sample.timestamp) }}
                 </td>
                 <td>{{ sample.environment ?? '-' }}</td>
                 <td class="w-96 max-w-96 align-top">

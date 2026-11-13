@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '@/lib/date-time'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { http } from '@/services/http'
@@ -374,7 +375,7 @@ onMounted(() => action(async () => {}))
             >
           </div>
           <p class="text-xs text-muted-foreground">
-            Expires {{ new Date(invitation.expiresAt).toLocaleString() }}
+            Expires {{ formatDateTime(invitation.expiresAt) }}
           </p>
         </div>
         <div class="flex gap-2">

@@ -199,7 +199,9 @@ async function logout(): Promise<void> {
 
 <template>
   <div class="min-h-screen bg-muted/30 lg:grid lg:grid-cols-[240px_1fr]">
-    <aside class="border-r bg-background">
+    <aside
+      class="border-r bg-background lg:sticky lg:top-0 lg:h-dvh lg:overflow-y-auto sidebar-scroll"
+    >
       <div class="flex h-16 items-center gap-2 px-5">
         <div class="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
           <Activity class="size-5" aria-hidden="true" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useProjectAccessStore } from "../model/project-access.store"
+import { formatDateTime } from '@/lib/date-time'
+import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -239,7 +240,7 @@ onBeforeUnmount(() => {
         <h1 class="page-title break-words">{{ detail ? route.query.route : 'Web Vitals' }}</h1>
         <p class="text-sm text-muted-foreground">Real user experience · p75</p>
         <p v-if="overview?.lastReceivedAt" class="text-xs text-muted-foreground">
-          Last metric received: {{ new Date(overview.lastReceivedAt).toLocaleString() }}
+          Last metric received: {{ formatDateTime(overview.lastReceivedAt) }}
         </p>
       </div>
       <Button
@@ -524,7 +525,7 @@ onBeforeUnmount(() => {
           title="No samples for this page"
         />
         <article v-for="sample in samples" :key="sample.pageViewId" class="mt-4 border-t pt-3">
-          <p>{{ sample.startedAt }} · {{ sample.pageViewId }}</p>
+          <p>{{ formatDateTime(sample.startedAt) }} · {{ sample.pageViewId }}</p>
           <RouterLink
             v-if="sample.traceAvailable && sample.traceId"
             class="underline"
@@ -538,7 +539,7 @@ onBeforeUnmount(() => {
           <p v-else>Trace unavailable</p>
           <div v-for="measurement in sample.measurements" :key="measurement.name">
             {{ measurement.name }} {{ formatVital(measurement.name, measurement.value) }}
-            <pre v-if="measurement.attribution" class="overflow-auto rounded bg-muted p-2">{{
+            <pre v-if="measurement.attribution" class="code-block" tabindex="0">{{
               JSON.stringify(measurement.attribution, null, 2)
             }}</pre>
           </div>

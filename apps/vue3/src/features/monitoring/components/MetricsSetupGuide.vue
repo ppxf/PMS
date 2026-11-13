@@ -33,10 +33,7 @@ const usage = buildMetricsUsageSnippet()
       >
     </CardHeader>
     <CardContent class="space-y-3">
-      <pre
-        data-testid="metrics-usage-snippet"
-        class="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-950 p-4 text-xs text-slate-100"
-        >{{ usage }}</pre>
+      <pre data-testid="metrics-usage-snippet" class="code-block" tabindex="0">{{ usage }}</pre>
       <Button
         data-testid="copy-metrics-usage"
         variant="outline"

@@ -5,12 +5,49 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Reserve scrollbar space across short pages and loading states. */
+html,
+.sidebar-scroll {
+  scrollbar-gutter: stable;
+}
+
 @utility page-title {
   @apply text-2xl font-semibold tracking-tight;
 }
 
 @utility table-surface {
   @apply min-w-0 overflow-x-auto rounded-lg border bg-background;
+}
+
+.code-block {
+  min-width: 0;
+  max-width: 100%;
+  max-height: 24rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: color-mix(in oklab, var(--muted) 55%, var(--background));
+  padding: 0.875rem 1rem;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.75;
+  tab-size: 2;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.code-block:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.code-block::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .app-table {
