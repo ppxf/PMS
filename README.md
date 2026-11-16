@@ -38,7 +38,7 @@ SDK 开发请执行 `pnpm sdk:install`、`pnpm sdk:build`、`pnpm sdk:test`；�
 | 开发容器，数据库已启动 | `pnpm docker:dev:migration:show` | `pnpm docker:dev:migration:run` | `pnpm docker:dev:migration:revert` |
 | 生产容器 | `pnpm docker:production:migration:show` | `pnpm docker:production:migration:run` | `pnpm docker:production:migration:revert` |
 
-生产命令使用 `docker/.env.production` 和已构建的 API 镜像；数据库须先启动，迁移成功后再启动应用。开发和生产默认关闭自动同步。开发迁移使用一次性 API 容器，不需要 API 服务预先启动；先构建镜像，再启动数据库，执行迁移，最后启动应用。已经自动建表的旧数据库不能直接套用空库基线；应核对结构后接管，或选择新的空数据库，保留旧库。`revert` 会执行迁移的 down，可能删除表和数据，不能当作无损撤销。
+生产命令使用 `.env.production` 和已构建的 API 镜像；数据库须先启动，迁移成功后再启动应用。开发和生产默认关闭自动同步。开发迁移使用一次性 API 容器，不需要 API 服务预先启动；先构建镜像，再启动数据库，执行迁移，最后启动应用。已经自动建表的旧数据库不能直接套用空库基线；应核对结构后接管，或选择新的空数据库，保留旧库。`revert` 会执行迁移的 down，可能删除表和数据，不能当作无损撤销。
 
 开发首次使用空库：`docker compose -f compose.dev.yaml build api web` → `docker compose -f compose.dev.yaml up -d db redis` → `pnpm docker:dev:migration:run` → `docker compose -f compose.dev.yaml up -d api web`。
 
@@ -76,17 +76,69 @@ docker compose -f compose.dev.yaml down
 
 ### 生产环境
 
-默认 `TRUST_PROXY_HOPS=2` 对应“浏览器 → 宿主机 HTTPS 入口 → Nginx → API”，用于正确识别 SDK 客户端 IP 并分别限流。HTTPS 入口必须覆盖 `X-Forwarded-For` 为真实客户端地址，禁止透传客户端自填值。若只有 Nginx 一层代理，设为 `1`；直接运行 API 时默认 `0`。API 不应绕过约定的代理链暴露公网。
+生产配置统一放在项目根目录 `.env.production`，可从根目录 `.env.production.example` 复制。该文件只在服务器手工维护，不提交代码，也不会进入镜像。下述旧路径模板 `docker/.env.example` 内容相同。
 
-先将 `docker/.env.example` 复制为 `docker/.env.production`，填写真实域名、数据库密码、至少 32 字符的随机 JWT 密钥及 SMTP 设置。该文件已被 Git 和 Docker 构建上下文排除。
+#### GitHub Actions 触发服务器构建
+
+推送 `main` 或在该分支手动运行 `Deploy production`，Actions 通过 SSH 连接服务器，获取触发提交，在服务器构建前后端镜像、备份数据库、执行迁移、更新容器并等待健康检查。无需 GHCR、镜像仓库 Token 或服务器 Node.js。此流程会产生短暂服务中断；数据库迁移应兼容更新期间仍运行的旧 API。
+
+服务器以 `deploy` 用户执行一次性准备（示例目录 `/opt/pms/repo`）：
 
 ```bash
-docker compose --env-file docker/.env.production -f compose.production.yaml build
-docker compose --env-file docker/.env.production -f compose.production.yaml up -d db redis
-docker compose --env-file docker/.env.production -f compose.production.yaml run --rm --no-deps api node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js
-docker compose --env-file docker/.env.production -f compose.production.yaml up -d
-docker compose --env-file docker/.env.production -f compose.production.yaml ps
-docker compose --env-file docker/.env.production -f compose.production.yaml logs -f api web
+# root 安装工具，并确保 deploy 用户属于 docker 组；随后重新登录 deploy。
+dnf install -y git curl util-linux
+```
+
+私有仓库需单独配置服务器到 GitHub 的只读 Deploy Key，将公钥添加到仓库 Settings → Deploy keys，核验 GitHub SSH 主机指纹并配置 known_hosts。它与 Actions 登录服务器的 SSH 密钥用途不同。
+
+```bash
+# deploy 用户执行；父目录须可写。替换为真实仓库地址。
+git clone git@github.com:OWNER/REPO.git /opt/pms/repo
+cd /opt/pms/repo
+cp .env.production.example .env.production
+chmod 600 .env.production
+vi .env.production
+```
+
+填入域名、数据库密码、JWT 密钥和 SMTP 配置。服务器项目目录由 GitHub Actions 的仓库变量 `DEPLOY_PATH` 指定（例如 `/opt/pms/repo`），不要写入生产密钥文件：Actions 必须先找到目录，才能读取该文件。
+
+在 Settings → Secrets and variables → Actions 配置：
+
+| 类型 | 名称 | 内容 |
+| --- | --- | --- |
+| Secret | `DEPLOY_HOST` | 服务器 IP 或 SSH 域名 |
+| Secret | `DEPLOY_PORT` | SSH 端口，例如 `22` |
+| Secret | `DEPLOY_USER` | `deploy` |
+| Secret | `DEPLOY_SSH_KEY` | Actions 登录服务器的完整私钥 |
+| Secret | `DEPLOY_KNOWN_HOSTS` | 已核验指纹的服务器 known_hosts 条目 |
+| Variable | `DEPLOY_PATH` | 服务器仓库绝对路径，使用不含空格的路径 |
+
+将工作流和脚本提交到 `main` 后查看 Actions 日志。服务器需能访问 GitHub、Docker 基础镜像仓库及 npm registry。工作区必须专用于部署，脚本拒绝覆盖已修改的受跟踪文件，检出状态为 detached HEAD；根目录 `.env.production` 为忽略文件，会保留。不要在此目录手工开发或运行 git clean。
+
+首次启动同样由工作流完成，已有生产数据卷会继续使用，禁止执行 `down -v`。备份位于 `.deploy/backups`，需另行安排异地备份和保留周期。构建镜像标签为提交 SHA，成功版本记录在 `.deploy/current-release`，上一个版本记录在 `.deploy/previous-release`；不要在确认回退窗口结束前清理旧镜像。
+
+检查服务：
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml ps -a
+docker compose --env-file .env.production -f compose.production.yaml logs --tail=100 api web
+```
+
+迁移失败会停止更新应用；更新或健康检查失败可能留下部分更新的容器，工作流会报错并输出日志，不会自动回滚数据库。应用回退前必须核对旧版本与当前数据库结构兼容，并使用对应提交的 Compose 配置及已保留的镜像，不能将数据库恢复当成无损自动操作。
+
+#### 手工部署
+
+默认 `TRUST_PROXY_HOPS=2` 对应“浏览器 → 宿主机 HTTPS 入口 → Nginx → API”，用于正确识别 SDK 客户端 IP 并分别限流。HTTPS 入口必须覆盖 `X-Forwarded-For` 为真实客户端地址，禁止透传客户端自填值。若只有 Nginx 一层代理，设为 `1`；直接运行 API 时默认 `0`。API 不应绕过约定的代理链暴露公网。
+
+先将 `docker/.env.example` 复制为 `.env.production`，填写真实域名、数据库密码、至少 32 字符的随机 JWT 密钥及 SMTP 设置。该文件已被 Git 和 Docker 构建上下文排除。
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml build
+docker compose --env-file .env.production -f compose.production.yaml up -d db redis
+docker compose --env-file .env.production -f compose.production.yaml run --rm --no-deps api node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js
+docker compose --env-file .env.production -f compose.production.yaml up -d
+docker compose --env-file .env.production -f compose.production.yaml ps
+docker compose --env-file .env.production -f compose.production.yaml logs -f api web
 ```
 
 生产镜像采用多阶段构建：NestJS 以非 root 用户运行编译产物和生产依赖，Nginx 托管前端并代理 `/api`，支持 SPA 路由与 `Document-Policy: js-profiling`。API、数据库和 Redis 只在容器网络内提供服务，Web 默认绑定宿主机 `127.0.0.1:8080`（通过 `HTTP_PORT` 调整）。Redis 启用 AOF、256 MB 上限与 `noeviction`；已配置 Redis 不可用时，依赖限流或幂等协调的请求返回 503。请在宿主机配置 HTTPS 反向代理转发到 Web 端口，外部访问域名须与环境变量一致。此配置不负责申请证书或终止 TLS。

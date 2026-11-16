@@ -1,0 +1,67 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pms-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Build and deploy on server
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          set -Eeuo pipefail
+          : "${DEPLOY_HOST:?Missing DEPLOY_HOST}"
+          : "${DEPLOY_USER:?Missing DEPLOY_USER}"
+          : "${DEPLOY_PATH:?Missing DEPLOY_PATH variable}"
+          : "${DEPLOY_SSH_KEY:?Missing DEPLOY_SSH_KEY}"
+          : "${DEPLOY_KNOWN_HOSTS:?Missing DEPLOY_KNOWN_HOSTS}"
+          [[ "$DEPLOY_PATH" =~ ^/[a-zA-Z0-9_./-]+$ ]] || exit 1
+          SSH_DIR="$(mktemp -d)"
+          trap 'rm -rf "$SSH_DIR"' EXIT
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$SSH_DIR/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$SSH_DIR/known_hosts"
+          chmod 600 "$SSH_DIR/key" "$SSH_DIR/known_hosts"
+          ssh -i "$SSH_DIR/key" \
+            -p "${DEPLOY_PORT:-22}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$SSH_DIR/known_hosts" \
+            -o ConnectTimeout=20 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash -s -- '$DEPLOY_PATH' '$GITHUB_SHA'" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$1"
+          SHA="$2"
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          test -f .env.production
+          # Lock lives in .git so checkout cannot replace it.
+          exec 9>"$(git rev-parse --git-path pms-deploy.lock)"
+          flock -w 300 9
+          if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+            echo 'Tracked files have local changes; refusing to overwrite them.'
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$SHA" FETCH_HEAD
+          git checkout --detach "$SHA"
+          bash scripts/deploy.sh "$SHA"
+          REMOTE

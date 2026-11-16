@@ -26,6 +26,7 @@ services:
       timeout: 5s
       retries: 20
   api:
+    image: pms-api:${PMS_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -76,6 +77,7 @@ services:
       start_period: 30s
       retries: 5
   web:
+    image: pms-web:${PMS_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: docker/Dockerfile
