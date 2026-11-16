@@ -8,9 +8,8 @@ import { validateEnvironment } from './env.validation';
   imports: [
     ConfigModule.forRoot({
       cache: true,
-      expandVariables: true,
+      ignoreEnvFile: true,
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
       load: [configuration],
       validate: validateEnvironment,
     }),

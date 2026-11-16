@@ -4,22 +4,13 @@ import { WorkspaceAlerts1794441600001 } from './migrations/1794441600001-workspa
 import { WebVitals1793923200000 } from './migrations/1793923200000-web-vitals';
 import 'reflect-metadata';
 import { resolve } from 'node:path';
-import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import configuration from '../config/configuration';
 import { Baseline1793577600000 } from './migrations/1793577600000-baseline';
 import { ProductionHardening1794528000000 } from './migrations/1794528000000-production-hardening';
 import { InvitationOutbox1794528000001 } from './migrations/1794528000001-invitation-outbox';
 
-// Resolve env files relative to the API package, even when called from the repo root.
-const packageRoot = resolve(__dirname, '../..');
-void ConfigModule.forRoot({
-  envFilePath: [
-    resolve(packageRoot, '.env.local'),
-    resolve(packageRoot, '.env'),
-  ],
-  expandVariables: true,
-});
+// Application and migration containers receive the same environment from Compose.
 const { database } = configuration();
 
 export default new DataSource({

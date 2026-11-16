@@ -13,11 +13,11 @@ Vue 3 管理后台基础框架，使用 Vite、TypeScript、Tailwind CSS v4 与 
 
 ## 启动
 
-项目要求 Node.js 22.18+ 或 24.12+，仓库使用 pnpm。
+统一通过 Docker Compose 运行，以下命令在仓库根目录执行。首次启动应先按根目录 README 执行数据库迁移。
 
 ```bash
-pnpm install
-pnpm --dir apps/vue3 dev
+docker compose -f compose.dev.yaml up --build -d
+docker compose -f compose.dev.yaml logs -f web
 ```
 
 质量检查：
@@ -60,23 +60,13 @@ const user = await http.get<User>('/users/1')
 await http.post<User, CreateUserInput>('/users', input)
 ```
 
-设置本地 API 地址：
-
-```bash
-cp .env.example .env.local
-```
-
-只有以 `VITE_` 开头的变量会进入浏览器构建，不要在其中保存密钥。
+开发 API 地址由 `compose.dev.yaml` 的 `VITE_API_BASE_URL` 注入，生产 Docker 构建使用同源 `/api`。Vite 不读取子应用环境文件。只有以 `VITE_` 开头的变量会进入浏览器构建，不要在其中保存密钥。
 
 ## 登录会话
 
 登录页调用 Nest 的 `POST /auth/login`，Access Token 与用户权限保存在浏览器 `localStorage`。刷新页面时会请求 `GET /auth/me` 校验 Token 并更新用户资料；Token 无效、过期或服务端返回 401 时会清除本地会话并返回登录页。
 
-本地默认 API 地址为 `/api`。前后端分开部署时，在 `.env.local` 中配置：
-
-```dotenv
-VITE_API_BASE_URL=http://localhost:3000/api
-```
+开发环境通过 `http://localhost:3000/api` 访问 API，生产通过 Nginx 代理 `/api`。
 
 公开账号页面包括 `/register`、`/verify-email`、`/forgot-password` 和 `/reset-password`。注册成功后必须通过邮件链接验证邮箱，密码重置 Token 只从 URL query 读取，不写入本地存储。
 

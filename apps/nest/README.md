@@ -4,7 +4,7 @@ NestJS 11 HTTP API 基础项目，作为 PMS monorepo 中的后端应用。
 
 ## 已接入能力
 
-- `@nestjs/config`：全局配置、`.env` 加载与启动时环境变量校验
+- `@nestjs/config`：全局配置、Compose 环境变量注入与启动时校验
 - `@nestjs/typeorm`：PostgreSQL 数据库模块，支持实体自动发现
 - 全局 `ValidationPipe`：DTO 转换、白名单过滤、拒绝未知参数
 - 全局异常过滤器：统一错误结构并隐藏未知内部异常细节
@@ -16,16 +16,15 @@ NestJS 11 HTTP API 基础项目，作为 PMS monorepo 中的后端应用。
 - Redis：跨实例原子限流与管理写请求幂等协调；配置的 Redis 故障时返回 503
 - `@pms/config`：复用 monorepo 公共 ESLint、TypeScript 和 Prettier 规则
 
-## 本地运行
+## Docker 运行
 
 ```bash
-cp .env.example .env
-pnpm start:dev
+# 在仓库根目录执行；首次启动前需按下文完成数据库迁移
+docker compose -f compose.dev.yaml up --build -d
+docker compose -f compose.dev.yaml logs -f api
 ```
 
-默认端口为 `3000`，健康检查地址为 `GET /api`。数据库默认关闭，因此没有
-PostgreSQL 服务时也可以启动。需要数据库时，将 `DB_ENABLED` 设置为 `true` 并
-填写连接信息。开发和生产均保持 `DB_SYNCHRONIZE=false`，启动服务前执行下方数据库迁移。生产还必须配置 `REDIS_URL`；本地未配置时使用最多 10,000 条记录的进程内协调存储，容量耗尽返回 503。
+统一通过 Docker Compose 运行，端口为 `3000`，健康检查地址为 `GET /api`。Compose 启用 PostgreSQL 和 Redis，并向 API 与迁移容器注入连接信息。开发配置使用根目录 `.env`，生产使用根目录 `.env.production`，不读取子应用环境文件。开发和生产均保持 `DB_SYNCHRONIZE=false`，启动服务前执行下方数据库迁移。
 
 ## JWT 登录
 
@@ -107,17 +106,17 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:3002
 在仓库根目录运行：
 
 ```bash
-pnpm --filter @pms/nest migration:show
-pnpm --filter @pms/nest migration:run
+pnpm migration:show
+pnpm migration:run
 # 回滚最后一份迁移；基线回滚会删除全部业务表及其中的数据
-pnpm --filter @pms/nest migration:revert
+pnpm migration:revert
 ```
 
-CLI 自动加载 `apps/nest/.env.local`、`.env`（前者优先，进程环境变量优先于文件），使用与应用相同的 `DB_HOST/PORT/USERNAME/PASSWORD/NAME`。迁移显式连接数据库，不受应用的 `DB_ENABLED` 开关控制，始终关闭自动同步。执行记录保存在 `pms_migrations`，全部待执行迁移在同一事务中完成；成功后再次运行不会重复建表。数据库用户需要建表、建类型及创建 `uuid-ossp` 扩展的权限，也可由管理员预装扩展。回滚保留可能被其他应用共享的扩展。
+CLI 在 API 容器中运行，使用 Compose 注入的 `DB_HOST/PORT/USERNAME/PASSWORD/NAME`，不读取环境文件。迁移显式连接数据库，不受应用的 `DB_ENABLED` 开关控制，始终关闭自动同步。执行记录保存在 `pms_migrations`，全部待执行迁移在同一事务中完成；成功后再次运行不会重复建表。数据库用户需要建表、建类型及创建 `uuid-ossp` 扩展的权限，也可由管理员预装扩展。回滚保留可能被其他应用共享的扩展。
 
-生产环境先构建，再运行 `pnpm --filter @pms/nest migration:run:prod`，或在 API 生产容器内执行 `node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js`。生产环境必须保持 `DB_SYNCHRONIZE=false`。`migration:show:prod` 和 `migration:revert:prod` 分别查看状态和回滚。旧的 `traces:migrate` 命令现在是完整迁移的别名。
+生产环境先构建镜像并启动数据库，再在仓库根目录运行 `pnpm production:migration:run`。生产环境必须保持 `DB_SYNCHRONIZE=false`。`production:migration:show` 和 `production:migration:revert` 分别查看状态和回滚。
 
-生产加固版本包括 `1794528000000-production-hardening`（会话版本及事件查询索引）、`1794528000001-invitation-outbox`（持久邀请邮件任务）。生产默认启用监控数据 30 天保留清理；`pnpm retention:cleanup` 从仓库根目录默认执行 dry-run，显式传入 `-- --execute` 才删除，后台开关与保留参数见 [生产加固与运维](../../docs/production-hardening.md)。审计不随监控清理删除，错误归组的末次事件证据予以保留。
+生产加固版本包括 `1794528000000-production-hardening`（会话版本及事件查询索引）、`1794528000001-invitation-outbox`（持久邀请邮件任务）。生产默认启用监控数据 30 天保留清理；开发手动清理从仓库根目录运行 `pnpm retention:cleanup`，默认执行 dry-run，显式传入 `--execute` 才删除。仅清理链路时传入 `--traces-only`。后台开关与保留参数见 [生产加固与运维](../../docs/production-hardening.md)。审计不随监控清理删除，错误归组的末次事件证据予以保留。
 
 基线适用于空数据库，不是任意旧版本数据库的自动升级脚本。已经通过 synchronize 或历史 SQL 建表的数据库应先备份并核对实际结构；不要直接执行基线或仅伪造迁移记录。历史 `sql/20261023-profiles.sql` 仅留作旧补丁参考，统一迁移管理的数据库不再手动执行。
 

@@ -60,7 +60,7 @@ async function runInteraction() {
 
 ## 响应头
 
-开发环境的 Vite 服务和 preview 服务已配置响应头。部署其他被监控应用时也需要在其 HTML 文档服务器配置。例如 Nginx：
+PMS 管理后台不采集自身性能，不配置此响应头。需要采集 Profiles 的业务项目应在自己的 HTML 文档服务器上配置，开发环境的 Vite 服务和 preview 服务也需要由业务项目自行配置。例如 Nginx：
 
 ```nginx
 location / {
@@ -101,6 +101,6 @@ pnpm migration:show
 pnpm migration:run
 ```
 
-迁移使用 API 环境文件中的目标数据库配置，覆盖 Profiles 及其他模块；旧的 `traces:migrate` 现在也是完整迁移的别名。不要再单独执行历史 Profiles SQL。已通过自动同步或旧 SQL 建表的数据库应先备份、核对结构并制定接管方案，不能直接套用空库基线。容器与生产命令见 [API 数据库结构管理](apps/nest/README.md#数据库结构管理)。启用开关默认为关闭，旧项目不会自动开始采集。
+迁移在 API 容器中使用 Compose 注入的数据库配置，覆盖 Profiles 及其他模块。不要再单独执行历史 Profiles SQL。已通过自动同步或旧 SQL 建表的数据库应先备份、核对结构并制定接管方案，不能直接套用空库基线。生产迁移使用根目录 `production:migration:show/run`，详见 [API 数据库结构管理](apps/nest/README.md#数据库结构管理)。启用开关默认为关闭，旧项目不会自动开始采集。
 
 首版保留浏览器提供的函数名、脚本资源和行列信息，尚未实现 Source Map 反混淆。压缩后的函数名可能仍是短名称。
