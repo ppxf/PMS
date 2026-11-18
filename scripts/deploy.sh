@@ -37,7 +37,8 @@ dc exec -T db sh -ec \
   'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP.tmp"
 mv "$BACKUP.tmp" "$BACKUP"
 
-dc run --rm --no-deps --pull never api node node_modules/typeorm/cli.js \
+# Images were explicitly pulled above. Avoid run --pull for older Compose versions.
+dc run --rm --no-deps api node node_modules/typeorm/cli.js \
   migration:run -d dist/database/data-source.js
 dc up -d --no-build --pull never --wait --wait-timeout 240 api web
 
