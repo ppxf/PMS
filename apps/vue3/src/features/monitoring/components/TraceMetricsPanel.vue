@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -76,40 +79,43 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section aria-label="Related application metrics" class="space-y-4">
+  <section :aria-label="translate('Related application metrics')" class="space-y-4">
     <form class="flex flex-wrap items-center gap-3" @submit.prevent="applySearch">
       <Input
         v-model="search"
-        aria-label="Search related metrics"
-        placeholder="Search application metrics in this trace"
+        :aria-label="translate('Search related metrics')"
+        :placeholder="translate('Search application metrics in this trace')"
         maxlength="128"
         class="min-w-60 flex-1"
       />
-      <Button type="submit" variant="outline" :disabled="loading">Search</Button>
+      <Button type="submit" variant="outline" :disabled="loading">{{ translate('Search') }}</Button>
       <label class="flex items-center gap-2 text-sm">
         <input
           v-model="onlySpan"
           type="checkbox"
-          aria-label="Metrics for selected span only"
+          :aria-label="translate('Metrics for selected span only')"
           :disabled="!selectedSpanId"
         />
-        Selected span only
+        {{ translate('Selected span only') }}
       </label>
     </form>
-    <p v-if="loading" role="status" class="text-sm text-muted-foreground">Loading metrics…</p>
+    <p v-if="loading" role="status" class="text-sm text-muted-foreground">
+      {{ translate('Loading metrics…') }}
+    </p>
     <p v-if="error" role="alert">
-      {{ error }} <Button variant="outline" @click="load">Retry</Button>
+      {{ translate(error) }}
+      <Button variant="outline" @click="load">{{ translate('Retry') }}</Button>
     </p>
     <div class="table-surface">
       <table class="app-table">
         <thead>
           <tr>
-            <th class="p-3">Application Metric</th>
-            <th class="p-3">Type</th>
-            <th class="p-3">Value</th>
-            <th class="p-3">Timestamp</th>
-            <th class="p-3">Span</th>
-            <th class="p-3">Attributes</th>
+            <th class="p-3">{{ translate('Application Metric') }}</th>
+            <th class="p-3">{{ translate('Type') }}</th>
+            <th class="p-3">{{ translate('Value') }}</th>
+            <th class="p-3">{{ translate('Timestamp') }}</th>
+            <th class="p-3">{{ translate('Span') }}</th>
+            <th class="p-3">{{ translate('Attributes') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -117,8 +123,8 @@ onBeforeUnmount(() => {
             <td class="p-3">{{ sample.name }}</td>
             <td class="p-3">{{ sample.type }}</td>
             <td class="whitespace-nowrap p-3 tabular-nums">
-              {{ sample.value.toLocaleString('en-US') }}
-              {{ sample.unit === 'none' ? '' : sample.unit }}
+              {{ sample.value.toLocaleString(intlLocale()) }}
+              {{ translate(sample.unit === 'none' ? '' : sample.unit) }}
             </td>
             <td class="whitespace-nowrap p-3">
               {{ formatDateTime(sample.timestamp) }}
@@ -127,7 +133,7 @@ onBeforeUnmount(() => {
               <button
                 v-if="sample.spanId"
                 type="button"
-                :aria-label="`View span ${sample.spanId}`"
+                :aria-label="translate(`View span ${sample.spanId}`)"
                 class="font-mono text-cyan-700 underline"
                 @click="emit('selectSpan', sample.spanId)"
               >
@@ -138,11 +144,11 @@ onBeforeUnmount(() => {
             <td class="w-96 max-w-96 align-top">
               <details v-if="Object.keys(sample.attributes).length" class="min-w-56">
                 <summary class="cursor-pointer rounded text-cyan-700 focus-visible:outline-2">
-                  Attributes ({{ Object.keys(sample.attributes).length }})
+                  {{ translate('Attributes (') }}{{ Object.keys(sample.attributes).length }})
                 </summary>
                 <MetricAttributeTree :entries="Object.entries(sample.attributes)" class="mt-3" />
                 <p class="mt-3 text-xs text-muted-foreground">
-                  Environment: {{ sample.environment ?? '—' }} / Release:
+                  {{ translate('Environment:') }} {{ sample.environment ?? '—' }} / Release:
                   {{ sample.release ?? '—' }}
                 </p>
               </details>
@@ -154,7 +160,7 @@ onBeforeUnmount(() => {
       <EmptyState
         v-if="!loading && !error && result && !result.samples.length"
         class="p-8"
-        title="No matching related metrics"
+        :title="translate('No matching related metrics')"
       />
     </div>
     <TablePagination
@@ -164,7 +170,7 @@ onBeforeUnmount(() => {
       :page-size="result.pageSize"
       :busy="loading"
       unit="metrics"
-      label="Related metrics pagination"
+      :label="translate('Related metrics pagination')"
       previous-label="Previous metrics page"
       next-label="Next metrics page"
       @change="changePage"

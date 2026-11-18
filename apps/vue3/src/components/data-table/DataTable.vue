@@ -1,4 +1,6 @@
 <script setup lang="ts" generic="TData extends RowData">
+import { translate } from '@/i18n'
+
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, ref, watch } from 'vue'
 import { ArrowUpDown } from '@lucide/vue'
@@ -143,10 +145,12 @@ function changePageSize(size: number): void {
 <template>
   <div class="space-y-4">
     <Alert v-if="error" variant="destructive">
-      <AlertTitle>Failed to load data</AlertTitle>
+      <AlertTitle>{{ translate('Failed to load data') }}</AlertTitle>
       <AlertDescription class="flex items-center justify-between gap-4">
-        <span>{{ error }}</span>
-        <Button type="button" variant="outline" size="sm" @click="emit('retry')"> Retry </Button>
+        <span>{{ translate(error) }}</span>
+        <Button type="button" variant="outline" size="sm" @click="emit('retry')">
+          {{ translate('Retry') }}
+        </Button>
       </AlertDescription>
     </Alert>
 
@@ -156,7 +160,7 @@ function changePageSize(size: number): void {
           <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
             <TableHead v-if="selectable" class="w-12">
               <Checkbox
-                aria-label="Select all rows"
+                :aria-label="translate('Select all rows')"
                 :model-value="
                   table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() && 'indeterminate')
                 "
@@ -180,10 +184,18 @@ function changePageSize(size: number): void {
                 class="inline-flex items-center gap-2 font-medium hover:text-foreground"
                 @click="header.column.toggleSorting(header.column.getIsSorted() === 'asc')"
               >
-                <FlexRender :header="header" />
+                <span v-if="typeof header.column.columnDef.header === 'string'">{{
+                  translate(header.column.columnDef.header)
+                }}</span>
+                <FlexRender v-else :header="header" />
                 <ArrowUpDown class="size-3.5 text-muted-foreground" />
               </button>
-              <FlexRender v-else-if="!header.isPlaceholder" :header="header" />
+              <template v-else-if="!header.isPlaceholder">
+                <span v-if="typeof header.column.columnDef.header === 'string'">{{
+                  translate(header.column.columnDef.header)
+                }}</span>
+                <FlexRender v-else :header="header" />
+              </template>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -192,7 +204,7 @@ function changePageSize(size: number): void {
           <template v-if="loading">
             <TableRow v-for="rowIndex in 5" :key="rowIndex">
               <TableCell :colspan="columnCount" class="h-12 animate-pulse bg-muted/40">
-                <span class="sr-only">Loading data</span>
+                <span class="sr-only">{{ translate('Loading data') }}</span>
               </TableCell>
             </TableRow>
           </template>
@@ -206,7 +218,7 @@ function changePageSize(size: number): void {
             >
               <TableCell v-if="selectable">
                 <Checkbox
-                  :aria-label="`Select row ${row.index + 1}`"
+                  :aria-label="translate(`Select row ${row.index + 1}`)"
                   :model-value="row.getIsSelected()"
                   @update:model-value="row.toggleSelected(Boolean($event))"
                 />
@@ -219,7 +231,7 @@ function changePageSize(size: number): void {
 
           <TableRow v-else>
             <TableCell :colspan="columnCount" class="h-32 text-center">
-              <EmptyState :title="emptyText" />
+              <EmptyState :title="translate(emptyText)" />
             </TableCell>
           </TableRow>
         </TableBody>
@@ -229,13 +241,13 @@ function changePageSize(size: number): void {
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <label class="text-sm text-muted-foreground" for="data-table-page-size">
-          Rows per page
+          {{ translate('Rows per page') }}
         </label>
         <FormSelect
           id="data-table-page-size"
           :model-value="pageSize"
           :options="[10, 20, 50, 100].map((size) => ({ value: size, label: String(size) }))"
-          aria-label="Rows per page"
+          :aria-label="translate('Rows per page')"
           class="w-20"
           @change="changePageSize"
         />

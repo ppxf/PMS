@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
@@ -164,8 +168,8 @@ function bar(span: Span) {
 }
 function formatDuration(value: number) {
   return value >= 1000
-    ? `${(value / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} s`
-    : `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} ms`
+    ? `${(value / 1000).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} s`
+    : `${value.toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} ms`
 }
 function spanColor(span: Span) {
   if (span.status === 'error' || span.status === 'deadline_exceeded') return '#e05260'
@@ -254,19 +258,22 @@ onBeforeUnmount(() => {
         params: { groupSlug: route.params.groupSlug, projectSlug: route.params.projectSlug },
       }"
     >
-      <ArrowLeft class="size-4" /> Back to Traces
+      <ArrowLeft class="size-4" /> {{ translate('Back to Traces') }}
     </RouterLink>
     <div class="trace-heading">
       <div class="min-w-0">
-        <h2 class="page-title">Trace details</h2>
+        <h2 class="page-title">{{ translate('Trace details') }}</h2>
         <p class="trace-id">{{ route.params.traceId }}</p>
       </div>
       <div class="trace-summary">
-        <span><Layers class="size-4" /> {{ spans.length }} spans</span>
-        <span><Clock3 class="size-4" /> {{ spans.length ? formatDuration(spanExtent) : '—' }}</span>
+        <span><Layers class="size-4" /> {{ spans.length }} {{ translate('spans') }}</span>
+        <span
+          ><Clock3 class="size-4" />
+          {{ translate(spans.length ? formatDuration(spanExtent) : '—') }}</span
+        >
       </div>
     </div>
-    <nav class="flex gap-4 border-b" aria-label="Trace detail views">
+    <nav class="flex gap-4 border-b" :aria-label="translate('Trace detail views')">
       <button
         v-for="item in [
           { id: 'waterfall', label: 'Waterfall' },
@@ -282,34 +289,52 @@ onBeforeUnmount(() => {
         :aria-pressed="tab === item.id"
         @click="selectTab(item.id)"
       >
-        {{ item.label }}
+        {{ translate(item.label) }}
       </button>
     </nav>
-    <p v-if="loading" role="status" class="text-sm text-muted-foreground">Loading…</p>
+    <p v-if="loading" role="status" class="text-sm text-muted-foreground">
+      {{ translate('Loading…') }}
+    </p>
     <div v-if="error" role="alert">
-      {{ error }} <Button variant="outline" @click="load(Boolean(spans.length))">Retry</Button>
+      {{ translate(error) }}
+      <Button variant="outline" @click="load(Boolean(spans.length))">{{
+        translate('Retry')
+      }}</Button>
     </div>
     <p v-if="hasMore" role="status" class="trace-notice">
-      This trace is not fully loaded. Parent spans may appear on later pages.
+      {{ translate('This trace is not fully loaded. Parent spans may appear on later pages.') }}
     </p>
     <p v-if="rows.some((r) => r.missingParent)" class="trace-notice">
-      Some parent spans are remote, uncollected, or not yet loaded. Orphan spans are shown
-      separately.
+      {{
+        translate(
+          'Some parent spans are remote, uncollected, or not yet loaded. Orphan spans are shown separately.',
+        )
+      }}
     </p>
     <p v-if="spans.some((s) => s.truncated || s.droppedSpanCount > 0)" class="trace-notice">
-      This trace contains truncated records or dropped child spans and may be incomplete.
+      {{
+        translate(
+          'This trace contains truncated records or dropped child spans and may be incomplete.',
+        )
+      }}
     </p>
     <EmptyState
       v-if="!loading && !error && !spans.length"
       class="rounded-lg border bg-background p-8"
-      title="No retained records for this trace."
-      description="It may be unsampled, pending ingestion, or expired. Related metrics are still available in Application Metrics."
+      :title="translate('No retained records for this trace.')"
+      :description="
+        translate(
+          'It may be unsampled, pending ingestion, or expired. Related metrics are still available in Application Metrics.',
+        )
+      "
     />
     <p v-if="targetMissing" role="status" class="trace-notice">
       {{
-        hasMore
-          ? 'Looking for the target span…'
-          : 'The target span is not retained. It may not have been collected or may have expired.'
+        translate(
+          hasMore
+            ? 'Looking for the target span…'
+            : 'The target span is not retained. It may not have been collected or may have expired.',
+        )
       }}
     </p>
     <TraceWebVitalsPanel
@@ -331,46 +356,52 @@ onBeforeUnmount(() => {
     <div v-show="tab === 'waterfall'" ref="waterfall" class="detail-grid">
       <div class="waterfall-panel">
         <div class="waterfall-title">
-          <GitBranch class="size-4" /> Trace timeline
-          <span>Select a span to view its attributes</span>
+          <GitBranch class="size-4" /> {{ translate('Trace timeline') }}
+          <span>{{ translate('Select a span to view its attributes') }}</span>
         </div>
         <div class="flex flex-wrap items-center gap-3 border-b p-3">
           <input
             v-model="search"
             type="search"
-            aria-label="Search in trace"
-            placeholder="Search in trace"
+            :aria-label="translate('Search in trace')"
+            :placeholder="translate('Search in trace')"
             class="min-w-40 flex-1 rounded-md border bg-background px-3 py-2 text-sm"
           />
           <select
             v-model="category"
-            aria-label="Span type"
+            :aria-label="translate('Span type')"
             class="rounded-md border bg-background px-3 py-2 text-sm"
           >
-            <option value="all">All span types</option>
-            <option value="resource">Static resources</option>
-            <option value="browser">Browser phases</option>
-            <option value="http">HTTP requests</option>
-            <option value="operation">Operations</option>
+            <option value="all">{{ translate('All span types') }}</option>
+            <option value="resource">{{ translate('Static resources') }}</option>
+            <option value="browser">{{ translate('Browser phases') }}</option>
+            <option value="http">{{ translate('HTTP requests') }}</option>
+            <option value="operation">{{ translate('Operations') }}</option>
           </select>
-          <Button v-if="collapsed.size" variant="outline" size="sm" @click="collapsed = new Set()"
-            >Expand all</Button
+          <Button
+            v-if="collapsed.size"
+            variant="outline"
+            size="sm"
+            @click="collapsed = new Set()"
+            >{{ translate('Expand all') }}</Button
           >
         </div>
         <div
           v-if="markers.length && spans.length"
           class="waterfall-row vital-marker-row"
-          aria-label="Web Vitals timeline markers"
+          :aria-label="translate('Web Vitals timeline markers')"
         >
-          <span class="px-4 text-xs text-muted-foreground">Paint milestones</span>
+          <span class="px-4 text-xs text-muted-foreground">{{
+            translate('Paint milestones')
+          }}</span>
           <span class="relative h-12">
             <span
               v-for="marker in markers"
               :key="marker.key"
               class="vital-marker"
               :style="{ left: markerLeft(marker.at) }"
-              :title="`${marker.name}: ${formatVital(marker.name, marker.value)}`"
-              :aria-label="`${marker.name} at ${formatVital(marker.name, marker.value)}`"
+              :title="translate(`${marker.name}: ${formatVital(marker.name, marker.value)}`)"
+              :aria-label="translate(`${marker.name} at ${formatVital(marker.name, marker.value)}`)"
             >
               <span>{{ marker.name }}</span>
             </span>
@@ -378,13 +409,13 @@ onBeforeUnmount(() => {
           <span />
         </div>
         <div class="waterfall-axis waterfall-row">
-          <span class="px-4">Operation / Span</span>
+          <span class="px-4">{{ translate('Operation / Span') }}</span>
           <span class="axis-ticks"
             ><span v-for="tick in [0, 0.25, 0.5, 0.75, 1]" :key="tick">{{
               formatDuration(extent * tick)
             }}</span></span
           >
-          <span class="duration-cell">Duration</span>
+          <span class="duration-cell">{{ translate('Duration') }}</span>
         </div>
         <div class="waterfall-body">
           <div v-for="row in visibleRows" :key="row.span.spanId" class="relative">
@@ -393,7 +424,11 @@ onBeforeUnmount(() => {
               type="button"
               class="branch-toggle"
               :style="{ left: `${8 + Math.min(row.depth, 6) * 14}px` }"
-              :aria-label="`${collapsed.has(row.span.spanId) ? 'Expand' : 'Collapse'} ${row.span.name}`"
+              :aria-label="
+                translate(
+                  `${collapsed.has(row.span.spanId) ? 'Expand' : 'Collapse'} ${row.span.name}`,
+                )
+              "
               :aria-expanded="
                 !collapsed.has(row.span.spanId) || Boolean(search.trim() || category !== 'all')
               "
@@ -414,7 +449,7 @@ onBeforeUnmount(() => {
                 'is-highlighted': highlights.length > 0 && matchesSpanFilters(row.span, highlights),
               }"
               :aria-pressed="selected?.spanId === row.span.spanId"
-              :aria-label="`View span ${row.span.name}`"
+              :aria-label="translate(`View span ${row.span.name}`)"
               @click="selectMetricSpan(row.span.spanId)"
             >
               <span
@@ -424,10 +459,12 @@ onBeforeUnmount(() => {
                 <span v-if="row.depth" class="tree-connector" aria-hidden="true" />
                 <span class="op-dot" :style="{ background: spanColor(row.span) }" />
                 <span class="span-text">
-                  <span class="span-name" :title="row.span.name">{{ row.span.name }}</span>
+                  <span class="span-name" :title="translate(row.span.name)">{{
+                    row.span.name
+                  }}</span>
                   <span class="span-op"
-                    >{{ row.span.op }} {{ row.missingParent ? 'Missing parent' : '' }}
-                    {{ row.span.truncated ? 'Truncated' : '' }}</span
+                    >{{ row.span.op }} {{ translate(row.missingParent ? 'Missing parent' : '') }}
+                    {{ translate(row.span.truncated ? 'Truncated' : '') }}</span
                   >
                 </span>
               </span>
@@ -451,20 +488,21 @@ onBeforeUnmount(() => {
             v-if="spans.length && !visibleRows.length"
             class="p-10 text-center text-muted-foreground"
           >
-            No spans match your search.
+            {{ translate('No spans match your search.') }}
           </p>
           <p v-if="!loading && !spans.length" class="p-10 text-center text-muted-foreground">
-            No trace spans
+            {{ translate('No trace spans') }}
           </p>
         </div>
         <div class="waterfall-footer">
-          Loaded {{ spans.length }} spans · Showing {{ visibleRows.length }}
-          {{ hasMore ? '(more pages available)' : '(all retained records)' }}
+          {{ translate('Loaded') }} {{ spans.length }} {{ translate('spans · Showing') }}
+          {{ visibleRows.length }}
+          {{ translate(hasMore ? '(more pages available)' : '(all retained records)') }}
         </div>
       </div>
       <aside v-if="selected" class="span-panel">
         <div class="span-panel-heading">
-          <h3 class="font-semibold">Span attributes</h3>
+          <h3 class="font-semibold">{{ translate('Span attributes') }}</h3>
           <span
             class="status-badge"
             :class="{
@@ -478,12 +516,12 @@ onBeforeUnmount(() => {
         <section
           v-if="selected.op.startsWith('resource.')"
           class="mt-4"
-          aria-label="Resource details"
+          :aria-label="translate('Resource details')"
         >
-          <h4 class="text-sm font-semibold">Resource details</h4>
+          <h4 class="text-sm font-semibold">{{ translate('Resource details') }}</h4>
           <dl class="properties">
             <div v-for="item in resourceDetails(selected)" :key="item.label" class="property">
-              <dt>{{ item.label }}</dt>
+              <dt>{{ translate(item.label) }}</dt>
               <dd>{{ item.value }}</dd>
             </div>
           </dl>
@@ -491,8 +529,11 @@ onBeforeUnmount(() => {
             v-if="selected.attributes['resource.timing_available'] === false"
             class="mt-3 text-xs text-muted-foreground"
           >
-            Detailed timing and sizes are unavailable. Cross-origin resources may require a
-            Timing-Allow-Origin response header.
+            {{
+              translate(
+                'Detailed timing and sizes are unavailable. Cross-origin resources may require a Timing-Allow-Origin response header.',
+              )
+            }}
           </p>
         </section>
         <dl class="properties">
@@ -503,9 +544,9 @@ onBeforeUnmount(() => {
         </dl>
       </aside>
     </div>
-    <Button v-if="hasMore && tab === 'waterfall'" :disabled="loading" @click="load(true)"
-      >Load more spans</Button
-    >
+    <Button v-if="hasMore && tab === 'waterfall'" :disabled="loading" @click="load(true)">{{
+      translate('Load more spans')
+    }}</Button>
   </section>
 </template>
 <style scoped>

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
@@ -53,17 +56,16 @@ const baseColumns = [
     header: 'Status',
     cell: ({ row }) =>
       h(Badge, { variant: row.original.status === 'resolved' ? 'success' : 'secondary' }, () =>
-        row.original.status === 'unresolved' ? 'Unresolved' : 'Resolved',
+        translate(row.original.status === 'unresolved' ? 'Unresolved' : 'Resolved'),
       ),
   }),
   columnHelper.accessor('eventCount', {
     header: 'Events',
     cell: ({ row }) =>
-      h(
-        Badge,
-        { variant: row.original.status === 'resolved' ? 'success' : 'destructive' },
-        () =>
-          `${row.original.eventCount.toLocaleString('en-US')} ${row.original.eventCount === 1 ? 'event' : 'events'}`,
+      h(Badge, { variant: row.original.status === 'resolved' ? 'success' : 'destructive' }, () =>
+        translate(
+          `${row.original.eventCount.toLocaleString(intlLocale())} ${row.original.eventCount === 1 ? 'event' : 'events'}`,
+        ),
       ),
   }),
   columnHelper.accessor('firstSeenAt', {
@@ -85,9 +87,11 @@ const archiveColumn = columnHelper.accessor('visibility', {
         'data-testid': `archive-label-${row.original.id}`,
       },
       () =>
-        row.original.visibility === 'archived_permanent'
-          ? 'Archive permanently'
-          : `Restore after ${row.original.archiveThreshold?.toLocaleString('en-US')} events`,
+        translate(
+          row.original.visibility === 'archived_permanent'
+            ? 'Archive permanently'
+            : `Restore after ${row.original.archiveThreshold?.toLocaleString(intlLocale())} events`,
+        ),
     ),
 })
 const columns = computed(() =>
@@ -147,20 +151,24 @@ function issueRowClass(issue: MonitoringIssueSummary): string | undefined {
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 class="page-title">
-          {{ view === 'active' ? 'Issues' : 'Archived issues' }}
+          {{ translate(view === 'active' ? 'Issues' : 'Archived issues') }}
         </h2>
-        <p class="mt-1 text-muted-foreground">Review grouped frontend errors in this project.</p>
+        <p class="mt-1 text-muted-foreground">
+          {{ translate('Review grouped frontend errors in this project.') }}
+        </p>
       </div>
       <Button data-testid="show-archived" type="button" variant="outline" @click="toggleView">{{
-        view === 'active' ? 'View archived issues' : 'Back to active issues'
+        translate(view === 'active' ? 'View archived issues' : 'Back to active issues')
       }}</Button>
     </div>
 
     <Input
       v-model="searchInput"
       class="max-w-md"
-      aria-label="Search issues"
-      placeholder="Search issues, exception types, sources, statuses, counts, or dates"
+      :aria-label="translate('Search issues')"
+      :placeholder="
+        translate('Search issues, exception types, sources, statuses, counts, or dates')
+      "
     />
 
     <DataTable
@@ -173,7 +181,7 @@ function issueRowClass(issue: MonitoringIssueSummary): string | undefined {
       :total="total"
       :row-key="(issue) => issue.id"
       :row-class="issueRowClass"
-      empty-text="No issues"
+      :empty-text="translate('No issues')"
       manual-pagination
       @retry="loadIssues"
     />

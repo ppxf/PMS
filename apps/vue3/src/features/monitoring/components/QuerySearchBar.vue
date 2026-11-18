@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { Search, X, ChevronDown } from '@lucide/vue'
 const props = defineProps<{
@@ -181,9 +183,9 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
           {{ selected }}
         </button>
         <button v-if="operator" type="button" class="text-cyan-700" @click="editOperator">
-          {{ names[operator] || operator }}
+          {{ translate(names[operator] || operator) }}
         </button>
-        <button type="button" aria-label="Cancel condition" @click="reset">
+        <button type="button" :aria-label="translate('Cancel condition')" @click="reset">
           <X class="size-3" />
         </button>
       </span>
@@ -193,18 +195,20 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
         v-model="search"
         role="combobox"
         data-query-search
-        :aria-label="label || 'Search query fields'"
+        :aria-label="translate(label || 'Search query fields')"
         :aria-expanded="open"
         :aria-controls="id"
         :aria-activedescendant="open && options[index] ? `${id}-${index}` : undefined"
         aria-autocomplete="list"
         class="min-w-32 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         :placeholder="
-          stage === 'key'
-            ? 'Search fields or add a condition…'
-            : stage === 'operator'
-              ? 'Choose an operator…'
-              : 'Type a value and press Enter…'
+          translate(
+            stage === 'key'
+              ? 'Search fields or add a condition…'
+              : stage === 'operator'
+                ? 'Choose an operator…'
+                : 'Type a value and press Enter…',
+          )
         "
         @focus="open = true"
         @input="open = true"
@@ -212,7 +216,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
       />
       <button
         type="button"
-        :aria-label="open ? 'Close query editor' : 'Open query editor'"
+        :aria-label="translate(open ? 'Close query editor' : 'Open query editor')"
         class="rounded p-1 text-muted-foreground hover:bg-muted"
         @click="open = !open"
       >
@@ -235,35 +239,35 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
           "
           @click="category = item"
         >
-          {{ item }}
+          {{ translate(item) }}
         </button>
       </div>
       <div
         v-else
         class="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
       >
-        <button type="button" class="text-cyan-700" @click="back">← Back</button
-        >{{ stage === 'operator' ? 'Choose an operator' : 'Choose or enter a value' }}
+        <button type="button" class="text-cyan-700" @click="back">{{ translate('← Back') }}</button
+        >{{ translate(stage === 'operator' ? 'Choose an operator' : 'Choose or enter a value') }}
       </div>
       <div v-if="stage === 'value'" class="border-b p-3">
         <input
           ref="valueInput"
           v-model="search"
           role="combobox"
-          aria-label="Condition value"
+          :aria-label="translate('Condition value')"
           :aria-expanded="open"
           :aria-controls="id"
           :aria-activedescendant="options[index] ? `${id}-${index}` : undefined"
           aria-autocomplete="list"
           class="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-cyan-600 focus:ring-2 focus:ring-cyan-600/10"
-          placeholder="Type a value and press Enter…"
+          :placeholder="translate('Type a value and press Enter…')"
           @keydown="keydown"
         />
       </div>
       <div
         :id="id"
         role="listbox"
-        aria-label="Query suggestions"
+        :aria-label="translate('Query suggestions')"
         class="max-h-72 overflow-y-auto p-1"
       >
         <button
@@ -279,14 +283,16 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
           @mouseenter="index = i"
           @click="choose(option.key)"
         >
-          <span class="break-all">{{ option.label }}</span
+          <span class="break-all">{{ translate(option.label) }}</span
           ><span class="shrink-0 text-xs text-cyan-700">{{ option.type }}</span>
         </button>
         <p v-if="!options.length" class="px-3 py-6 text-sm text-muted-foreground">
           {{
-            stage === 'value'
-              ? 'Type a value above. Use commas for multiple values.'
-              : 'No matching options'
+            translate(
+              stage === 'value'
+                ? 'Type a value above. Use commas for multiple values.'
+                : 'No matching options',
+            )
           }}
         </p>
       </div>

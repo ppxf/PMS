@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { ref } from 'vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -24,19 +26,23 @@ async function submit() {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="page-title">Forgot password</h1>
-      <p v-if="message" role="status">{{ message }}</p>
-      <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
+      <h1 class="page-title">{{ translate('Forgot password') }}</h1>
+      <p v-if="message" role="status">{{ translate(message) }}</p>
+      <p v-if="error" role="alert" class="text-destructive">{{ translate(error) }}</p>
       <form v-if="!message" class="space-y-4" @submit.prevent="submit">
-        <Input v-model="email" class="w-full" required type="email" placeholder="Email" /><Button
-          type="submit"
+        <Input
+          v-model="email"
           class="w-full"
-          :disabled="submitting"
-        >
-          Send reset email
+          required
+          type="email"
+          :placeholder="translate('Email')"
+        /><Button type="submit" class="w-full" :disabled="submitting">
+          {{ translate('Send reset email') }}
         </Button>
       </form>
-      <RouterLink to="/login" class="text-sm text-primary">Back to sign in</RouterLink>
+      <RouterLink to="/login" class="text-sm text-primary">{{
+        translate('Back to sign in')
+      }}</RouterLink>
     </section>
   </main>
 </template>

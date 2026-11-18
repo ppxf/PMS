@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -43,29 +45,31 @@ onMounted(load)
 
 <template>
   <section class="space-y-6">
-    <p v-if="loading" class="text-muted-foreground">Loading…</p>
+    <p v-if="loading" class="text-muted-foreground">{{ translate('Loading…') }}</p>
     <div v-else-if="error" class="space-y-3" role="alert">
-      <p class="text-destructive">{{ error }}</p>
-      <Button variant="outline" @click="load">Retry</Button>
+      <p class="text-destructive">{{ translate(error) }}</p>
+      <Button variant="outline" @click="load">{{ translate('Retry') }}</Button>
     </div>
     <template v-else-if="group">
       <div class="flex items-center justify-between gap-4">
         <div>
           <h2 class="page-title">{{ group.name }}</h2>
-          <p class="mt-1 text-muted-foreground">Manage Vue monitoring projects in this group.</p>
+          <p class="mt-1 text-muted-foreground">
+            {{ translate('Manage Vue monitoring projects in this group.') }}
+          </p>
         </div>
         <Button v-if="group.isOwner" as-child>
-          <RouterLink :to="{ name: 'create-project', params: { groupSlug: group.id } }"
-            >Create project</RouterLink
-          >
+          <RouterLink :to="{ name: 'create-project', params: { groupSlug: group.id } }">{{
+            translate('Create project')
+          }}</RouterLink>
         </Button>
       </div>
 
       <Card v-if="projects.length === 0">
         <EmptyState
           class="p-8"
-          title="No monitoring projects yet"
-          description="Create a Vue project to get a DSN and setup instructions."
+          :title="translate('No monitoring projects yet')"
+          :description="translate('Create a Vue project to get a DSN and setup instructions.')"
         />
       </Card>
       <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -82,8 +86,12 @@ onMounted(load)
               <CardTitle>{{ project.name }}</CardTitle>
               <p class="text-sm text-muted-foreground">{{ project.role }}</p>
               <CardDescription
-                >{{ project.connected ? 'Previously connected' : 'Awaiting first connection' }} ·
-                Vue</CardDescription
+                >{{
+                  translate(
+                    project.connected ? 'Previously connected' : 'Awaiting first connection',
+                  )
+                }}
+                {{ translate('· Vue') }}</CardDescription
               >
             </CardHeader>
           </Card>

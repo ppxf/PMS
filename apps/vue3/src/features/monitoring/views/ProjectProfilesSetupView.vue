@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ProfilesSetupGuide from '../components/ProfilesSetupGuide.vue'
@@ -39,13 +41,13 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="space-y-6">
-    <p v-if="loading" class="text-muted-foreground">Loading…</p>
-    <p v-else-if="error" role="alert" class="text-destructive">{{ error }}</p>
+    <p v-if="loading" class="text-muted-foreground">{{ translate('Loading…') }}</p>
+    <p v-else-if="error" role="alert" class="text-destructive">{{ translate(error) }}</p>
     <template v-else-if="project">
       <header>
-        <h1 class="page-title">Profiles setup</h1>
+        <h1 class="page-title">{{ translate('Profiles setup') }}</h1>
         <p class="mt-1 text-muted-foreground">
-          {{ project.name }} · Set up browser profiling from sampled call stacks.
+          {{ project.name }} {{ translate('· Set up browser profiling from sampled call stacks.') }}
         </p>
       </header>
       <ProfilesSetupGuide :dsn="project.dsn" />

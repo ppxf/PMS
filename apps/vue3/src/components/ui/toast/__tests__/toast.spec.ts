@@ -15,6 +15,15 @@ afterEach(async () => {
   vi.useRealTimers()
 })
 describe('global toast notifications', () => {
+  it('dismisses copy feedback after its short duration', async () => {
+    toast.success('Copied DSN', undefined, 2000)
+    await nextTick()
+    expect(viewport.get('[role="status"]').text()).toContain('Copied DSN')
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(viewport.find('[data-toast]').exists()).toBe(true)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(viewport.find('[data-toast]').exists()).toBe(false)
+  })
   it('announces errors and supports manual dismissal', async () => {
     toast.error('Invitation failed', 'Please try again.')
     await nextTick()

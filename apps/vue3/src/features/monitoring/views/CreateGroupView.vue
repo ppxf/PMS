@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -36,26 +38,28 @@ async function submit(): Promise<void> {
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <Card class="w-full max-w-lg">
       <CardHeader>
-        <h1 class="page-title">Create your first group</h1>
-        <CardDescription
-          >Monitoring projects belong to groups. You can create more groups later.</CardDescription
-        >
+        <h1 class="page-title">{{ translate('Create your first group') }}</h1>
+        <CardDescription>{{
+          translate('Monitoring projects belong to groups. You can create more groups later.')
+        }}</CardDescription>
       </CardHeader>
       <CardContent>
-        <p v-if="error" role="alert" class="mb-4 text-sm text-destructive">{{ error }}</p>
+        <p v-if="error" role="alert" class="mb-4 text-sm text-destructive">
+          {{ translate(error) }}
+        </p>
         <form class="space-y-4" @submit.prevent="submit">
           <label class="grid gap-2 text-sm font-medium">
-            Group name
+            {{ translate('Group name') }}
             <Input
               v-model="name"
               name="name"
               required
               minlength="2"
-              placeholder="e.g. Frontend team"
+              :placeholder="translate('e.g. Frontend team')"
             />
           </label>
           <Button class="w-full" :disabled="submitting" type="submit">
-            {{ submitting ? 'Creating…' : 'Create group and continue' }}
+            {{ translate(submitting ? 'Creating…' : 'Create group and continue') }}
           </Button>
         </form>
       </CardContent>

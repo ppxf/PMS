@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -58,12 +60,15 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <section class="rounded-xl border bg-background p-5 space-y-3" aria-label="Trace Web Vitals">
+  <section
+    class="rounded-xl border bg-background p-5 space-y-3"
+    :aria-label="translate('Trace Web Vitals')"
+  >
     <div class="flex items-center justify-between gap-3">
-      <h2 class="font-semibold">Web Vitals</h2>
-      <Button variant="outline" size="sm" :disabled="loading" @click="load"
-        >Refresh Web Vitals</Button
-      >
+      <h2 class="font-semibold">{{ translate('Web Vitals') }}</h2>
+      <Button variant="outline" size="sm" :disabled="loading" @click="load">{{
+        translate('Refresh Web Vitals')
+      }}</Button>
       <RouterLink
         :to="{
           name: 'project-web-vitals',
@@ -71,26 +76,27 @@ onBeforeUnmount(() => {
           query: { traceId },
         }"
         class="text-sm underline"
-        >Explore page experiences</RouterLink
+        >{{ translate('Explore page experiences') }}</RouterLink
       >
     </div>
     <p class="text-sm text-muted-foreground">
-      Document experience measurements can update after this trace ends.
+      {{ translate('Document experience measurements can update after this trace ends.') }}
     </p>
-    <p v-if="loading" role="status">Loading Web Vitals…</p>
+    <p v-if="loading" role="status">{{ translate('Loading Web Vitals…') }}</p>
     <p v-else-if="error" role="alert">
-      {{ error }} <Button variant="outline" @click="load">Retry</Button>
+      {{ translate(error) }}
+      <Button variant="outline" @click="load">{{ translate('Retry') }}</Button>
     </p>
     <EmptyState
       v-else-if="!items.length"
       class="py-8"
-      title="No page experience is retained for this trace in the last 30 days."
+      :title="translate('No page experience is retained for this trace in the last 30 days.')"
     />
     <article v-for="sample in items" :key="sample.pageViewId" class="border-t pt-3 space-y-2">
-      <p class="text-sm font-medium">
-        {{ sample.route }} · {{ formatDateTime(sample.startedAt) }}
-      </p>
-      <div class="grid min-w-0 grid-cols-1 items-stretch gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+      <p class="text-sm font-medium">{{ sample.route }} · {{ formatDateTime(sample.startedAt) }}</p>
+      <div
+        class="grid min-w-0 grid-cols-1 items-stretch gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3"
+      >
         <div
           v-for="measurement in sample.measurements"
           :key="measurement.name"
@@ -109,7 +115,7 @@ onBeforeUnmount(() => {
             <summary
               class="cursor-pointer rounded text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
             >
-              Attribution
+              {{ translate('Attribution') }}
             </summary>
             <div class="mt-2 min-w-0">
               <pre class="code-block" tabindex="0">{{
@@ -127,7 +133,7 @@ onBeforeUnmount(() => {
       :page-size="10"
       :busy="loading"
       unit="samples"
-      label="Trace Web Vitals pagination"
+      :label="translate('Trace Web Vitals pagination')"
       @change="paginate($event - page)"
     />
   </section>

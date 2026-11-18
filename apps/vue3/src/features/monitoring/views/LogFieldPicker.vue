@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { computed, ref } from 'vue'
 import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from 'reka-ui'
 import { ChevronDown } from '@lucide/vue'
@@ -26,22 +28,26 @@ function choose(key: string) {
 <template>
   <PopoverRoot v-model:open="open">
     <PopoverTrigger
-      :aria-label="label"
+      :aria-label="translate(label)"
       :class="controlStyles"
       class="flex w-full items-center justify-between gap-2 text-left"
     >
-      <span class="truncate">{{ modelValue || 'Select a field' }}</span
+      <span class="truncate">{{ translate(modelValue || 'Select a field') }}</span
       ><ChevronDown class="size-4 shrink-0" />
     </PopoverTrigger>
     <PopoverPortal
       ><PopoverContent
-        :aria-label="label"
+        :aria-label="translate(label)"
         align="start"
         :side-offset="4"
         :class="menuStyles"
         class="w-80 max-w-[calc(100vw-2rem)] p-2"
       >
-        <Input v-model="search" :aria-label="`Search ${label}`" placeholder="Search fields…" />
+        <Input
+          v-model="search"
+          :aria-label="translate(`Search ${label}`)"
+          :placeholder="translate('Search fields…')"
+        />
         <div class="my-2 flex gap-1">
           <button
             v-for="tab in ['All', 'Logs', 'Attributes']"
@@ -51,10 +57,10 @@ function choose(key: string) {
             :class="category === tab ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'"
             @click="category = tab"
           >
-            {{ tab }}
+            {{ translate(tab) }}
           </button>
         </div>
-        <div class="max-h-64 overflow-auto" role="listbox" :aria-label="label">
+        <div class="max-h-64 overflow-auto" role="listbox" :aria-label="translate(label)">
           <button
             v-for="field in options"
             :key="field.key"
@@ -68,7 +74,9 @@ function choose(key: string) {
             <span class="min-w-0 flex-1 truncate">{{ field.key }}</span
             ><span class="text-xs text-muted-foreground">{{ field.type }}</span>
           </button>
-          <p v-if="!options.length" class="p-3 text-sm text-muted-foreground">No matching fields</p>
+          <p v-if="!options.length" class="p-3 text-sm text-muted-foreground">
+            {{ translate('No matching fields') }}
+          </p>
         </div>
       </PopoverContent></PopoverPortal
     >

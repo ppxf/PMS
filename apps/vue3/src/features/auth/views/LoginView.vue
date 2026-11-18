@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { getInvitationRedirect } from "../model/invitation-redirect"
+import { translate } from '@/i18n'
+
+import { getInvitationRedirect } from '../model/invitation-redirect'
 import { Activity } from '@lucide/vue'
 import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
@@ -49,7 +51,13 @@ const submit = handleSubmit(async (values) => {
   try {
     const session = await loginRequest(values)
     auth.login(session)
-    await router.replace(getSafeRedirect(route.query.redirect ?? getInvitationRedirect() ?? sessionStorage.getItem('project-invitation-redirect')))
+    await router.replace(
+      getSafeRedirect(
+        route.query.redirect ??
+          getInvitationRedirect() ??
+          sessionStorage.getItem('project-invitation-redirect'),
+      ),
+    )
   } catch (error) {
     submitError.value =
       error instanceof AppError ? error.message : 'Sign in failed. Please try again later.'
@@ -66,15 +74,22 @@ const submit = handleSubmit(async (values) => {
         >
           <Activity class="size-6" aria-hidden="true" />
         </div>
-        <h1 class="page-title">Sign in to PMS</h1>
-        <CardDescription>Enter your email and password to sign in.</CardDescription>
+        <h1 class="page-title">{{ translate('Sign in to PMS') }}</h1>
+        <CardDescription>{{
+          translate('Enter your email and password to sign in.')
+        }}</CardDescription>
       </CardHeader>
       <CardContent>
         <form class="space-y-5" novalidate @submit="submit">
           <Alert v-if="submitError" variant="destructive" role="alert">
-            <AlertDescription>{{ submitError }}</AlertDescription>
+            <AlertDescription>{{ translate(submitError) }}</AlertDescription>
           </Alert>
-          <AppFormField v-slot="{ componentField }" name="email" label="Email" required>
+          <AppFormField
+            v-slot="{ componentField }"
+            name="email"
+            :label="translate('Email')"
+            required
+          >
             <Input
               v-bind="componentField"
               type="email"
@@ -83,16 +98,25 @@ const submit = handleSubmit(async (values) => {
             />
           </AppFormField>
 
-          <AppFormField v-slot="{ componentField }" name="password" label="Password" required>
+          <AppFormField
+            v-slot="{ componentField }"
+            name="password"
+            :label="translate('Password')"
+            required
+          >
             <Input v-bind="componentField" type="password" autocomplete="current-password" />
           </AppFormField>
 
           <Button class="w-full" type="submit" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Signing in…' : 'Sign in' }}
+            {{ translate(isSubmitting ? 'Signing in…' : 'Sign in') }}
           </Button>
           <div class="flex justify-between text-sm">
-            <RouterLink class="text-primary" :to="{ path: '/register', query: route.query }">Create account</RouterLink>
-            <RouterLink class="text-primary" to="/forgot-password">Forgot password</RouterLink>
+            <RouterLink class="text-primary" :to="{ path: '/register', query: route.query }">{{
+              translate('Create account')
+            }}</RouterLink>
+            <RouterLink class="text-primary" to="/forgot-password">{{
+              translate('Forgot password')
+            }}</RouterLink>
           </div>
         </form>
       </CardContent>

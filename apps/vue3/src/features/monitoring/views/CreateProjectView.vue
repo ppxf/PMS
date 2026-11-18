@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -73,27 +75,33 @@ async function submit(): Promise<void> {
 <template>
   <section class="mx-auto max-w-3xl space-y-6">
     <div>
-      <h2 class="page-title">Create monitoring project</h2>
+      <h2 class="page-title">{{ translate('Create monitoring project') }}</h2>
       <p class="mt-1 text-muted-foreground">
-        Choose the features to enable. This step saves your configuration.
+        {{ translate('Choose the features to enable. This step saves your configuration.') }}
       </p>
     </div>
 
     <form class="space-y-6" @submit.prevent="submit">
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">Framework</CardTitle>
-          <CardDescription>Vue is currently the only supported framework.</CardDescription>
+          <CardTitle class="text-base">{{ translate('Framework') }}</CardTitle>
+          <CardDescription>{{
+            translate('Vue is currently the only supported framework.')
+          }}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium">Vue</div>
+          <div class="rounded-lg border bg-muted/30 px-4 py-3 font-medium">
+            {{ translate('Vue') }}
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle class="text-base">Monitoring features</CardTitle>
-          <CardDescription>These settings are saved in the project configuration.</CardDescription>
+          <CardTitle class="text-base">{{ translate('Monitoring features') }}</CardTitle>
+          <CardDescription>{{
+            translate('These settings are saved in the project configuration.')
+          }}</CardDescription>
         </CardHeader>
         <CardContent class="space-y-3">
           <div
@@ -102,8 +110,8 @@ async function submit(): Promise<void> {
             class="flex items-center justify-between gap-4 rounded-lg border p-4"
           >
             <div>
-              <p class="font-medium">{{ feature.title }}</p>
-              <p class="text-sm text-muted-foreground">{{ feature.description }}</p>
+              <p class="font-medium">{{ translate(feature.title) }}</p>
+              <p class="text-sm text-muted-foreground">{{ translate(feature.description) }}</p>
             </div>
             <Switch
               :data-testid="`${feature.key}-switch`"
@@ -115,22 +123,24 @@ async function submit(): Promise<void> {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">Project name</CardTitle></CardHeader>
+        <CardHeader
+          ><CardTitle class="text-base">{{ translate('Project name') }}</CardTitle></CardHeader
+        >
         <CardContent>
           <Input
             v-model="name"
             name="name"
             required
             minlength="2"
-            placeholder="e.g. Website frontend"
+            :placeholder="translate('e.g. Website frontend')"
           />
         </CardContent>
       </Card>
 
-      <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-sm text-destructive">{{ translate(error) }}</p>
       <div class="flex justify-end">
         <Button :disabled="submitting" type="submit">
-          {{ submitting ? 'Creating…' : 'Create project' }}
+          {{ translate(submitting ? 'Creating…' : 'Create project') }}
         </Button>
       </div>
     </form>

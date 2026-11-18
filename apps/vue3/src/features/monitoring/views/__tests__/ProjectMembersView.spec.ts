@@ -5,8 +5,9 @@ import ProjectMembersView from '../ProjectMembersView.vue'
 
 const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }))
 vi.mock('@/services/http', () => ({ http: { get, post } }))
+vi.mock('@/router', () => ({ navigationLoading: false, navigationRecoveryHref: null }))
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { groupSlug: 'team', projectSlug: 'web' } }),
+  useRoute: () => ({ meta: {}, params: { groupSlug: 'team', projectSlug: 'web' } }),
 }))
 let view: ReturnType<typeof mount> | undefined
 beforeEach(() => {

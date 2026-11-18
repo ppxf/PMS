@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { useProjectAccessStore } from "../model/project-access.store"
+import { translate } from '@/i18n'
+
+import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -73,11 +75,11 @@ onBeforeUnmount(() => {
 <template>
   <section class="space-y-4">
     <header class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-      <h2 class="page-title">Metrics</h2>
+      <h2 class="page-title">{{ translate('Metrics') }}</h2>
       <div class="flex flex-wrap items-center gap-2">
         <FormSelect
           v-model="range"
-          aria-label="Time range"
+          :aria-label="translate('Time range')"
           class="w-36"
           :options="[
             { value: 1, label: 'Last hour' },
@@ -91,26 +93,37 @@ onBeforeUnmount(() => {
         <Button
           variant="outline"
           size="icon"
-          aria-label="Refresh"
-          title="Refresh"
+          :aria-label="translate('Refresh')"
+          :title="translate('Refresh')"
           :disabled="loading"
           @click="refresh"
           ><RefreshCw class="size-4"
         /></Button>
-        <Button aria-label="Add metric" :disabled="!catalog || cards.length >= 5" @click="addMetric"
-          ><Plus class="size-4" />Add metric</Button
+        <Button
+          :aria-label="translate('Add metric')"
+          :disabled="!catalog || cards.length >= 5"
+          @click="addMetric"
+          ><Plus class="size-4" />{{ translate('Add metric') }}</Button
         >
       </div>
     </header>
     <p v-if="catalog && !catalog.enabled" class="text-sm text-amber-700">
-      Custom metric ingestion is disabled for this project. Automatic Web Vitals remain available.
-      <RouterLink v-if="projectAccess.canRoute('project-detail')" :to="{ name: 'project-detail', params: route.params }" class="underline"
-        >Project settings</RouterLink
+      {{
+        translate(
+          'Custom metric ingestion is disabled for this project. Automatic Web Vitals remain available.',
+        )
+      }}
+      <RouterLink
+        v-if="projectAccess.canRoute('project-detail')"
+        :to="{ name: 'project-detail', params: route.params }"
+        class="underline"
+        >{{ translate('Project settings') }}</RouterLink
       >
     </p>
-    <p v-if="loading && !catalog" role="status">Loading metric catalog…</p>
+    <p v-if="loading && !catalog" role="status">{{ translate('Loading metric catalog…') }}</p>
     <p v-if="error" role="alert" class="text-sm text-destructive">
-      {{ error }} <Button variant="outline" @click="refresh">Retry</Button>
+      {{ translate(error) }}
+      <Button variant="outline" @click="refresh">{{ translate('Retry') }}</Button>
     </p>
     <template v-if="catalog">
       <MetricPanel
@@ -121,7 +134,7 @@ onBeforeUnmount(() => {
         :range="range"
         :window="window"
         :initial-index="card.initialIndex"
-        :label="String.fromCharCode(65 + index)"
+        :label="translate(String.fromCharCode(65 + index))"
         :removable="cards.length > 1"
         @remove="removeMetric(card.id)"
       />

@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { Check, X, Info } from '@lucide/vue'
 import { toastMessages, dismissToast } from './toast'
 </script>
 <template>
   <section
     v-if="toastMessages.length"
-    aria-label="Notifications"
+    :aria-label="translate('Notifications')"
     class="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex max-h-[calc(100dvh-2rem)] flex-col gap-3 overflow-y-auto sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[380px]"
   >
     <div
@@ -38,17 +40,17 @@ import { toastMessages, dismissToast } from './toast'
           aria-hidden="true" /><Info v-else class="size-4" aria-hidden="true"
       /></span>
       <div class="min-w-0 flex-1">
-        <p class="break-words text-sm font-semibold leading-6">{{ message.title }}</p>
+        <p class="break-words text-sm font-semibold leading-6">{{ translate(message.title) }}</p>
         <p
           v-if="message.description"
           class="mt-1 break-words text-xs leading-5 text-muted-foreground"
         >
-          {{ message.description }}
+          {{ translate(message.description) }}
         </p>
       </div>
       <button
         type="button"
-        aria-label="Dismiss notification"
+        :aria-label="translate('Dismiss notification')"
         class="-mr-1 -mt-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         @click="dismissToast(message.id)"
       >

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -134,9 +136,9 @@ onMounted(() => action(async () => {}))
         <Users class="size-6 text-primary" />
       </div>
       <div>
-        <h1 class="page-title">Members and invitations</h1>
+        <h1 class="page-title">{{ translate('Members and invitations') }}</h1>
         <p class="mt-2 text-sm text-muted-foreground">
-          Manage who can access this project and what they can view.
+          {{ translate('Manage who can access this project and what they can view.') }}
         </p>
       </div>
     </header>
@@ -145,7 +147,7 @@ onMounted(() => action(async () => {}))
       role="alert"
       class="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
     >
-      {{ error }}
+      {{ translate(error) }}
     </p>
 
     <form
@@ -156,15 +158,17 @@ onMounted(() => action(async () => {}))
       <div class="flex items-center gap-3 border-b bg-muted/20 px-6 py-5">
         <UserPlus class="size-5 text-primary" />
         <div>
-          <h2 class="font-semibold">Invite a member</h2>
+          <h2 class="font-semibold">{{ translate('Invite a member') }}</h2>
           <p class="mt-1 text-sm text-muted-foreground">
-            Send an email invitation with access to selected pages.
+            {{ translate('Send an email invitation with access to selected pages.') }}
           </p>
         </div>
       </div>
       <div class="space-y-6 p-6">
         <div class="max-w-xl space-y-2">
-          <label for="invite-email" class="text-sm font-medium">Email address</label
+          <label for="invite-email" class="text-sm font-medium">{{
+            translate('Email address')
+          }}</label
           ><Input
             id="invite-email"
             v-model="email"
@@ -174,13 +178,13 @@ onMounted(() => action(async () => {}))
             class="h-10"
           />
           <p class="text-xs text-muted-foreground">
-            New users will register and verify their email before joining.
+            {{ translate('New users will register and verify their email before joining.') }}
           </p>
         </div>
         <fieldset>
-          <legend class="mb-1 text-sm font-medium">Page access</legend>
+          <legend class="mb-1 text-sm font-medium">{{ translate('Page access') }}</legend>
           <p class="mb-3 text-xs text-muted-foreground">
-            Choose at least one page. Members receive read-only access.
+            {{ translate('Choose at least one page. Members receive read-only access.') }}
           </p>
           <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <label
@@ -198,7 +202,7 @@ onMounted(() => action(async () => {}))
                 :value="option.value"
                 class="size-4 accent-primary"
                 :disabled="busy"
-              />{{ option.label }}</label
+              />{{ translate(option.label) }}</label
             >
           </div>
         </fieldset>
@@ -207,14 +211,14 @@ onMounted(() => action(async () => {}))
         class="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/20 px-6 py-4"
       >
         <p class="flex items-center gap-2 text-xs text-muted-foreground">
-          <ShieldCheck class="size-4" />Only the project owner can manage access.
+          <ShieldCheck class="size-4" />{{ translate('Only the project owner can manage access.') }}
         </p>
         <Button type="submit" :disabled="busy"
           ><LoaderCircle v-if="busy" class="size-4 animate-spin" aria-hidden="true" /><Send
             v-else
             class="size-4"
           />{{
-            sending ? 'Sending invitation…' : busy ? 'Please wait…' : 'Send invitation'
+            translate(sending ? 'Sending invitation…' : busy ? 'Please wait…' : 'Send invitation')
           }}</Button
         >
       </footer>
@@ -224,20 +228,20 @@ onMounted(() => action(async () => {}))
       <header class="flex items-center justify-between border-b px-6 py-5">
         <div class="flex items-center gap-2.5">
           <Users class="size-4 text-muted-foreground" />
-          <h2 class="font-semibold">Project members</h2>
+          <h2 class="font-semibold">{{ translate('Project members') }}</h2>
           <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{{
             members.length
           }}</span>
         </div>
-        <span class="text-xs text-muted-foreground">Active project access</span>
+        <span class="text-xs text-muted-foreground">{{ translate('Active project access') }}</span>
       </header>
       <div v-if="!members.length" class="flex flex-col items-center gap-2 px-6 py-10 text-center">
         <div class="mb-1 rounded-full bg-muted p-3">
           <Users class="size-5 text-muted-foreground" />
         </div>
-        <p class="text-sm font-medium">No members to display</p>
+        <p class="text-sm font-medium">{{ translate('No members to display') }}</p>
         <p class="text-xs text-muted-foreground">
-          Accepted invitations will appear here as project members.
+          {{ translate('Accepted invitations will appear here as project members.') }}
         </p>
       </div>
       <article
@@ -262,18 +266,20 @@ onMounted(() => action(async () => {}))
                 ? 'border-primary/20 bg-primary/5 text-primary'
                 : 'bg-muted text-muted-foreground'
             "
-            >{{ member.role === 'owner' ? 'Owner' : 'Member' }}</span
+            >{{ translate(member.role === 'owner' ? 'Owner' : 'Member') }}</span
           >
         </div>
         <p
           v-if="member.role === 'owner'"
           class="flex items-center gap-2 text-xs text-muted-foreground"
         >
-          <ShieldCheck class="size-4" />Full access to all pages, settings and member management.
+          <ShieldCheck class="size-4" />{{
+            translate('Full access to all pages, settings and member management.')
+          }}
         </p>
         <template v-else
           ><fieldset class="flex flex-wrap gap-x-5 gap-y-3">
-            <legend class="sr-only">Permissions for {{ member.email }}</legend>
+            <legend class="sr-only">{{ translate('Permissions for') }} {{ member.email }}</legend>
             <label
               v-for="option in options"
               :key="option.value"
@@ -284,7 +290,7 @@ onMounted(() => action(async () => {}))
                 :value="option.value"
                 class="size-4 accent-primary"
                 :disabled="busy"
-              />{{ option.label }}</label
+              />{{ translate(option.label) }}</label
             >
           </fieldset>
           <div class="flex gap-2">
@@ -299,14 +305,14 @@ onMounted(() => action(async () => {}))
                   }),
                 )
               "
-              >Save permissions</Button
+              >{{ translate('Save permissions') }}</Button
             ><Button
               size="sm"
               variant="ghost"
               class="text-destructive hover:bg-destructive/5 hover:text-destructive"
               :disabled="busy"
               @click="action(() => http.delete(`${base}/members/${member.userId}`))"
-              >Remove member</Button
+              >{{ translate('Remove member') }}</Button
             >
           </div></template
         >
@@ -317,12 +323,12 @@ onMounted(() => action(async () => {}))
       <header class="flex items-center justify-between border-b px-6 py-5">
         <div class="flex items-center gap-2.5">
           <Mail class="size-4 text-muted-foreground" />
-          <h2 class="font-semibold">Invitation history</h2>
+          <h2 class="font-semibold">{{ translate('Invitation history') }}</h2>
           <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{{
             invitations.length
           }}</span>
         </div>
-        <span class="text-xs text-muted-foreground">Sent email invitations</span>
+        <span class="text-xs text-muted-foreground">{{ translate('Sent email invitations') }}</span>
       </header>
       <div
         v-if="!invitations.length"
@@ -331,9 +337,9 @@ onMounted(() => action(async () => {}))
         <div class="mb-1 rounded-full bg-muted p-3">
           <Mail class="size-5 text-muted-foreground" />
         </div>
-        <p class="text-sm font-medium">No invitations yet</p>
+        <p class="text-sm font-medium">{{ translate('No invitations yet') }}</p>
         <p class="text-xs text-muted-foreground">
-          Invite a colleague using the form above to get started.
+          {{ translate('Invite a colleague using the form above to get started.') }}
         </p>
       </div>
       <article
@@ -352,17 +358,19 @@ onMounted(() => action(async () => {}))
                   : 'bg-muted text-muted-foreground'
               "
               >{{
-                invitation.acceptedAt
-                  ? 'Accepted'
-                  : invitation.revokedAt
-                    ? 'Revoked'
-                    : new Date(invitation.expiresAt).getTime() < Date.now()
-                      ? 'Expired'
-                      : 'Pending'
+                translate(
+                  invitation.acceptedAt
+                    ? 'Accepted'
+                    : invitation.revokedAt
+                      ? 'Revoked'
+                      : new Date(invitation.expiresAt).getTime() < Date.now()
+                        ? 'Expired'
+                        : 'Pending',
+                )
               }}</span
-            ><span v-if="invitation.deliveryStatus === 'failed'" class="text-xs text-destructive"
-              >Email delivery failed</span
-            >
+            ><span v-if="invitation.deliveryStatus === 'failed'" class="text-xs text-destructive">{{
+              translate('Email delivery failed')
+            }}</span>
           </div>
           <div class="flex flex-wrap gap-1.5">
             <span
@@ -370,12 +378,14 @@ onMounted(() => action(async () => {}))
               :key="permission"
               class="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
               >{{
-                options.find((option) => option.value === permission)?.label || permission
+                translate(
+                  options.find((option) => option.value === permission)?.label || permission,
+                )
               }}</span
             >
           </div>
           <p class="text-xs text-muted-foreground">
-            Expires {{ formatDateTime(invitation.expiresAt) }}
+            {{ translate('Expires') }} {{ formatDateTime(invitation.expiresAt) }}
           </p>
         </div>
         <div class="flex gap-2">
@@ -384,14 +394,14 @@ onMounted(() => action(async () => {}))
             variant="outline"
             :disabled="busy"
             @click="action(() => http.post(`${base}/invitations/${invitation.id}/resend`, {}))"
-            >Resend</Button
+            >{{ translate('Resend') }}</Button
           ><Button
             size="sm"
             variant="ghost"
             class="text-destructive hover:bg-destructive/5 hover:text-destructive"
             :disabled="busy"
             @click="action(() => http.post(`${base}/invitations/${invitation.id}/revoke`, {}))"
-            >Revoke</Button
+            >{{ translate('Revoke') }}</Button
           >
         </div>
       </article>

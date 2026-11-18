@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { computed, ref } from 'vue'
 import { ChevronDown, Check } from '@lucide/vue'
 import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from 'reka-ui'
@@ -22,13 +24,15 @@ const selected = computed(() =>
 )
 const visible = computed(() =>
   props.options.filter((option) =>
-    option.label.toLowerCase().includes(search.value.trim().toLowerCase()),
+    `${option.label} ${translate(option.label)}`
+      .toLowerCase()
+      .includes(search.value.trim().toLowerCase()),
   ),
 )
 const display = computed(
   () =>
     selected.value
-      .map((key) => props.options.find((option) => option.key === key)?.label ?? key)
+      .map((key) => translate(props.options.find((option) => option.key === key)?.label ?? key))
       .join(', ') ||
     props.placeholder ||
     'None',
@@ -77,12 +81,14 @@ function moveFocus(event: KeyboardEvent) {
       <button
         type="button"
         role="combobox"
-        :aria-label="label"
+        :aria-label="translate(label)"
         aria-haspopup="dialog"
         :aria-expanded="open"
         :class="[controlStyles, 'flex w-full items-center justify-between gap-2']"
       >
-        <span class="min-w-0 truncate">{{ multiple ? 'Group by: ' : '' }}{{ display }}</span>
+        <span class="min-w-0 truncate"
+          >{{ translate(multiple ? 'Group by: ' : '') }}{{ translate(display) }}</span
+        >
         <ChevronDown class="size-4 shrink-0 text-muted-foreground" />
       </button>
     </PopoverTrigger>
@@ -91,19 +97,19 @@ function moveFocus(event: KeyboardEvent) {
         data-slot="picker-content"
         align="start"
         :side-offset="4"
-        :aria-label="label"
+        :aria-label="translate(label)"
         :class="[
           menuStyles,
           'w-[var(--reka-popover-trigger-width)] min-w-64 max-w-[calc(100vw-2rem)] p-2 max-h-[var(--reka-popover-content-available-height)] overflow-y-auto',
         ]"
         @keydown="moveFocus"
       >
-        <p v-if="title" class="px-1 pb-2 text-xs font-semibold">{{ title }}</p>
+        <p v-if="title" class="px-1 pb-2 text-xs font-semibold">{{ translate(title) }}</p>
         <Input
           v-model="search"
           type="search"
-          :aria-label="searchLabel"
-          placeholder="Search…"
+          :aria-label="translate(searchLabel)"
+          :placeholder="translate('Search…')"
           class="w-full"
         />
         <button
@@ -112,23 +118,25 @@ function moveFocus(event: KeyboardEvent) {
           :class="[optionStyles, 'mt-1']"
           @click="emit('update:modelValue', [])"
         >
-          None · Clear groups
+          {{ translate('None · Clear groups') }}
         </button>
         <div
           class="mt-1 max-h-72 overflow-y-auto"
           :role="multiple ? 'group' : 'listbox'"
-          :aria-label="label"
+          :aria-label="translate(label)"
         >
           <template v-for="option in visible" :key="option.key">
             <label v-if="multiple" :class="[optionStyles, 'cursor-pointer']">
               <input
                 type="checkbox"
-                :aria-label="`Group by ${option.label}`"
+                :aria-label="translate(`Group by ${option.label}`)"
                 :checked="selected.includes(option.key)"
                 :disabled="!selected.includes(option.key) && selected.length >= 5"
                 @change="choose(option.key)"
               />
-              <span class="min-w-0 flex-1 truncate" :title="option.label">{{ option.label }}</span>
+              <span class="min-w-0 flex-1 truncate" :title="translate(option.label)">{{
+                translate(option.label)
+              }}</span>
               <span
                 class="text-xs"
                 :class="option.type === 'number' ? 'text-amber-700' : 'text-violet-600'"
@@ -151,7 +159,9 @@ function moveFocus(event: KeyboardEvent) {
                 class="absolute right-2 size-4 shrink-0"
                 :class="selected.includes(option.key) ? '' : 'invisible'"
               />
-              <span class="min-w-0 flex-1 truncate" :title="option.label">{{ option.label }}</span>
+              <span class="min-w-0 flex-1 truncate" :title="translate(option.label)">{{
+                translate(option.label)
+              }}</span>
               <span class="rounded bg-violet-500/10 px-1.5 text-xs text-violet-600">{{
                 option.type
               }}</span>
@@ -163,11 +173,11 @@ function moveFocus(event: KeyboardEvent) {
             </button>
           </template>
           <p v-if="!visible.length" class="px-2 py-4 text-sm text-muted-foreground">
-            No matching options
+            {{ translate('No matching options') }}
           </p>
         </div>
         <p v-if="multiple" class="px-2 pt-2 text-xs text-muted-foreground">
-          Select up to 5 group fields
+          {{ translate('Select up to 5 group fields') }}
         </p>
       </PopoverContent>
     </PopoverPortal>

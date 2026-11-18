@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n'
 import type { Span } from './traces'
 import type { VitalSample } from './web-vitals'
 
@@ -42,19 +43,23 @@ export function spanCategory(op: string) {
 
 const numberLabel = (value: unknown, unit: string) =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`
+    ? `${value.toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} ${unit}`
     : 'Unavailable'
 
 export function resourceDetails(span: Pick<Span, 'attributes'> & Partial<Span>) {
   const attributes = span.attributes
   const available = attributes['resource.timing_available']
+  const scalarText = (value: unknown) =>
+    typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+      ? String(value)
+      : 'Unavailable'
   return [
     {
       label: 'Resource URL',
-      value: String(attributes['resource.url'] ?? span.name ?? 'Unavailable'),
+      value: scalarText(attributes['resource.url'] ?? span.name),
     },
-    { label: 'Initiator', value: String(attributes['resource.initiator_type'] ?? 'Unavailable') },
-    { label: 'Protocol', value: String(attributes['network.protocol'] ?? 'Unavailable') },
+    { label: 'Initiator', value: scalarText(attributes['resource.initiator_type']) },
+    { label: 'Protocol', value: scalarText(attributes['network.protocol']) },
     {
       label: 'Timing access',
       value: available === true ? 'Available' : available === false ? 'Unavailable' : 'Unknown',

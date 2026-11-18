@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/lib/date-time'
 import { beforeEach as beforeProjectAccessTest } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useProjectAccessStore } from '../../model/project-access.store'
@@ -272,7 +273,7 @@ describe('project issue views', () => {
       'Automatically resolved after 7 days without recurrence',
     )
     expect(detail.get('[data-testid="resolution-summary"]').text()).toContain(
-      new Date(resolvedIssue.resolvedAt).toLocaleString('en-US'),
+      formatDateTime(resolvedIssue.resolvedAt),
     )
   })
 
@@ -400,10 +401,10 @@ describe('project issue views', () => {
     expect(wrapper.text()).toContain('2 events')
     expect(wrapper.get('[data-testid="issue-status"]').text()).toBe('Unresolved')
     expect(wrapper.get('[data-testid="first-seen-at"]').text()).toBe(
-      new Date(issue.firstSeenAt).toLocaleString('en-US'),
+      formatDateTime(issue.firstSeenAt),
     )
     expect(wrapper.get('[data-testid="last-seen-at"]').text()).toBe(
-      new Date(issue.lastSeenAt).toLocaleString('en-US'),
+      formatDateTime(issue.lastSeenAt),
     )
     expect(wrapper.text()).toContain('https://example.com/dashboard')
     expect(wrapper.text()).toContain('vue')
@@ -421,7 +422,7 @@ describe('project issue views', () => {
     expect(wrapper.text()).toContain('component')
     expect(wrapper.text()).toContain('App')
     const stack = wrapper.get('pre')
-    expect(stack.classes()).toContain('whitespace-pre-wrap')
+    expect(stack.classes()).toContain('code-block')
     expect(stack.text()).toBe(event.stacktrace)
     expect(wrapper.text()).toContain('Recent events')
     expect(wrapper.text()).toContain('Chrome')

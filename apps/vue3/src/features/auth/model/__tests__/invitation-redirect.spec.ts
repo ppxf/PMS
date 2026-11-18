@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { rememberInvitationRedirect, getInvitationRedirect, clearInvitationRedirect } from '../invitation-redirect'
+import {
+  rememberInvitationRedirect,
+  getInvitationRedirect,
+  clearInvitationRedirect,
+} from '../invitation-redirect'
 const path = `/project-invitations/accept?token=${'a'.repeat(43)}`
 describe('invitation continuation', () => {
-  beforeEach(() => { localStorage.clear(); vi.useRealTimers() })
+  beforeEach(() => {
+    localStorage.clear()
+    vi.useRealTimers()
+  })
   it('restores the invitation after registration and verification in another tab', () => {
     rememberInvitationRedirect(path)
     expect(getInvitationRedirect()).toBe(path)

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import QuerySearchBar from '../components/QuerySearchBar.vue'
 import { computed, nextTick, ref } from 'vue'
 import { X } from '@lucide/vue'
@@ -77,7 +79,7 @@ function add() {
       }))
     "
     :active-field="key"
-    :label="`${label} search`"
+    :label="translate(`${label} search`)"
     :compact="compact"
     :suggestions="suggestions"
     @select="selectQueryField"
@@ -96,7 +98,7 @@ function add() {
           >
           <button
             type="button"
-            :aria-label="`Remove ${label} condition ${index + 1}`"
+            :aria-label="translate(`Remove ${label} condition ${index + 1}`)"
             @click="update(modelValue.filter((_, i) => i !== index))"
           >
             <X class="size-3" />
@@ -105,5 +107,5 @@ function add() {
       </div>
     </template>
   </QuerySearchBar>
-  <p v-if="error" role="alert" class="text-xs text-destructive">{{ error }}</p>
+  <p v-if="error" role="alert" class="text-xs text-destructive">{{ translate(error) }}</p>
 </template>

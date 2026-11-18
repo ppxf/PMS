@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
-import { useProjectAccessStore } from "../model/project-access.store"
+import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -130,9 +132,9 @@ onBeforeUnmount(() => {
   <section class="space-y-6">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 class="page-title">Profiles</h1>
+        <h1 class="page-title">{{ translate('Profiles') }}</h1>
         <p class="mt-1 text-sm text-muted-foreground">
-          Find expensive browser functions from sampled call stacks.
+          {{ translate('Find expensive browser functions from sampled call stacks.') }}
         </p>
       </div>
     </header>
@@ -142,19 +144,19 @@ onBeforeUnmount(() => {
       @submit.prevent="apply"
     >
       <label class="flex w-44 flex-col gap-2 text-xs text-muted-foreground">
-        <span>Time range</span>
+        <span>{{ translate('Time range') }}</span>
         <FormSelect
           v-model="timeRange"
-          aria-label="Time range"
+          :aria-label="translate('Time range')"
           :options="ranges"
           @change="apply"
         />
       </label>
       <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
-        <span>Environment</span>
+        <span>{{ translate('Environment') }}</span>
         <FormSelect
           v-model="environment"
-          aria-label="Environment"
+          :aria-label="translate('Environment')"
           :options="environments"
           @change="apply"
         />
@@ -174,39 +176,44 @@ onBeforeUnmount(() => {
           <Input
             v-model="search"
             form="profiles-filters"
-            aria-label="Search profiles"
-            placeholder="Search transactions and profile names…"
+            :aria-label="translate('Search profiles')"
+            :placeholder="translate('Search transactions and profile names…')"
             class="bg-background"
-          /><Button type="submit" form="profiles-filters" variant="outline">Search</Button>
+          /><Button type="submit" form="profiles-filters" variant="outline">{{
+            translate('Search')
+          }}</Button>
         </div></template
       >
-      <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-sm text-destructive">{{ translate(error) }}</p>
       <div class="table-surface" :aria-busy="loading">
         <table class="app-table">
           <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th class="p-3">Profile</th>
-              <th class="p-3">Started</th>
-              <th class="p-3">Duration</th>
-              <th class="p-3">Samples</th>
-              <th class="p-3">Environment</th>
-              <th class="p-3">Release</th>
+              <th class="p-3">{{ translate('Profile') }}</th>
+              <th class="p-3">{{ translate('Started') }}</th>
+              <th class="p-3">{{ translate('Duration') }}</th>
+              <th class="p-3">{{ translate('Samples') }}</th>
+              <th class="p-3">{{ translate('Environment') }}</th>
+              <th class="p-3">{{ translate('Release') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in items" :key="item.profileId" class="border-b last:border-0">
               <td class="max-w-80 break-all p-3">
-                <RouterLink v-if="projectAccess.canRoute('project-profiles-setup')"
+                <RouterLink
+                  v-if="projectAccess.canRoute('project-profiles-setup')"
                   class="font-medium hover:underline"
                   :to="{
                     name: 'project-profile-detail',
                     params: { groupSlug: group, projectSlug: project, profileId: item.profileId },
                   }"
                   >{{ item.name }}</RouterLink
-                ><span v-if="item.truncated" class="ml-2 text-xs text-amber-700">Truncated</span>
+                ><span v-if="item.truncated" class="ml-2 text-xs text-amber-700">{{
+                  translate('Truncated')
+                }}</span>
               </td>
               <td class="whitespace-nowrap p-3">{{ formatDateTime(item.startedAt) }}</td>
-              <td class="p-3">{{ item.durationMs.toFixed(2) }} ms</td>
+              <td class="p-3">{{ item.durationMs.toFixed(2) }} {{ translate('ms') }}</td>
               <td class="p-3">{{ item.sampleCount }}</td>
               <td class="p-3">{{ item.environment ?? '—' }}</td>
               <td class="max-w-48 break-all p-3">{{ item.release ?? '—' }}</td>
@@ -214,21 +221,22 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
         <p v-if="loading" role="status" class="p-12 text-center text-sm text-muted-foreground">
-          Loading profiles…
+          {{ translate('Loading profiles…') }}
         </p>
         <EmptyState
           v-else-if="!error && !items.length"
           class="min-h-52 p-8"
-          title="No profiles found."
-          description="Adjust your filters or follow the setup instructions."
+          :title="translate('No profiles found.')"
+          :description="translate('Adjust your filters or follow the setup instructions.')"
         >
-          <RouterLink v-if="projectAccess.canRoute('project-profiles-setup')"
+          <RouterLink
+            v-if="projectAccess.canRoute('project-profiles-setup')"
             class="text-xs text-violet-600 hover:underline"
             :to="{
               name: 'project-profiles-setup',
               params: { groupSlug: group, projectSlug: project },
             }"
-            >Profiles setup instructions</RouterLink
+            >{{ translate('Profiles setup instructions') }}</RouterLink
           >
         </EmptyState>
       </div>
@@ -238,7 +246,7 @@ onBeforeUnmount(() => {
         :page-size="20"
         :busy="loading"
         unit="profiles"
-        label="Profiles pagination"
+        :label="translate('Profiles pagination')"
         @change="changePage($event - page)"
       />
     </ProfilesExplorer>

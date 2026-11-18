@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError } from '@/services/http'
 import { useAuthStore } from '../../model/auth.store'
 import LoginView from '../LoginView.vue'
+import { setLocale } from '@/i18n'
+import { nextTick } from 'vue'
 
 const { login } = vi.hoisted(() => ({
   login: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
@@ -43,6 +45,32 @@ async function submitValidForm(wrapper: Awaited<ReturnType<typeof mountLogin>>['
 }
 
 describe('LoginView', () => {
+  it('updates existing validation errors and labels without clearing entered credentials', async () => {
+    const { wrapper } = await mountLogin('/login')
+    try {
+      await wrapper.get('input[name="email"]').setValue('invalid-email')
+      await wrapper.get('input[name="password"]').setValue('short')
+      await wrapper.get('form').trigger('submit')
+      await vi.waitFor(() => expect(wrapper.text()).toContain('Enter a valid email address'))
+      setLocale('zh-CN')
+      await nextTick()
+      expect(wrapper.text()).toContain('登录 PMS')
+      expect(wrapper.text()).toContain('请输入有效的邮箱地址')
+      expect(wrapper.text()).toContain('密码至少需要 8 个字符')
+      expect((wrapper.get('input[name="email"]').element as HTMLInputElement).value).toBe(
+        'invalid-email',
+      )
+      expect((wrapper.get('input[name="password"]').element as HTMLInputElement).value).toBe(
+        'short',
+      )
+      setLocale('en')
+      await nextTick()
+      expect(wrapper.text()).toContain('Enter a valid email address')
+    } finally {
+      setLocale('en')
+      wrapper.unmount()
+    }
+  })
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()

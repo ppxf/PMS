@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { getInvitationRedirect } from "../model/invitation-redirect"
+import { translate } from '@/i18n'
+
+import { getInvitationRedirect } from '../model/invitation-redirect'
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { verifyEmail } from '@/features/auth/api/auth.api'
@@ -27,10 +29,14 @@ onMounted(async () => {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="page-title">Verify email</h1>
-      <p v-if="message" role="status">{{ message }}</p>
-      <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
-      <RouterLink :to="{ path: '/login', query: invitationRedirect ? { redirect: invitationRedirect } : {} }" class="text-sm text-primary">Go to sign in</RouterLink>
+      <h1 class="page-title">{{ translate('Verify email') }}</h1>
+      <p v-if="message" role="status">{{ translate(message) }}</p>
+      <p v-if="error" role="alert" class="text-destructive">{{ translate(error) }}</p>
+      <RouterLink
+        :to="{ path: '/login', query: invitationRedirect ? { redirect: invitationRedirect } : {} }"
+        class="text-sm text-primary"
+        >{{ translate('Go to sign in') }}</RouterLink
+      >
     </section>
   </main>
 </template>

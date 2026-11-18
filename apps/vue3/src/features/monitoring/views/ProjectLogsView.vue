@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
-import { useProjectAccessStore } from "../model/project-access.store"
+import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -287,11 +289,11 @@ onBeforeUnmount(() => {
 <template>
   <section class="logs-view min-w-0 space-y-4">
     <header class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-      <h2 class="page-title">Logs</h2>
+      <h2 class="page-title">{{ translate('Logs') }}</h2>
       <div class="flex items-center gap-2">
         <FormSelect
           v-model="range"
-          aria-label="Time range"
+          :aria-label="translate('Time range')"
           @change="load()"
           :options="[
             { value: 1, label: 'Last hour' },
@@ -303,16 +305,16 @@ onBeforeUnmount(() => {
         /><Button
           variant="outline"
           size="icon"
-          title="Refresh"
-          aria-label="Refresh"
+          :title="translate('Refresh')"
+          :aria-label="translate('Refresh')"
           :disabled="loading"
           @click="refresh"
           ><RefreshCw class="size-4" /></Button
         ><Button
           variant="outline"
           size="icon"
-          title="Export current log page"
-          aria-label="Export current log page"
+          :title="translate('Export current log page')"
+          :aria-label="translate('Export current log page')"
           :disabled="!result?.items.length"
           @click="exportCsv"
           ><Download class="size-4"
@@ -320,19 +322,22 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <p v-if="fields && !fields.enabled" class="text-sm text-amber-700">
-      Log ingestion is disabled for this project.
-      <RouterLink v-if="projectAccess.canRoute('project-detail')" :to="{ name: 'project-detail', params: route.params }" class="underline"
-        >Project settings</RouterLink
+      {{ translate('Log ingestion is disabled for this project.') }}
+      <RouterLink
+        v-if="projectAccess.canRoute('project-detail')"
+        :to="{ name: 'project-detail', params: route.params }"
+        class="underline"
+        >{{ translate('Project settings') }}</RouterLink
       >
     </p>
     <LogConditionBuilder
       v-model="conditions"
       :fields="availableFields"
       :suggestions="querySuggestions(availableFields, result?.items ?? [])"
-      label="Log filters"
+      :label="translate('Log filters')"
       @change="load()"
     />
-    <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+    <p v-if="error" role="alert" class="text-sm text-destructive">{{ translate(error) }}</p>
     <div class="flex min-w-0 flex-col gap-4 lg:flex-row">
       <aside
         class="shrink-0 space-y-4 rounded-lg border bg-card p-3"
@@ -342,7 +347,9 @@ onBeforeUnmount(() => {
           variant="ghost"
           size="icon-sm"
           :aria-label="
-            collapsed ? 'Expand visualization controls' : 'Collapse visualization controls'
+            translate(
+              collapsed ? 'Expand visualization controls' : 'Collapse visualization controls',
+            )
           "
           @click="collapsed = !collapsed"
           ><ChevronRight v-if="collapsed" class="size-4" /><ChevronLeft v-else class="size-4"
@@ -351,31 +358,32 @@ onBeforeUnmount(() => {
           <div v-for="(v, index) in visualizations" :key="index" class="space-y-3 border-b pb-4">
             <div class="flex items-center justify-between">
               <h3 class="font-semibold">
-                Visualize {{ visualizations.length > 1 ? index + 1 : '' }}
+                {{ translate('Visualize') }}
+                {{ translate(visualizations.length > 1 ? index + 1 : '') }}
               </h3>
               <Button
                 v-if="visualizations.length > 1"
                 variant="outline"
-                :aria-label="`Remove chart ${index + 1}`"
+                :aria-label="translate(`Remove chart ${index + 1}`)"
                 @click="removeChart(index)"
-                >Remove</Button
+                >{{ translate('Remove') }}</Button
               >
             </div>
             <FormSelect
               v-model="v.aggregate"
-              :aria-label="`Aggregate ${index + 1}`"
+              :aria-label="translate(`Aggregate ${index + 1}`)"
               :options="LOG_AGGREGATES.map((value) => ({ value, label: value.replace('_', ' ') }))"
               @change="changeAggregate(v)"
             />
             <LogFieldPicker
               v-model="v.field"
               :fields="aggregateFields(v)"
-              :label="`Chart field ${index + 1}`"
+              :label="translate(`Chart field ${index + 1}`)"
               @change="load()"
             />
             <details>
               <summary class="cursor-pointer text-xs text-muted-foreground">
-                Filter logs for this series
+                {{ translate('Filter logs for this series') }}
               </summary>
               <div class="mt-3">
                 <LogConditionBuilder
@@ -383,20 +391,20 @@ onBeforeUnmount(() => {
                   compact
                   :fields="availableFields"
                   :suggestions="querySuggestions(availableFields, result?.items ?? [])"
-                  :label="`Series ${index + 1}`"
+                  :label="translate(`Series ${index + 1}`)"
                   @change="load()"
                 />
               </div>
             </details>
           </div>
-          <Button v-if="visualizations.length < 3" variant="outline" @click="addChart"
-            >Add chart</Button
-          >
-          <section aria-label="Group by" class="space-y-5">
-            <h3 class="font-semibold">Group by</h3>
+          <Button v-if="visualizations.length < 3" variant="outline" @click="addChart">{{
+            translate('Add chart')
+          }}</Button>
+          <section :aria-label="translate('Group by')" class="space-y-5">
+            <h3 class="font-semibold">{{ translate('Group by') }}</h3>
             <div v-for="(v, index) in visualizations" :key="index" class="space-y-3">
               <h4 v-if="visualizations.length > 1" class="text-xs text-muted-foreground">
-                Chart {{ index + 1 }}
+                {{ translate('Chart') }} {{ index + 1 }}
               </h4>
               <div
                 v-for="i in v.groupBy.length + Number(Boolean(v.addingGroup))"
@@ -405,8 +413,8 @@ onBeforeUnmount(() => {
               >
                 <FormSelect
                   :model-value="v.groupBy[i - 1]"
-                  :aria-label="`Group ${index + 1}.${i}`"
-                  placeholder="Select a field"
+                  :aria-label="translate(`Group ${index + 1}.${i}`)"
+                  :placeholder="translate('Select a field')"
                   :options="
                     availableFields.map(({ key }) => ({
                       value: key,
@@ -418,9 +426,9 @@ onBeforeUnmount(() => {
                 />
                 <Button
                   variant="outline"
-                  :aria-label="`Remove group ${index + 1}.${i}`"
+                  :aria-label="translate(`Remove group ${index + 1}.${i}`)"
                   @click="removeGroup(v, i - 1)"
-                  >Remove group</Button
+                  >{{ translate('Remove group') }}</Button
                 >
               </div>
               <Button
@@ -428,10 +436,10 @@ onBeforeUnmount(() => {
                 variant="outline"
                 :disabled="!availableFields.some(({ key }) => !v.groupBy.includes(key))"
                 @click="v.addingGroup = true"
-                >Add group</Button
+                >{{ translate('Add group') }}</Button
               >
               <p v-if="v.groupBy.length" class="text-xs text-muted-foreground">
-                Showing up to 20 groups by log count.
+                {{ translate('Showing up to 20 groups by log count.') }}
               </p>
             </div>
           </section>
@@ -439,18 +447,18 @@ onBeforeUnmount(() => {
       </aside>
       <main class="min-w-0 flex-1 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
-          <span>{{ result?.total ?? 0 }} logs</span>
+          <span>{{ result?.total ?? 0 }} {{ translate('logs') }}</span>
           <div class="flex gap-2">
             <FormSelect
               v-model="chartType"
-              aria-label="Chart type"
+              :aria-label="translate('Chart type')"
               :options="[
                 { value: 'bar', label: 'Bar' },
                 { value: 'line', label: 'Line' },
               ]"
             /><FormSelect
               v-model="interval"
-              aria-label="Interval"
+              :aria-label="translate('Interval')"
               @change="load()"
               :options="[
                 { value: 0, label: 'Auto interval' },
@@ -469,7 +477,7 @@ onBeforeUnmount(() => {
           :aria-busy="loading"
         >
           <h3 class="px-4 pt-3 text-sm font-semibold">
-            {{ logVisualizationTitle(v) }}
+            {{ translate(logVisualizationTitle(v)) }}
           </h3>
           <div class="h-52 min-w-0">
             <p
@@ -477,7 +485,7 @@ onBeforeUnmount(() => {
               role="status"
               class="grid h-full place-items-center text-sm text-muted-foreground"
             >
-              Loading...
+              {{ translate('Loading...') }}
             </p>
             <VChart
               v-else-if="result?.charts?.[index]?.groups.length"
@@ -489,13 +497,17 @@ onBeforeUnmount(() => {
               v-else-if="error"
               class="grid h-full place-items-center text-sm text-muted-foreground"
             >
-              Query not completed
+              {{ translate('Query not completed') }}
             </p>
-            <EmptyState v-else class="h-full" title="No logs match this series" />
+            <EmptyState v-else class="h-full" :title="translate('No logs match this series')" />
           </div>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-3 border-b">
-          <div class="flex gap-1 overflow-x-auto" role="tablist" aria-label="Log results">
+          <div
+            class="flex gap-1 overflow-x-auto"
+            role="tablist"
+            :aria-label="translate('Log results')"
+          >
             <button
               v-for="tab in ['logs', 'aggregates']"
               :key="tab"
@@ -505,27 +517,30 @@ onBeforeUnmount(() => {
               class="monitoring-tab capitalize"
               @click="activeTab = tab"
             >
-              {{ tab }}
+              {{ translate(tab) }}
             </button>
           </div>
           <label class="inline-flex items-center gap-2 text-sm"
-            ><input v-model="autoRefresh" type="checkbox" aria-label="Auto refresh" />Auto
-            refresh</label
+            ><input
+              v-model="autoRefresh"
+              type="checkbox"
+              :aria-label="translate('Auto refresh')"
+            />{{ translate('Auto refresh') }}</label
           >
           <PopoverRoot>
             <PopoverTrigger as-child>
               <button
                 type="button"
-                aria-label="Columns"
+                :aria-label="translate('Columns')"
                 class="flex cursor-pointer items-center gap-1"
                 :class="controlStyles"
               >
-                <Columns3 class="size-4" />Columns
+                <Columns3 class="size-4" />{{ translate('Columns') }}
               </button>
             </PopoverTrigger>
             <PopoverPortal>
               <PopoverContent
-                aria-label="Columns"
+                :aria-label="translate('Columns')"
                 align="end"
                 :side-offset="4"
                 class="flex min-w-40 max-w-[calc(100vw-2rem)] flex-col gap-2 p-3 text-sm"
@@ -535,17 +550,20 @@ onBeforeUnmount(() => {
                   ><input
                     v-model="showEnvironment"
                     type="checkbox"
-                    aria-label="Show environment"
-                  />Environment</label
+                    :aria-label="translate('Show environment')"
+                  />{{ translate('Environment') }}</label
                 ><label class="flex items-center gap-2"
-                  ><input v-model="showTrace" type="checkbox" aria-label="Show trace ID" />Trace
-                  ID</label
+                  ><input
+                    v-model="showTrace"
+                    type="checkbox"
+                    :aria-label="translate('Show trace ID')"
+                  />{{ translate('Trace ID') }}</label
                 ><label class="flex items-center gap-2"
                   ><input
                     v-model="showAttributes"
                     type="checkbox"
-                    aria-label="Show attributes"
-                  />Attributes</label
+                    :aria-label="translate('Show attributes')"
+                  />{{ translate('Attributes') }}</label
                 >
               </PopoverContent>
             </PopoverPortal>
@@ -555,9 +573,9 @@ onBeforeUnmount(() => {
           <table class="app-table">
             <thead>
               <tr>
-                <th>Chart</th>
-                <th>Group</th>
-                <th>Value</th>
+                <th>{{ translate('Chart') }}</th>
+                <th>{{ translate('Group') }}</th>
+                <th>{{ translate('Value') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -579,7 +597,7 @@ onBeforeUnmount(() => {
           <EmptyState
             v-if="!loading && !error && !result?.charts?.some((c) => c.groups.length)"
             class="p-6"
-            title="No aggregate results"
+            :title="translate('No aggregate results')"
           />
         </div>
         <div v-else class="table-surface">
@@ -592,18 +610,23 @@ onBeforeUnmount(() => {
             <thead>
               <tr>
                 <th class="w-44" :aria-sort="sortDirection === 'desc' ? 'descending' : 'ascending'">
-                  <button class="flex items-center gap-1" aria-label="Sort by time" @click="sort">
-                    Timestamp<ArrowDown v-if="sortDirection === 'desc'" class="size-3" /><ArrowUp
+                  <button
+                    class="flex items-center gap-1"
+                    :aria-label="translate('Sort by time')"
+                    @click="sort"
+                  >
+                    {{ translate('Timestamp')
+                    }}<ArrowDown v-if="sortDirection === 'desc'" class="size-3" /><ArrowUp
                       v-else
                       class="size-3"
                     />
                   </button>
                 </th>
-                <th class="w-20">Level</th>
-                <th>Message</th>
-                <th v-if="showEnvironment" class="w-36">Environment</th>
-                <th v-if="showTrace" class="w-72">Trace ID</th>
-                <th v-if="showAttributes" class="w-64">Attributes</th>
+                <th class="w-20">{{ translate('Level') }}</th>
+                <th>{{ translate('Message') }}</th>
+                <th v-if="showEnvironment" class="w-36">{{ translate('Environment') }}</th>
+                <th v-if="showTrace" class="w-72">{{ translate('Trace ID') }}</th>
+                <th v-if="showAttributes" class="w-64">{{ translate('Attributes') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -625,7 +648,7 @@ onBeforeUnmount(() => {
                   <td>
                     <button
                       class="flex w-full items-start gap-1 text-left"
-                      :aria-label="`View log ${log.logId}`"
+                      :aria-label="translate(`View log ${log.logId}`)"
                       :aria-expanded="expanded === log.logId"
                       @click="expanded = expanded === log.logId ? null : log.logId"
                     >
@@ -689,8 +712,8 @@ onBeforeUnmount(() => {
                           <div class="flex shrink-0 gap-1">
                             <button
                               type="button"
-                              :aria-label="`Add ${entry.key} to filter`"
-                              title="Add to filter"
+                              :aria-label="translate(`Add ${entry.key} to filter`)"
+                              :title="translate('Add to filter')"
                               class="rounded px-1 hover:bg-accent"
                               @click="addDetailCondition(entry.key, entry.value)"
                             >
@@ -698,8 +721,8 @@ onBeforeUnmount(() => {
                             </button>
                             <button
                               type="button"
-                              :aria-label="`Exclude ${entry.key} from filter`"
-                              title="Exclude from filter"
+                              :aria-label="translate(`Exclude ${entry.key} from filter`)"
+                              :title="translate('Exclude from filter')"
                               class="rounded px-1 hover:bg-accent"
                               @click="addDetailCondition(entry.key, entry.value, true)"
                             >
@@ -710,7 +733,7 @@ onBeforeUnmount(() => {
                       </dl>
                       <div class="flex justify-end border-t pt-2">
                         <Button variant="ghost" size="sm" @click="copyJson(log)"
-                          ><Code class="size-3" />Copy as JSON</Button
+                          ><Code class="size-3" />{{ translate('Copy as JSON') }}</Button
                         >
                       </div>
                     </div>
@@ -723,7 +746,7 @@ onBeforeUnmount(() => {
         <EmptyState
           v-if="activeTab === 'logs' && !loading && !error && result?.total === 0"
           class="py-6"
-          title="No matching logs"
+          :title="translate('No matching logs')"
         />
         <TablePagination
           v-if="activeTab === 'logs'"
@@ -732,7 +755,7 @@ onBeforeUnmount(() => {
           :page-size="20"
           :busy="loading"
           unit="logs"
-          label="Logs pagination"
+          :label="translate('Logs pagination')"
           @change="paginate($event - page)"
         />
       </main>

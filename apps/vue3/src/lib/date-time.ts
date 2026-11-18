@@ -1,3 +1,5 @@
+import { locale } from '@/i18n'
+
 export interface DateTimeOptions {
   /** Defaults to the browser's local timezone. */
   timeZone?: string
@@ -15,10 +17,10 @@ export function formatDateTime(
   if (value == null || (typeof value === 'string' && !value.trim())) return '—'
   const date = value instanceof Date ? value : new Date(value)
   if (!Number.isFinite(date.getTime())) return '—'
-  const key = options.timeZone ?? 'local'
+  const key = `${locale.value}:${options.timeZone ?? 'local'}`
   let formatter = formatters.get(key)
   if (!formatter) {
-    formatter = new Intl.DateTimeFormat('en-GB', {
+    formatter = new Intl.DateTimeFormat(locale.value === 'zh-CN' ? 'zh-CN' : 'en-GB', {
       timeZone: options.timeZone,
       year: 'numeric',
       month: '2-digit',

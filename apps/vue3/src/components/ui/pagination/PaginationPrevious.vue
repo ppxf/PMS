@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import type { PaginationPrevProps } from 'reka-ui'
 
 import type { HTMLAttributes } from 'vue'
@@ -28,7 +30,7 @@ const forwarded = useForwardProps(delegatedProps)
 <template>
   <PaginationPrev
     data-slot="pagination-previous"
-    aria-label="Previous page"
+    :aria-label="translate('Previous page')"
     :class="cn(buttonVariants({ variant: 'outline', size }), props.class)"
     v-bind="forwarded"
   >

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -81,7 +83,7 @@ watch([mode, metric, scope, () => props.functions], () => {
       <div class="min-w-0 flex-1">
         <FormSelect
           v-model="mode"
-          :aria-label="`${initialMode} function ranking`"
+          :aria-label="translate(`${initialMode} function ranking`)"
           :options="modes"
           class="h-8 max-w-[390px] border-transparent px-0 text-xs font-semibold shadow-none"
         />
@@ -89,10 +91,10 @@ watch([mode, metric, scope, () => props.functions], () => {
           v-if="!comparison"
           class="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"
         >
-          Slowest functions sorted by
+          {{ translate('Slowest functions sorted by') }}
           <FormSelect
             v-model="metric"
-            aria-label="Function time metric"
+            :aria-label="translate('Function time metric')"
             :options="[
               { value: 'self', label: 'self time spent' },
               { value: 'total', label: 'total time spent' },
@@ -101,14 +103,14 @@ watch([mode, metric, scope, () => props.functions], () => {
           />
         </div>
         <p v-else class="mt-2 text-xs text-muted-foreground">
-          P95 self time compared with the previous equal time period.
+          {{ translate('P95 self time compared with the previous equal time period.') }}
         </p>
       </div>
     </div>
     <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs">
       <FormSelect
         v-model="scope"
-        :aria-label="`${initialMode} function scope`"
+        :aria-label="translate(`${initialMode} function scope`)"
         :options="[
           { value: 'application', label: 'Application functions' },
           { value: 'all', label: 'All functions' },
@@ -116,34 +118,40 @@ watch([mode, metric, scope, () => props.functions], () => {
         class="h-8 w-44 text-xs"
       />
       <span v-if="hiddenCount" class="text-muted-foreground"
-        >{{ hiddenCount }} SDK / dependency functions hidden</span
+        >{{ hiddenCount }} {{ translate('SDK / dependency functions hidden') }}</span
       >
     </div>
     <p class="mt-2 text-xs text-muted-foreground">
       {{
-        scope === 'application'
-          ? 'Unknown-source frames remain visible. View All functions to inspect SDK and framework overhead.'
-          : 'Includes application, SDK and framework functions.'
+        translate(
+          scope === 'application'
+            ? 'Unknown-source frames remain visible. View All functions to inspect SDK and framework overhead.'
+            : 'Includes application, SDK and framework functions.',
+        )
       }}
     </p>
     <p v-if="loading || failed" class="grid flex-1 place-items-center py-14 text-center text-lg">
-      {{ loading ? 'Loading functions…' : 'Function statistics unavailable' }}
+      {{ translate(loading ? 'Loading functions…' : 'Function statistics unavailable') }}
     </p>
     <EmptyState
       v-else-if="!visible.length"
       class="flex-1 py-14"
       size="lg"
       :title="
-        comparison
-          ? mode === 'regressed'
-            ? 'No regressed functions detected'
-            : 'No improved functions detected'
-          : 'No functions found'
+        translate(
+          comparison
+            ? mode === 'regressed'
+              ? 'No regressed functions detected'
+              : 'No improved functions detected'
+            : 'No functions found',
+        )
       "
       :description="
-        comparison
-          ? 'Changes require a matching function with non-zero P95 self time in the comparison period.'
-          : undefined
+        translate(
+          comparison
+            ? 'Changes require a matching function with non-zero P95 self time in the comparison period.'
+            : undefined,
+        )
       "
     />
     <ol v-else class="mt-3 divide-y border-y">
@@ -151,14 +159,16 @@ watch([mode, metric, scope, () => props.functions], () => {
         <div class="grid grid-cols-[20px_minmax(0,1fr)_auto] items-start gap-x-3 text-xs">
           <button
             class="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted"
-            :aria-label="`Toggle trend for ${fn.name}`"
+            :aria-label="translate(`Toggle trend for ${fn.name}`)"
             :aria-expanded="expanded === fn.key || (expanded === null && fn === visible[0])"
             @click="
               expanded =
                 expanded === fn.key || (expanded === null && fn === visible[0]) ? '' : fn.key
             "
           >
-            {{ expanded === fn.key || (expanded === null && fn === visible[0]) ? '⌄' : '›' }}
+            {{
+              translate(expanded === fn.key || (expanded === null && fn === visible[0]) ? '⌄' : '›')
+            }}
           </button>
           <div class="min-w-0 pt-0.5">
             <RouterLink
@@ -168,20 +178,24 @@ watch([mode, metric, scope, () => props.functions], () => {
                 name: 'project-profile-detail',
                 params: { groupSlug: group, projectSlug: project, profileId: fn.profileId },
               }"
-              >{{ fn.name || '(anonymous)' }}</RouterLink
+              >{{ translate(fn.name || '(anonymous)') }}</RouterLink
             >
             <p class="mt-1 truncate text-xs text-muted-foreground" :title="fn.resource">
-              {{ fn.resource ?? 'Unknown resource' }}{{ fn.line != null ? `:${fn.line}` : ''
-              }}{{ fn.column != null ? `:${fn.column}` : '' }} · {{ fn.count }} profiles
+              {{ translate(fn.resource ?? 'Unknown resource')
+              }}{{ translate(fn.line != null ? `:${fn.line}` : '')
+              }}{{ translate(fn.column != null ? `:${fn.column}` : '') }} · {{ fn.count }}
+              {{ translate('profiles') }}
             </p>
           </div>
           <span
             class="min-w-20 pt-0.5 text-right font-mono text-xs tabular-nums"
             :class="comparison ? (fn.changePercent! > 0 ? 'text-red-600' : 'text-emerald-600') : ''"
             >{{
-              comparison
-                ? `${fn.changePercent! > 0 ? '+' : ''}${fn.changePercent!.toFixed(1)}%`
-                : `${value(fn).toFixed(2)} ms`
+              translate(
+                comparison
+                  ? `${fn.changePercent! > 0 ? '+' : ''}${fn.changePercent!.toFixed(1)}%`
+                  : `${value(fn).toFixed(2)} ms`,
+              )
             }}</span
           >
         </div>
@@ -208,7 +222,7 @@ watch([mode, metric, scope, () => props.functions], () => {
       :page-size="5"
       :busy="loading"
       unit="functions"
-      :label="`${initialMode} functions pagination`"
+      :label="translate(`${initialMode} functions pagination`)"
       :previous-label="`${initialMode} previous functions`"
       :next-label="`${initialMode} next functions`"
       @change="page = $event - 1"

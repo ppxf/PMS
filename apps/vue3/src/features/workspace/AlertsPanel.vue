@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+
+import { translate } from '@/i18n'
+
 import {
   Bell,
   Filter,
@@ -100,7 +104,7 @@ function time(value?: string) {
   const date = new Date(value)
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat('en-GB', {
+    : new Intl.DateTimeFormat(intlLocale('en-GB'), {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -119,20 +123,23 @@ function time(value?: string) {
         <Bell class="size-6 text-primary" aria-hidden="true" />
       </div>
       <div class="min-w-0">
-        <h2 class="page-title">Alerts</h2>
+        <h2 class="page-title">{{ translate('Alerts') }}</h2>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Monitor triggered alerts and manage rules across your projects.
+          {{ translate('Monitor triggered alerts and manage rules across your projects.') }}
         </p>
       </div>
     </header>
 
-    <section class="overflow-hidden rounded-xl border bg-card shadow-sm" aria-label="Alert filters">
+    <section
+      class="overflow-hidden rounded-xl border bg-card shadow-sm"
+      :aria-label="translate('Alert filters')"
+    >
       <div class="flex items-center gap-2.5 border-b bg-muted/20 px-5 py-4 sm:px-6">
         <Filter class="size-4 text-muted-foreground" aria-hidden="true" />
-        <h3 class="text-sm font-semibold">Filter alerts</h3>
-        <span class="ml-auto hidden text-xs text-muted-foreground sm:block"
-          >Across projects you can access</span
-        >
+        <h3 class="text-sm font-semibold">{{ translate('Filter alerts') }}</h3>
+        <span class="ml-auto hidden text-xs text-muted-foreground sm:block">{{
+          translate('Across projects you can access')
+        }}</span>
       </div>
       <form
         data-testid="filters"
@@ -140,66 +147,76 @@ function time(value?: string) {
         @submit.prevent="emit('apply')"
       >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Project</span
+          ><span class="block">{{ translate('Project') }}</span
           ><select
             class="workspace-select"
             v-model="projectId"
-            aria-label="Project"
+            :aria-label="translate('Project')"
             :class="fieldClass"
           >
-            <option value="">All accessible projects</option>
+            <option value="">{{ translate('All accessible projects') }}</option>
             <option v-for="project in projects" :key="project.id" :value="project.id">
               {{ project.name }}
             </option>
           </select></label
         >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Group</span
+          ><span class="block">{{ translate('Group') }}</span
           ><select
             class="workspace-select"
             v-model="groupId"
-            aria-label="Group"
+            :aria-label="translate('Group')"
             :class="fieldClass"
           >
-            <option value="">All groups</option>
+            <option value="">{{ translate('All groups') }}</option>
             <option v-for="group in groups" :key="group.id" :value="group.id">
               {{ group.name }}
             </option>
           </select></label
         >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">From</span
-          ><input v-model="from" aria-label="From" type="datetime-local" :class="fieldClass"
+          ><span class="block">{{ translate('From') }}</span
+          ><input
+            v-model="from"
+            :aria-label="translate('From')"
+            type="datetime-local"
+            :class="fieldClass"
         /></label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">To</span
-          ><input v-model="to" aria-label="To" type="datetime-local" :class="fieldClass"
+          ><span class="block">{{ translate('To') }}</span
+          ><input
+            v-model="to"
+            :aria-label="translate('To')"
+            type="datetime-local"
+            :class="fieldClass"
         /></label>
         <Button type="submit" :disabled="loading" class="h-10 w-full gap-2"
           ><LoaderCircle v-if="loading" class="size-4 animate-spin" aria-hidden="true" /><Search
             v-else
             class="size-4"
             aria-hidden="true"
-          />Apply filters</Button
+          />{{ translate('Apply filters') }}</Button
         >
       </form>
     </section>
 
     <section
       class="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm"
-      aria-label="Alert history"
+      :aria-label="translate('Alert history')"
     >
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
         <div class="flex items-center gap-2.5">
           <Bell class="size-4 text-muted-foreground" aria-hidden="true" />
-          <h3 class="text-sm font-semibold">Alert history</h3>
+          <h3 class="text-sm font-semibold">{{ translate('Alert history') }}</h3>
           <span
             class="rounded-full border bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
-            >{{ total }} alerts</span
+            >{{ total }} {{ translate('alerts') }}</span
           >
         </div>
         <span class="flex items-center gap-1.5 text-xs text-muted-foreground"
-          ><CalendarDays class="size-3.5" aria-hidden="true" />Most recent first</span
+          ><CalendarDays class="size-3.5" aria-hidden="true" />{{
+            translate('Most recent first')
+          }}</span
         >
       </header>
       <div
@@ -207,15 +224,19 @@ function time(value?: string) {
         role="alert"
         class="m-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
       >
-        <p>{{ error }}</p>
-        <Button type="button" variant="outline" size="sm" @click="emit('retry')">Retry</Button>
+        <p>{{ translate(error) }}</p>
+        <Button type="button" variant="outline" size="sm" @click="emit('retry')">{{
+          translate('Retry')
+        }}</Button>
       </div>
       <div
         v-else-if="loading"
         role="status"
         class="flex min-h-56 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"
       >
-        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />Loading alerts…
+        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />{{
+          translate('Loading alerts…')
+        }}
       </div>
       <div
         v-else-if="!records.length"
@@ -224,20 +245,24 @@ function time(value?: string) {
         <div class="mb-4 grid size-14 place-items-center rounded-2xl border bg-muted/30">
           <Bell class="size-6 text-muted-foreground" :stroke-width="1.5" aria-hidden="true" />
         </div>
-        <h4 class="text-base font-semibold">No alerts found</h4>
+        <h4 class="text-base font-semibold">{{ translate('No alerts found') }}</h4>
         <p class="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-          No results match these filters. Triggered alerts will appear here when a rule matches.
+          {{
+            translate(
+              'No results match these filters. Triggered alerts will appear here when a rule matches.',
+            )
+          }}
         </p>
       </div>
       <div v-else class="min-w-0 overflow-x-auto">
         <table class="app-table min-w-[800px]">
           <thead>
             <tr>
-              <th>Project</th>
-              <th>Alert</th>
-              <th>Status</th>
-              <th>Triggered</th>
-              <th>Actions</th>
+              <th>{{ translate('Project') }}</th>
+              <th>{{ translate('Alert') }}</th>
+              <th>{{ translate('Status') }}</th>
+              <th>{{ translate('Triggered') }}</th>
+              <th>{{ translate('Actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -250,8 +275,10 @@ function time(value?: string) {
                 {{ record.projectName ?? projectName(record.projectId) }}
               </td>
               <td class="max-w-md">
-                <p class="break-words font-medium">{{ record.title }}</p>
-                <p class="mt-1 text-xs text-muted-foreground">{{ triggerName(record.kind) }}</p>
+                <p class="break-words font-medium">{{ translate(record.title) }}</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  {{ translate(triggerName(record.kind)) }}
+                </p>
               </td>
               <td>
                 <span
@@ -266,18 +293,20 @@ function time(value?: string) {
                     class="size-3"
                     aria-hidden="true"
                   /><Bell v-else class="size-3" aria-hidden="true" />{{
-                    record.status === 'recovered'
-                      ? 'Recovered'
-                      : record.status === 'open'
-                        ? 'Open'
-                        : record.status
+                    translate(
+                      record.status === 'recovered'
+                        ? 'Recovered'
+                        : record.status === 'open'
+                          ? 'Open'
+                          : record.status,
+                    )
                   }}</span
                 >
                 <p
                   v-if="record.acknowledgedAt"
                   class="mt-2 flex items-center gap-1 text-xs text-muted-foreground"
                 >
-                  <Check class="size-3" aria-hidden="true" />Acknowledged
+                  <Check class="size-3" aria-hidden="true" />{{ translate('Acknowledged') }}
                 </p>
               </td>
               <td class="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
@@ -286,7 +315,9 @@ function time(value?: string) {
               <td>
                 <div class="flex flex-wrap items-center gap-2">
                   <Button v-if="detail(record)" as-child variant="ghost" size="sm"
-                    ><RouterLink :to="detail(record)!">Open project details</RouterLink></Button
+                    ><RouterLink :to="detail(record)!">{{
+                      translate('Open project details')
+                    }}</RouterLink></Button
                   ><Button
                     v-if="!record.acknowledgedAt"
                     type="button"
@@ -294,7 +325,9 @@ function time(value?: string) {
                     size="sm"
                     :disabled="saving"
                     @click="emit('acknowledge', record.id)"
-                    ><Check class="size-3.5" aria-hidden="true" />Acknowledge</Button
+                    ><Check class="size-3.5" aria-hidden="true" />{{
+                      translate('Acknowledge')
+                    }}</Button
                   >
                 </div>
               </td>
@@ -309,7 +342,7 @@ function time(value?: string) {
           :page-size="20"
           :busy="loading"
           unit="alerts"
-          label="Alert pagination"
+          :label="translate('Alert pagination')"
           @change="emit('pageChange', $event)"
         />
       </footer>
@@ -317,15 +350,15 @@ function time(value?: string) {
 
     <section
       class="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm"
-      aria-label="Alert rules"
+      :aria-label="translate('Alert rules')"
     >
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
         <div class="flex items-center gap-2.5">
           <Settings class="size-4 text-muted-foreground" aria-hidden="true" />
-          <h3 class="text-sm font-semibold">Alert rules</h3>
+          <h3 class="text-sm font-semibold">{{ translate('Alert rules') }}</h3>
           <span
             class="rounded-full border bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
-            >{{ ruleTotal }} rules</span
+            >{{ ruleTotal }} {{ translate('rules') }}</span
           >
         </div>
         <Button
@@ -334,7 +367,7 @@ function time(value?: string) {
           size="sm"
           :disabled="saving"
           @click="emit('editRule')"
-          ><Plus class="size-4" aria-hidden="true" />Create rule</Button
+          ><Plus class="size-4" aria-hidden="true" />{{ translate('Create rule') }}</Button
         >
       </header>
       <div
@@ -346,16 +379,20 @@ function time(value?: string) {
           :stroke-width="1.5"
           aria-hidden="true"
         />
-        <h4 class="text-sm font-semibold">No alert rules yet</h4>
+        <h4 class="text-sm font-semibold">{{ translate('No alert rules yet') }}</h4>
         <p class="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
           {{
-            ownerProjects.length
-              ? 'Create a rule to watch for new issues, reopened issues or error thresholds.'
-              : 'Project owners can create rules to monitor issues and error thresholds.'
+            translate(
+              ownerProjects.length
+                ? 'Create a rule to watch for new issues, reopened issues or error thresholds.'
+                : 'Project owners can create rules to monitor issues and error thresholds.',
+            )
           }}
         </p>
       </div>
-      <div v-else-if="loading" class="p-6 text-sm text-muted-foreground">Loading rules…</div>
+      <div v-else-if="loading" class="p-6 text-sm text-muted-foreground">
+        {{ translate('Loading rules…') }}
+      </div>
       <div v-else class="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
         <article
           v-for="item in rules"
@@ -371,15 +408,16 @@ function time(value?: string) {
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
                   : 'bg-muted text-muted-foreground'
               "
-              >{{ item.enabled ? 'Enabled' : 'Disabled' }}</span
+              >{{ translate(item.enabled ? 'Enabled' : 'Disabled') }}</span
             >
           </div>
           <p class="mt-1 break-words text-xs text-muted-foreground">
             {{ projectName(item.projectId) }}
           </p>
-          <p class="mt-4 text-sm">{{ triggerName(item.kind) }}</p>
+          <p class="mt-4 text-sm">{{ translate(triggerName(item.kind)) }}</p>
           <p v-if="item.kind === 'error_threshold'" class="mt-1 text-xs text-muted-foreground">
-            {{ item.threshold }} errors / {{ item.windowMinutes }} minutes
+            {{ item.threshold }} {{ translate('errors /') }} {{ item.windowMinutes }}
+            {{ translate('minutes') }}
           </p>
           <div class="mt-auto flex justify-end pt-4">
             <Button
@@ -388,7 +426,7 @@ function time(value?: string) {
               variant="outline"
               size="sm"
               @click="emit('editRule', item)"
-              ><Pencil class="size-3.5" aria-hidden="true" />Edit rule</Button
+              ><Pencil class="size-3.5" aria-hidden="true" />{{ translate('Edit rule') }}</Button
             >
           </div>
         </article>
@@ -399,18 +437,20 @@ function time(value?: string) {
         @submit.prevent="emit('saveRule')"
       >
         <div>
-          <h4 class="text-base font-semibold">{{ ruleId ? 'Edit rule' : 'Create rule' }}</h4>
+          <h4 class="text-base font-semibold">
+            {{ translate(ruleId ? 'Edit rule' : 'Create rule') }}
+          </h4>
           <p class="mt-1 text-sm text-muted-foreground">
-            Choose a project and when an alert should be triggered.
+            {{ translate('Choose a project and when an alert should be triggered.') }}
           </p>
         </div>
         <div class="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-            ><span class="block">Project</span
+            ><span class="block">{{ translate('Project') }}</span
             ><select
               class="workspace-select"
               v-model="rule.projectId"
-              aria-label="Rule project"
+              :aria-label="translate('Rule project')"
               required
               :disabled="!!ruleId"
               :class="fieldClass"
@@ -421,43 +461,43 @@ function time(value?: string) {
             </select></label
           >
           <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-            ><span class="block">Name</span
+            ><span class="block">{{ translate('Name') }}</span
             ><Input
               v-model="rule.name"
-              aria-label="Rule name"
+              :aria-label="translate('Rule name')"
               required
               maxlength="120"
-              placeholder="e.g. Checkout errors"
+              :placeholder="translate('e.g. Checkout errors')"
               class="h-10"
           /></label>
           <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-            ><span class="block">Trigger</span
+            ><span class="block">{{ translate('Trigger') }}</span
             ><select
               class="workspace-select"
               v-model="rule.kind"
-              aria-label="Rule trigger"
+              :aria-label="translate('Rule trigger')"
               :class="fieldClass"
             >
-              <option value="new_issue">New issue</option>
-              <option value="reopened_issue">Reopened issue</option>
-              <option value="error_threshold">Error threshold</option>
+              <option value="new_issue">{{ translate('New issue') }}</option>
+              <option value="reopened_issue">{{ translate('Reopened issue') }}</option>
+              <option value="error_threshold">{{ translate('Error threshold') }}</option>
             </select></label
           >
           <template v-if="rule.kind === 'error_threshold'"
             ><label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-              ><span class="block">Threshold</span
+              ><span class="block">{{ translate('Threshold') }}</span
               ><Input
                 v-model.number="rule.threshold"
-                aria-label="Error threshold"
+                :aria-label="translate('Error threshold')"
                 type="number"
                 min="1"
                 required
                 class="h-10" /></label
             ><label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-              ><span class="block">Window (minutes)</span
+              ><span class="block">{{ translate('Window (minutes)') }}</span
               ><Input
                 v-model.number="rule.windowMinutes"
-                aria-label="Window in minutes"
+                :aria-label="translate('Window in minutes')"
                 type="number"
                 min="1"
                 max="1440"
@@ -471,18 +511,20 @@ function time(value?: string) {
             type="checkbox"
             class="mt-0.5 size-4 accent-primary"
           /><span
-            ><span class="block text-sm font-medium">Enabled</span
-            ><span class="mt-1 block text-xs leading-5 text-muted-foreground"
-              >Evaluate this rule and generate matching alerts.</span
-            ></span
+            ><span class="block text-sm font-medium">{{ translate('Enabled') }}</span
+            ><span class="mt-1 block text-xs leading-5 text-muted-foreground">{{
+              translate('Evaluate this rule and generate matching alerts.')
+            }}</span></span
           ></label
         >
         <div class="flex flex-wrap justify-end gap-3 border-t pt-4">
-          <Button type="button" variant="outline" :disabled="saving" @click="editing = false"
-            >Cancel</Button
+          <Button type="button" variant="outline" :disabled="saving" @click="editing = false">{{
+            translate('Cancel')
+          }}</Button
           ><Button type="submit" :disabled="saving"
-            ><LoaderCircle v-if="saving" class="size-4 animate-spin" aria-hidden="true" />Save
-            rule</Button
+            ><LoaderCircle v-if="saving" class="size-4 animate-spin" aria-hidden="true" />{{
+              translate('Save rule')
+            }}</Button
           >
         </div>
       </form>
@@ -493,7 +535,7 @@ function time(value?: string) {
           :page-size="20"
           :busy="loading"
           unit="rules"
-          label="Rule pagination"
+          :label="translate('Rule pagination')"
           previous-label="Previous rules"
           next-label="Next rules"
           @change="emit('rulePageChange', $event)"

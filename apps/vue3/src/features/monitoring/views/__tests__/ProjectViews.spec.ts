@@ -56,6 +56,8 @@ vi.mock('../../api/profiles.api', () => ({ updateProfiles }))
 import CreateProjectView from '../CreateProjectView.vue'
 import ProjectDetailView from '../ProjectDetailView.vue'
 import ProjectSetupView from '../ProjectSetupView.vue'
+import { toast } from '@/components/ui/toast'
+import { setLocale } from '@/i18n'
 
 const project = {
   id: '550e8400-e29b-41d4-a716-446655440000',
@@ -82,6 +84,39 @@ const RouterLinkStub = defineComponent({
 })
 
 describe('project views', () => {
+  it('translates SDK instructions without changing code, DSN or reloading the project', async () => {
+    setLocale('en')
+    getProject.mockResolvedValue({ ...project })
+    const page = mount(ProjectSetupView)
+    try {
+      await flushPromises()
+      const snippet = page.get('[data-testid="init-snippet"]').text()
+      setLocale('zh-CN')
+      await flushPromises()
+      expect(page.get('h2').text()).toBe('基础接入')
+      expect(page.text()).toContain('复制初始化代码')
+      expect(page.text()).toContain(project.dsn)
+      expect(page.get('[data-testid="init-snippet"]').text()).toBe(snippet)
+      expect(getProject).toHaveBeenCalledTimes(1)
+      await page.get('[data-testid="copy-init"]').trigger('click')
+      expect(writeText).toHaveBeenLastCalledWith(snippet)
+    } finally {
+      setLocale('en')
+      page.unmount()
+    }
+  })
+  it.each(['project-setup', 'project-traces-setup', 'project-metrics-setup', 'project-logs-setup'])(
+    'keeps origin configuration out of %s instructions',
+    async (name) => {
+      getProject.mockResolvedValue({ ...project })
+      routeState.route!.name = name
+      const view = mount(ProjectSetupView, { global: { stubs: { RouterLink: RouterLinkStub } } })
+      await flushPromises()
+      expect(view.find('[data-testid="origins-settings"]').exists()).toBe(false)
+      expect(view.find('[data-testid="origins-input"]').exists()).toBe(false)
+      view.unmount()
+    },
+  )
   it('shows Logs SDK initialization and test log examples', async () => {
     getProject.mockResolvedValue({ ...project })
     routeState.route!.name = 'project-logs-setup'
@@ -142,7 +177,7 @@ describe('project views', () => {
     expect(status().attributes('aria-checked')).toBe('false')
     expect(view.findAll('[role="switch"]')).toHaveLength(5)
     expect(view.findAll('input[type="checkbox"]')).toHaveLength(0)
-    expect(view.findAll('button')).toHaveLength(5)
+    expect(view.get('[data-testid="feature-settings"]').findAll('button')).toHaveLength(5)
     view.unmount()
   })
   it('keeps controls available after a failed save and disables all toggles while saving', async () => {
@@ -210,7 +245,9 @@ describe('project views', () => {
     expect(wrapper.get('[data-testid="init-snippet"]').text()).not.toContain(
       'browserTracingIntegration',
     )
-    expect(wrapper.text()).not.toContain('pnpm add @pmspulse/monitoring-vue @pmspulse/monitoring-browser')
+    expect(wrapper.text()).not.toContain(
+      'pnpm add @pmspulse/monitoring-vue @pmspulse/monitoring-browser',
+    )
     routeState.route!.name = 'project-traces-setup'
     await flushPromises()
     expect(wrapper.text()).toContain('Traces setup')
@@ -270,6 +307,7 @@ describe('project views', () => {
   })
 
   it('shows copyable SDK instructions and refreshes connection status', async () => {
+    const successToast = vi.spyOn(toast, 'success')
     getProject.mockResolvedValue({ ...project })
     getProjectConnection.mockResolvedValue({
       connected: true,
@@ -298,10 +336,18 @@ describe('project views', () => {
     expect(wrapper.text()).not.toContain('fetch(')
     await wrapper.get('[data-testid="copy-dsn"]').trigger('click')
     expect(writeText).toHaveBeenCalledWith(project.dsn)
+    expect(successToast).toHaveBeenCalledWith('Copied DSN', undefined, 2000)
+    successToast.mockRestore()
 
     await wrapper.get('[data-testid="refresh-connection"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('Previously connected')
+    expect(wrapper.get('[data-testid="sdk-connection-status"]').text()).toContain(
+      'Last report received:',
+    )
+    expect(wrapper.get('[data-testid="sdk-connection-status"] time').attributes('datetime')).toBe(
+      '2026-09-22T08:00:00Z',
+    )
   })
 
   it('copies direct init without binding and defaults to any origin', async () => {
@@ -313,10 +359,7 @@ describe('project views', () => {
     expect(snippet).not.toContain('bindingCode')
     expect(wrapper.text()).not.toContain('Authorization code')
     expect(wrapper.text()).not.toContain('bindProject')
-    expect(wrapper.get('[data-testid="allowed-origins"]').text()).toContain('All origins allowed')
-    expect(
-      (wrapper.get('[data-testid="origins-input"]').element as HTMLTextAreaElement).value,
-    ).toBe('*')
+    expect(wrapper.find('[data-testid="origins-settings"]').exists()).toBe(false)
     await wrapper.get('[data-testid="copy-init"]').trigger('click')
     expect(writeText).toHaveBeenCalledWith(snippet)
     expect(updateProjectOrigins).not.toHaveBeenCalled()
@@ -329,7 +372,7 @@ describe('project views', () => {
       ...project,
       allowedOrigins: ['https://app.example.com', 'http://localhost:5173'],
     })
-    const wrapper = mount(ProjectSetupView)
+    const wrapper = mount(ProjectDetailView)
     await flushPromises()
     await wrapper
       .get('[data-testid="origins-input"]')
@@ -361,7 +404,7 @@ describe('project views', () => {
 
   it('rejects non-origin values and displays save failures without changing the policy', async () => {
     getProject.mockResolvedValue({ ...project, allowedOrigins: ['*'] })
-    const wrapper = mount(ProjectSetupView)
+    const wrapper = mount(ProjectDetailView)
     await flushPromises()
     for (const input of [
       'https://app.example.com/path',
@@ -395,7 +438,7 @@ describe('project views', () => {
         resolveSave = resolve
       }),
     )
-    const wrapper = mount(ProjectSetupView)
+    const wrapper = mount(ProjectDetailView)
     await flushPromises()
     await wrapper.get('[data-testid="origins-input"]').setValue('https://previous.example.com')
     await wrapper.get('[data-testid="save-origins"]').trigger('click')
@@ -426,7 +469,15 @@ describe('project views', () => {
 
     expect(wrapper.text()).toContain('Frontend')
     expect(wrapper.text()).toContain('Error Monitoring')
-    expect(wrapper.text()).toContain('Awaiting first connection')
+    expect(wrapper.text()).toContain('Feature settings')
+    expect(wrapper.get('[data-testid="origins-settings"]').text()).toContain(
+      'SDK reporting origins',
+    )
+    expect(
+      (wrapper.get('[data-testid="origins-input"]').element as HTMLTextAreaElement).value,
+    ).toBe('*')
+    expect(wrapper.text()).not.toContain('Awaiting first connection')
+    expect(wrapper.text()).not.toContain('Previously connected')
     expect(wrapper.text()).not.toContain('Replay')
     expect(wrapper.text()).not.toContain('View errors')
     expect(wrapper.text()).not.toContain('View SDK setup instructions')

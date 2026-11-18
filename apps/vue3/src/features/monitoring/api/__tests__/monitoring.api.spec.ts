@@ -84,32 +84,32 @@ describe('monitoring API', () => {
   it('updates an issue status within its project scope', async () => {
     patch.mockResolvedValue({ status: 'resolved' })
     await updateProjectIssueStatus('team', 'web', 'issue-1', 'resolved')
-    expect(patch).toHaveBeenCalledWith(
-      '/groups/team/projects/web/issues/issue-1/status',
-      { status: 'resolved' },
-    )
+    expect(patch).toHaveBeenCalledWith('/groups/team/projects/web/issues/issue-1/status', {
+      status: 'resolved',
+    })
   })
 
   it('uses archive, restore and delete issue endpoints', async () => {
     patch.mockResolvedValue({ id: 'issue-1' })
     remove.mockResolvedValue(undefined)
     await archiveProjectIssue('team', 'web', 'issue-1', {
-      mode: 'until_count', threshold: 100,
+      mode: 'until_count',
+      threshold: 100,
     })
     await restoreProjectIssue('team', 'web', 'issue-1')
     await deleteProjectIssue('team', 'web', 'issue-1')
     await permanentlyDeleteProjectIssue('team', 'web', 'issue-1')
 
+    expect(patch).toHaveBeenNthCalledWith(1, '/groups/team/projects/web/issues/issue-1/archive', {
+      mode: 'until_count',
+      threshold: 100,
+    })
     expect(patch).toHaveBeenNthCalledWith(
-      1, '/groups/team/projects/web/issues/issue-1/archive',
-      { mode: 'until_count', threshold: 100 },
-    )
-    expect(patch).toHaveBeenNthCalledWith(
-      2, '/groups/team/projects/web/issues/issue-1/restore', undefined,
+      2,
+      '/groups/team/projects/web/issues/issue-1/restore',
+      undefined,
     )
     expect(remove).toHaveBeenNthCalledWith(1, '/groups/team/projects/web/issues/issue-1')
-    expect(remove).toHaveBeenNthCalledWith(
-      2, '/groups/team/projects/web/issues/issue-1/permanent',
-    )
+    expect(remove).toHaveBeenNthCalledWith(2, '/groups/team/projects/web/issues/issue-1/permanent')
   })
 })

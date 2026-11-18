@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -295,13 +298,13 @@ function changeFunction(metric: TraceMetric) {
 function chartOptions(metric: TraceMetric, chart: MetricChart) {
   const { start, end } = chart
   const timeLabel = new Intl.DateTimeFormat(
-    'en-US',
+    intlLocale(),
     end - start <= 86400000
       ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
       : { month: 'short', day: 'numeric' },
   )
   const unit = metricUnit(metric)
-  const numberLabel = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
+  const numberLabel = new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 2 })
   const formatValue = (value: number) =>
     unit === 'ms' && value >= 1000
       ? `${numberLabel.format(value / 1000)}s`
@@ -417,16 +420,16 @@ onMounted(async () => {
 <template>
   <section class="traces-page space-y-6">
     <div>
-      <h2 class="page-title">Traces</h2>
+      <h2 class="page-title">{{ translate('Traces') }}</h2>
     </div>
     <div class="flex flex-wrap items-center gap-3">
       <label class="flex flex-col gap-2">
-        <span>Quick query</span>
+        <span>{{ translate('Quick query') }}</span>
         <FormSelect
           v-model="preset"
           class="control"
           @change="applyPreset"
-          aria-label="Quick query"
+          :aria-label="translate('Quick query')"
           :options="[
             { value: 'pages', label: 'Page performance' },
             { value: 'slow', label: 'Slow requests (fetch)' },
@@ -466,7 +469,7 @@ onMounted(async () => {
             v-for="(f, i) in filters"
             :key="i"
             class="filter-chip rounded-md border px-3 py-1.5 text-sm"
-            :aria-label="`Remove condition ${f.field}`"
+            :aria-label="translate(`Remove condition ${f.field}`)"
             @click="filters.splice(i, 1)"
           >
             {{ f.field }} {{ f.operator }} {{ f.value }} ×
@@ -476,15 +479,17 @@ onMounted(async () => {
     </QuerySearchBar>
     <div class="grid items-stretch gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
       <aside class="visualize-panel space-y-5 rounded-xl border p-5">
-        <h3 class="font-semibold">Visualize</h3>
+        <h3 class="font-semibold">{{ translate('Visualize') }}</h3>
         <div v-for="(metric, i) in metrics" :key="i" class="space-y-3 border-b pb-4">
           <label class="flex items-center gap-2"
-            ><input v-model="primaryMetric" type="radio" :value="i" />Primary metric
+            ><input v-model="primaryMetric" type="radio" :value="i" />{{
+              translate('Primary metric')
+            }}
             {{ i + 1 }}</label
           >
           <FormSelect
             v-model="metric.function"
-            :aria-label="`Aggregation function ${i + 1}`"
+            :aria-label="translate(`Aggregation function ${i + 1}`)"
             class="control w-full"
             @change="changeFunction(metric)"
             :options="
@@ -496,7 +501,7 @@ onMounted(async () => {
           />
           <FormSelect
             v-model="metric.field"
-            :aria-label="`Metric field ${i + 1}`"
+            :aria-label="translate(`Metric field ${i + 1}`)"
             class="control w-full"
             :disabled="metric.function === 'count' || metric.function === 'errorRate'"
             :options="
@@ -510,14 +515,14 @@ onMounted(async () => {
               ).map((value) => ({ value, label: value }))
             "
           />
-          <Button v-if="metrics.length > 1" variant="outline" @click="removeMetric(i)"
-            >Remove metric</Button
-          >
+          <Button v-if="metrics.length > 1" variant="outline" @click="removeMetric(i)">{{
+            translate('Remove metric')
+          }}</Button>
         </div>
-        <Button v-if="metrics.length < 5" variant="outline" @click="addMetric"
-          >Add metric series</Button
-        >
-        <h3 class="font-semibold">Group by</h3>
+        <Button v-if="metrics.length < 5" variant="outline" @click="addMetric">{{
+          translate('Add metric series')
+        }}</Button>
+        <h3 class="font-semibold">{{ translate('Group by') }}</h3>
         <div
           v-for="i in groups.length + Number(addingGroup)"
           :key="i"
@@ -525,9 +530,9 @@ onMounted(async () => {
         >
           <FormSelect
             :model-value="groups[i - 1]"
-            :aria-label="`Group by ${i}`"
+            :aria-label="translate(`Group by ${i}`)"
             class="control w-full"
-            placeholder="Select a field"
+            :placeholder="translate('Select a field')"
             :options="
               availableGroups.map((value) => ({
                 value,
@@ -537,8 +542,12 @@ onMounted(async () => {
             "
             @change="selectGroup(i - 1, $event)"
           />
-          <Button variant="outline" :aria-label="`Remove group ${i}`" @click="removeGroup(i - 1)">
-            Remove group
+          <Button
+            variant="outline"
+            :aria-label="translate(`Remove group ${i}`)"
+            @click="removeGroup(i - 1)"
+          >
+            {{ translate('Remove group') }}
           </Button>
         </div>
         <Button
@@ -547,13 +556,13 @@ onMounted(async () => {
           :disabled="!availableGroups.some((value) => !groups.includes(value))"
           @click="addingGroup = true"
         >
-          Add group
+          {{ translate('Add group') }}
         </Button>
-        <h3 class="font-semibold">Top</h3>
+        <h3 class="font-semibold">{{ translate('Top') }}</h3>
         <FormSelect
           v-model="limit"
           class="control w-full"
-          aria-label="Top limit"
+          :aria-label="translate('Top limit')"
           :options="[5, 6, 7, 8, 9, 10].map((value) => ({ value, label: String(value) }))"
         />
       </aside>
@@ -564,19 +573,27 @@ onMounted(async () => {
           class="chart-panel min-w-0 rounded-xl border p-5"
         >
           <header class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-            <h3 class="break-words text-sm font-semibold">{{ chart.title }}</h3>
-            <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Chart settings">
+            <h3 class="break-words text-sm font-semibold">{{ translate(chart.title) }}</h3>
+            <div
+              class="flex flex-wrap items-center gap-2"
+              role="group"
+              :aria-label="translate('Chart settings')"
+            >
               <FormSelect
                 v-model="chart.settings.timeRange"
                 class="control w-48 max-sm:grow"
-                :aria-label="index === 0 ? 'Time range' : `Time range for chart ${index + 1}`"
+                :aria-label="
+                  translate(index === 0 ? 'Time range' : `Time range for chart ${index + 1}`)
+                "
                 @change="applyTimeRange(chart.settings, index)"
                 :options="timeRanges"
               />
               <FormSelect
                 v-model="chart.settings.type"
                 class="control w-30 max-sm:grow"
-                :aria-label="index === 0 ? 'Chart type' : `Chart type for chart ${index + 1}`"
+                :aria-label="
+                  translate(index === 0 ? 'Chart type' : `Chart type for chart ${index + 1}`)
+                "
                 :options="[
                   { value: 'line', label: 'Line' },
                   { value: 'bar', label: 'Bar' },
@@ -585,7 +602,9 @@ onMounted(async () => {
               <FormSelect
                 v-model="chart.settings.interval"
                 class="control w-32 max-sm:grow"
-                :aria-label="index === 0 ? 'Interval' : `Interval for chart ${index + 1}`"
+                :aria-label="
+                  translate(index === 0 ? 'Interval' : `Interval for chart ${index + 1}`)
+                "
                 @change="refreshChart(chart.settings, index)"
                 :options="
                   intervals.map((item) => ({
@@ -606,29 +625,36 @@ onMounted(async () => {
             <EmptyState
               v-if="chart.settings.result?.sampleCount === 0"
               class="pointer-events-none absolute inset-0"
-              title="No chart data in this time range"
+              :title="translate('No chart data in this time range')"
             />
           </div>
-          <Loading v-if="chart.settings.loading" class="mb-2" label="Loading chart…" />
+          <Loading
+            v-if="chart.settings.loading"
+            class="mb-2"
+            :label="translate('Loading chart…')"
+          />
           <p
             v-else-if="chart.settings.error"
             role="alert"
             class="mb-2 text-sm text-muted-foreground"
           >
-            Unable to load chart.
-            <Button variant="outline" @click="loadChart(chart.settings, index)">Retry</Button>
+            {{ translate('Unable to load chart.') }}
+            <Button variant="outline" @click="loadChart(chart.settings, index)">{{
+              translate('Retry')
+            }}</Button>
           </p>
           <p class="text-sm text-muted-foreground">
-            Matched {{ chart.settings.result?.sampleCount ?? 0 }} sampled records. Times use your
-            local time zone.
+            {{ translate('Matched') }} {{ chart.settings.result?.sampleCount ?? 0 }}
+            {{ translate('sampled records. Times use your local time zone.') }}
           </p>
         </section>
       </div>
     </div>
     <div v-if="error" role="alert" class="text-destructive">
-      {{ error }} <Button variant="outline" @click="load">Retry</Button>
+      {{ translate(error) }}
+      <Button variant="outline" @click="load">{{ translate('Retry') }}</Button>
     </div>
-    <nav class="flex gap-1 overflow-x-auto border-b" aria-label="Trace result views">
+    <nav class="flex gap-1 overflow-x-auto border-b" :aria-label="translate('Trace result views')">
       <button
         v-for="t in tabs"
         :key="t"
@@ -637,7 +663,7 @@ onMounted(async () => {
         class="monitoring-tab"
         @click="tab = t"
       >
-        {{ t }}
+        {{ translate(t) }}
       </button>
     </nav>
     <div
@@ -648,65 +674,66 @@ onMounted(async () => {
       <table class="app-table" :aria-busy="loading">
         <thead v-if="tab === 'Span Samples'">
           <tr>
-            <th>Span</th>
-            <th>Type</th>
-            <th>Root operation</th>
+            <th>{{ translate('Span') }}</th>
+            <th>{{ translate('Type') }}</th>
+            <th>{{ translate('Root operation') }}</th>
             <th :aria-sort="columnSort('startTime')">
               <button
                 class="sort-header"
-                aria-label="Sort by time"
+                :aria-label="translate('Sort by time')"
                 @click="sortColumn('startTime')"
               >
-                Time <component :is="sortIcon('startTime')" class="sort-icon" aria-hidden="true" />
-              </button>
-            </th>
-            <th :aria-sort="columnSort('durationMs')">
-              <button
-                class="sort-header"
-                aria-label="Sort by duration"
-                @click="sortColumn('durationMs')"
-              >
-                Duration
-                <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
-              </button>
-            </th>
-            <th>Status / completeness</th>
-          </tr>
-        </thead>
-        <thead v-else-if="tab === 'Trace Samples'">
-          <tr>
-            <th>Trace</th>
-            <th :aria-sort="columnSort('startTime')">
-              <button
-                class="sort-header"
-                aria-label="Sort by start time"
-                @click="sortColumn('startTime')"
-              >
-                Start time
+                {{ translate('Time') }}
                 <component :is="sortIcon('startTime')" class="sort-icon" aria-hidden="true" />
               </button>
             </th>
             <th :aria-sort="columnSort('durationMs')">
               <button
                 class="sort-header"
-                aria-label="Sort by span duration"
+                :aria-label="translate('Sort by duration')"
                 @click="sortColumn('durationMs')"
               >
-                Span duration
+                {{ translate('Duration') }}
                 <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
               </button>
             </th>
-            <th>Retained spans</th>
-            <th>Completeness</th>
+            <th>{{ translate('Status / completeness') }}</th>
+          </tr>
+        </thead>
+        <thead v-else-if="tab === 'Trace Samples'">
+          <tr>
+            <th>{{ translate('Trace') }}</th>
+            <th :aria-sort="columnSort('startTime')">
+              <button
+                class="sort-header"
+                :aria-label="translate('Sort by start time')"
+                @click="sortColumn('startTime')"
+              >
+                {{ translate('Start time') }}
+                <component :is="sortIcon('startTime')" class="sort-icon" aria-hidden="true" />
+              </button>
+            </th>
+            <th :aria-sort="columnSort('durationMs')">
+              <button
+                class="sort-header"
+                :aria-label="translate('Sort by span duration')"
+                @click="sortColumn('durationMs')"
+              >
+                {{ translate('Span duration') }}
+                <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
+              </button>
+            </th>
+            <th>{{ translate('Retained spans') }}</th>
+            <th>{{ translate('Completeness') }}</th>
           </tr>
         </thead>
         <thead v-else>
           <tr>
-            <th>Group by</th>
+            <th>{{ translate('Group by') }}</th>
             <th v-for="(m, i) in seriesMetrics" :key="i" :aria-sort="columnSort(String(i))">
               <button
                 class="sort-header"
-                :aria-label="`Sort by ${m.function}(${m.field})`"
+                :aria-label="translate(`Sort by ${m.function}(${m.field})`)"
                 @click="sortColumn(String(i))"
               >
                 {{ m.function }}({{ m.field }})
@@ -723,8 +750,8 @@ onMounted(async () => {
               "
               class="result-placeholder text-muted-foreground"
             >
-              <Loading v-if="loading" label="Loading results…" />
-              <EmptyState v-else-if="!error" title="No data" />
+              <Loading v-if="loading" :label="translate('Loading results…')" />
+              <EmptyState v-else-if="!error" :title="translate('No data')" />
             </td>
           </tr>
           <template v-else-if="tab === 'Span Samples'">
@@ -734,7 +761,7 @@ onMounted(async () => {
               class="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-2 focus-visible:outline-primary"
               tabindex="0"
               role="link"
-              :aria-label="`View trace for ${s.name}`"
+              :aria-label="translate(`View trace for ${s.name}`)"
               @click="router.push(detailLink(s.traceId))"
               @keydown.enter.self="router.push(detailLink(s.traceId))"
             >
@@ -749,8 +776,8 @@ onMounted(async () => {
               <td>{{ s.op }}</td>
               <td>{{ s.isTransaction }}</td>
               <td>{{ formatDateTime(s.startTime) }}</td>
-              <td>{{ s.durationMs }} ms</td>
-              <td>{{ s.status }} {{ s.truncated ? 'Truncated' : '' }}</td>
+              <td>{{ s.durationMs }} {{ translate('ms') }}</td>
+              <td>{{ s.status }} {{ translate(s.truncated ? 'Truncated' : '') }}</td>
             </tr>
           </template>
           <template v-else-if="tab === 'Trace Samples'">
@@ -761,9 +788,9 @@ onMounted(async () => {
                 }}</RouterLink>
               </td>
               <td>{{ formatDateTime(t.startTime) }}</td>
-              <td>{{ t.durationMs }} ms</td>
+              <td>{{ t.durationMs }} {{ translate('ms') }}</td>
               <td>{{ t.spanCount }}</td>
-              <td>{{ t.truncated ? 'Truncated' : 'Retained records' }}</td>
+              <td>{{ translate(t.truncated ? 'Truncated' : 'Retained records') }}</td>
             </tr>
           </template>
           <template v-else>
@@ -771,7 +798,9 @@ onMounted(async () => {
               <td>{{ a.groupValues.map((v) => v ?? 'Unknown').join(' / ') || 'All' }}</td>
               <td v-for="(m, i) in seriesMetrics" :key="i">
                 {{ formatMetric(a.values[i], m) }}
-                <span class="text-muted-foreground">(n={{ a.sampleCounts[i] ?? 0 }})</span>
+                <span class="text-muted-foreground"
+                  >{{ translate('(n=') }}{{ a.sampleCounts[i] ?? 0 }})</span
+                >
               </td>
             </tr>
           </template>
@@ -784,7 +813,7 @@ onMounted(async () => {
       :total="total"
       :page-size="20"
       :busy="loading"
-      label="Trace results pagination"
+      :label="translate('Trace results pagination')"
       @change="changePage($event - page)"
     />
   </section>

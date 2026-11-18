@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+
+import { translate } from '@/i18n'
+
 import {
   Plug,
   Filter,
@@ -95,7 +99,7 @@ function time(value: string | null) {
   const date = new Date(value)
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat('en-GB', {
+    : new Intl.DateTimeFormat(intlLocale('en-GB'), {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -114,23 +118,23 @@ function time(value: string | null) {
         <Plug class="size-6 text-primary" aria-hidden="true" />
       </div>
       <div class="min-w-0">
-        <h2 class="page-title">Ingestion status</h2>
+        <h2 class="page-title">{{ translate('Ingestion status') }}</h2>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Check data collection activity in the last 24 hours for each project.
+          {{ translate('Check data collection activity in the last 24 hours for each project.') }}
         </p>
       </div>
     </header>
 
     <section
       class="overflow-hidden rounded-xl border bg-card shadow-sm"
-      aria-label="Ingestion filters"
+      :aria-label="translate('Ingestion filters')"
     >
       <div class="flex items-center gap-2.5 border-b bg-muted/20 px-5 py-4 sm:px-6">
         <Filter class="size-4 text-muted-foreground" aria-hidden="true" />
-        <h3 class="text-sm font-semibold">Filter projects</h3>
-        <span class="ml-auto hidden text-xs text-muted-foreground sm:block"
-          >Across projects you can access</span
-        >
+        <h3 class="text-sm font-semibold">{{ translate('Filter projects') }}</h3>
+        <span class="ml-auto hidden text-xs text-muted-foreground sm:block">{{
+          translate('Across projects you can access')
+        }}</span>
       </div>
       <form
         data-testid="filters"
@@ -138,28 +142,28 @@ function time(value: string | null) {
         @submit.prevent="emit('apply')"
       >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Project</span
+          ><span class="block">{{ translate('Project') }}</span
           ><select
             v-model="projectId"
-            aria-label="Project"
+            :aria-label="translate('Project')"
             class="workspace-select"
             :class="fieldClass"
           >
-            <option value="">All accessible projects</option>
+            <option value="">{{ translate('All accessible projects') }}</option>
             <option v-for="project in projects" :key="project.id" :value="project.id">
               {{ project.name }}
             </option>
           </select></label
         >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Group</span
+          ><span class="block">{{ translate('Group') }}</span
           ><select
             v-model="groupId"
-            aria-label="Group"
+            :aria-label="translate('Group')"
             class="workspace-select"
             :class="fieldClass"
           >
-            <option value="">All groups</option>
+            <option value="">{{ translate('All groups') }}</option>
             <option v-for="group in groups" :key="group.id" :value="group.id">
               {{ group.name }}
             </option>
@@ -173,26 +177,28 @@ function time(value: string | null) {
             v-else
             class="size-4"
             aria-hidden="true"
-          />Apply filters</Button
+          />{{ translate('Apply filters') }}</Button
         >
       </form>
     </section>
 
     <section
       class="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm"
-      aria-label="Project ingestion status"
+      :aria-label="translate('Project ingestion status')"
     >
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
         <div class="flex items-center gap-2.5">
           <Plug class="size-4 text-muted-foreground" aria-hidden="true" />
-          <h3 class="text-sm font-semibold">Data connections</h3>
+          <h3 class="text-sm font-semibold">{{ translate('Data connections') }}</h3>
           <span
             class="rounded-full border bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
-            >{{ total }} projects</span
+            >{{ total }} {{ translate('projects') }}</span
           >
         </div>
         <span class="flex items-center gap-1.5 text-xs text-muted-foreground"
-          ><Clock class="size-3.5" aria-hidden="true" />Times shown in your local timezone</span
+          ><Clock class="size-3.5" aria-hidden="true" />{{
+            translate('Times shown in your local timezone')
+          }}</span
         >
       </header>
       <div
@@ -200,15 +206,19 @@ function time(value: string | null) {
         role="alert"
         class="m-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
       >
-        <p>{{ error }}</p>
-        <Button type="button" variant="outline" size="sm" @click="emit('retry')">Retry</Button>
+        <p>{{ translate(error) }}</p>
+        <Button type="button" variant="outline" size="sm" @click="emit('retry')">{{
+          translate('Retry')
+        }}</Button>
       </div>
       <div
         v-else-if="loading"
         role="status"
         class="flex min-h-72 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"
       >
-        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />Loading ingestion status…
+        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />{{
+          translate('Loading ingestion status…')
+        }}
       </div>
       <div
         v-else-if="!records.length"
@@ -217,9 +227,9 @@ function time(value: string | null) {
         <div class="mb-5 grid size-16 place-items-center rounded-2xl border bg-muted/30">
           <Plug class="size-7 text-muted-foreground" :stroke-width="1.5" aria-hidden="true" />
         </div>
-        <h4 class="text-base font-semibold">No projects found</h4>
+        <h4 class="text-base font-semibold">{{ translate('No projects found') }}</h4>
         <p class="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-          No results match these filters. Try a different project or group.
+          {{ translate('No results match these filters. Try a different project or group.') }}
         </p>
       </div>
       <div v-else class="divide-y">
@@ -238,9 +248,8 @@ function time(value: string | null) {
             </div>
             <Button v-if="detail(record)" as-child variant="outline" size="sm"
               ><RouterLink :to="detail(record)!"
-                >Open project details<ArrowUpRight
-                  class="size-3.5"
-                  aria-hidden="true" /></RouterLink
+                >{{ translate('Open project details')
+                }}<ArrowUpRight class="size-3.5" aria-hidden="true" /></RouterLink
             ></Button>
           </header>
           <div
@@ -251,7 +260,7 @@ function time(value: string | null) {
               v-for="signal in record.signals"
               :key="signal.type"
               class="min-w-0 rounded-lg border bg-muted/10 p-4"
-              :aria-label="`${signalType(signal.type).label} ingestion`"
+              :aria-label="translate(`${signalType(signal.type).label} ingestion`)"
             >
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
@@ -260,18 +269,20 @@ function time(value: string | null) {
                     class="size-4 text-muted-foreground"
                     aria-hidden="true"
                   />
-                  <h5 class="text-sm font-medium">{{ signalType(signal.type).label }}</h5>
+                  <h5 class="text-sm font-medium">
+                    {{ translate(signalType(signal.type).label) }}
+                  </h5>
                 </div>
                 <span
                   class="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium"
                   :class="stateClass(signal.status)"
                   ><span class="size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />{{
-                    stateLabel(signal.status)
+                    translate(stateLabel(signal.status))
                   }}</span
                 >
               </div>
               <div class="mt-5 border-t pt-3">
-                <p class="text-[11px] text-muted-foreground">Last received</p>
+                <p class="text-[11px] text-muted-foreground">{{ translate('Last received') }}</p>
                 <p
                   class="mt-1 break-words text-xs leading-5 tabular-nums"
                   :class="signal.lastSeenAt ? 'text-foreground' : 'text-muted-foreground'"
@@ -279,7 +290,7 @@ function time(value: string | null) {
                   <time v-if="signal.lastSeenAt" :datetime="signal.lastSeenAt">{{
                     time(signal.lastSeenAt)
                   }}</time
-                  ><span v-else>No data received</span>
+                  ><span v-else>{{ translate('No data received') }}</span>
                 </p>
               </div>
             </section>
@@ -288,7 +299,7 @@ function time(value: string | null) {
             v-else
             class="rounded-lg border border-dashed bg-muted/10 p-5 text-sm text-muted-foreground"
           >
-            No signal details are available for this project.
+            {{ translate('No signal details are available for this project.') }}
           </p>
         </article>
       </div>
@@ -297,8 +308,11 @@ function time(value: string | null) {
       >
         <Clock class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
         <p>
-          Activity reflects data received in the last 24 hours. A previously connected project may
-          have no recent activity.
+          {{
+            translate(
+              'Activity reflects data received in the last 24 hours. A previously connected project may have no recent activity.',
+            )
+          }}
         </p>
       </div>
       <footer class="border-t bg-muted/10 px-5 py-4 sm:px-6">
@@ -308,7 +322,7 @@ function time(value: string | null) {
           :page-size="20"
           :busy="loading"
           unit="projects"
-          label="Ingestion pagination"
+          :label="translate('Ingestion pagination')"
           @change="emit('pageChange', $event)"
         />
       </footer>

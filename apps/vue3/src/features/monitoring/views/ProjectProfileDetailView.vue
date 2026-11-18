@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
-import { useProjectAccessStore } from "../model/project-access.store"
-const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -57,23 +57,28 @@ onBeforeUnmount(() => {
     <RouterLink
       class="text-sm text-muted-foreground hover:underline"
       :to="{ name: 'project-profiles', params: { groupSlug: group, projectSlug: project } }"
-      >← All profiles</RouterLink
+      >{{ translate('← All profiles') }}</RouterLink
     >
-    <p v-if="loading" role="status" class="text-sm text-muted-foreground">Loading profile…</p>
+    <p v-if="loading" role="status" class="text-sm text-muted-foreground">
+      {{ translate('Loading profile…') }}
+    </p>
     <div v-else-if="error" class="space-y-3">
-      <p role="alert" class="text-sm text-destructive">{{ error }}</p>
-      <Button aria-label="Retry profile" variant="outline" @click="load">Retry</Button>
+      <p role="alert" class="text-sm text-destructive">{{ translate(error) }}</p>
+      <Button :aria-label="translate('Retry profile')" variant="outline" @click="load">{{
+        translate('Retry')
+      }}</Button>
     </div>
     <template v-else-if="profile">
       <header class="space-y-3">
         <h1 class="page-title break-all">{{ profile.name }}</h1>
         <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
           <span>{{ formatDateTime(profile.startedAt) }}</span
-          ><span>{{ profile.durationMs.toFixed(2) }} ms duration</span
+          ><span>{{ profile.durationMs.toFixed(2) }} {{ translate('ms duration') }}</span
           ><span
-            >{{ profile.samples.length }} samples · {{ profile.sampleIntervalMs }} ms interval</span
-          ><span>{{ profile.environment ?? 'No environment' }}</span
-          ><span v-if="profile.release">Release {{ profile.release }}</span>
+            >{{ profile.samples.length }} {{ translate('samples ·') }}
+            {{ profile.sampleIntervalMs }} {{ translate('ms interval') }}</span
+          ><span>{{ translate(profile.environment ?? 'No environment') }}</span
+          ><span v-if="profile.release">{{ translate('Release') }} {{ profile.release }}</span>
         </div>
         <RouterLink
           v-if="profile.traceId"
@@ -84,27 +89,33 @@ onBeforeUnmount(() => {
             params: { groupSlug: group, projectSlug: project, traceId: profile.traceId },
             query: profile.spanId ? { spanId: profile.spanId } : {},
           }"
-          >View Trace {{ profile.traceId }}</RouterLink
+          >{{ translate('View Trace') }} {{ profile.traceId }}</RouterLink
         >
       </header>
       <p v-if="profile.truncated" class="rounded-lg border bg-muted p-3 text-sm">
-        This capture was truncated at the collection limit. It may not include the complete
-        interaction.
+        {{
+          translate(
+            'This capture was truncated at the collection limit. It may not include the complete interaction.',
+          )
+        }}
       </p>
       <p class="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-        Estimated sampled time is weighted by the interval until the next sample or capture end. It
-        is not precise CPU time. Self excludes child calls; Total includes child calls and counts
-        recursive functions once per sample. Unsampled: {{ analysis.unsampledMs.toFixed(2) }} ms.
-        Function names are shown without Source Map processing.
+        {{
+          translate(
+            'Estimated sampled time is weighted by the interval until the next sample or capture end. It is not precise CPU time. Self excludes child calls; Total includes child calls and counts recursive functions once per sample. Unsampled:',
+          )
+        }}
+        {{ analysis.unsampledMs.toFixed(2) }}
+        {{ translate('ms. Function names are shown without Source Map processing.') }}
       </p>
       <ProfileFlameChart :segments="analysis.segments" :duration-ms="profile.durationMs" />
       <section class="overflow-hidden rounded-lg border bg-background">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
-          <h2 class="font-semibold">Functions</h2>
+          <h2 class="font-semibold">{{ translate('Functions') }}</h2>
           <FormSelect
             v-model="sort"
             class="w-44"
-            aria-label="Function ranking"
+            :aria-label="translate('Function ranking')"
             :options="[
               { value: 'self', label: 'Self sampled time' },
               { value: 'total', label: 'Total sampled time' },
@@ -115,9 +126,9 @@ onBeforeUnmount(() => {
           <table class="app-table">
             <thead class="bg-muted/40 text-xs text-muted-foreground">
               <tr>
-                <th class="p-3">Function / resource</th>
-                <th class="p-3">Self (ms, estimated)</th>
-                <th class="p-3">Total (ms, estimated)</th>
+                <th class="p-3">{{ translate('Function / resource') }}</th>
+                <th class="p-3">{{ translate('Self (ms, estimated)') }}</th>
+                <th class="p-3">{{ translate('Total (ms, estimated)') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -125,8 +136,8 @@ onBeforeUnmount(() => {
                 <td class="max-w-xl break-all p-3">
                   <span class="font-mono text-xs">{{ fn.name }}</span>
                   <p v-if="fn.resource" class="mt-1 text-xs text-muted-foreground">
-                    {{ fn.resource }}{{ fn.line == null ? '' : `:${fn.line}`
-                    }}{{ fn.column == null ? '' : `:${fn.column}` }}
+                    {{ fn.resource }}{{ translate(fn.line == null ? '' : `:${fn.line}`)
+                    }}{{ translate(fn.column == null ? '' : `:${fn.column}`) }}
                   </p>
                 </td>
                 <td class="p-3 tabular-nums">{{ fn.selfMs.toFixed(2) }}</td>
@@ -138,7 +149,9 @@ onBeforeUnmount(() => {
         <EmptyState
           v-if="!functions.length"
           class="p-6"
-          :title="profile.samples.length ? 'No sampled function stacks' : 'No samples recorded'"
+          :title="
+            translate(profile.samples.length ? 'No sampled function stacks' : 'No samples recorded')
+          "
         />
       </section>
     </template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate, intlLocale } from '@/i18n'
+
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed } from 'vue'
 const props = defineProps<{
@@ -52,7 +54,7 @@ const chart = computed(() => {
   const labels = [0, 4, 8, 12, 16, 20, 24].map((hour) => ({
     x: 40 + (hour / 24) * 460,
     label: new Date(split + (duration * hour) / 24).toLocaleString(
-      [],
+      intlLocale(),
       duration > 86400000
         ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
         : { hour: '2-digit', minute: '2-digit', hour12: false },
@@ -140,9 +142,14 @@ const chart = computed(() => {
         {{ label.label }}
       </text>
     </svg>
-    <EmptyState v-if="!series.length" class="py-4" title="No trend samples available" />
+    <EmptyState
+      v-if="!series.length"
+      class="py-4"
+      :title="translate('No trend samples available')"
+    />
     <p class="text-right text-[10px] text-muted-foreground">
-      {{ aggregation.toUpperCase() }} {{ metric }} time · Lines connect observed samples
+      {{ aggregation.toUpperCase() }} {{ translate(metric) }}
+      {{ translate('time · Lines connect observed samples') }}
     </p>
   </div>
 </template>

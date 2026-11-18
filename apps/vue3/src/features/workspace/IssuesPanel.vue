@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { Bug, Filter, Search, CalendarDays, LoaderCircle, Check, ArrowUpRight } from '@lucide/vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -49,7 +52,7 @@ function time(value?: string) {
   const date = new Date(value)
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat('en-GB', {
+    : new Intl.DateTimeFormat(intlLocale('en-GB'), {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -68,20 +71,23 @@ function time(value?: string) {
         <Bug class="size-6 text-primary" aria-hidden="true" />
       </div>
       <div class="min-w-0">
-        <h2 class="page-title">Issue center</h2>
+        <h2 class="page-title">{{ translate('Issue center') }}</h2>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Find and triage errors across the projects you can access.
+          {{ translate('Find and triage errors across the projects you can access.') }}
         </p>
       </div>
     </header>
 
-    <section class="overflow-hidden rounded-xl border bg-card shadow-sm" aria-label="Issue filters">
+    <section
+      class="overflow-hidden rounded-xl border bg-card shadow-sm"
+      :aria-label="translate('Issue filters')"
+    >
       <div class="flex items-center gap-2.5 border-b bg-muted/20 px-5 py-4 sm:px-6">
         <Filter class="size-4 text-muted-foreground" aria-hidden="true" />
-        <h3 class="text-sm font-semibold">Filter issues</h3>
-        <span class="ml-auto hidden text-xs text-muted-foreground sm:block"
-          >Project, environment and time</span
-        >
+        <h3 class="text-sm font-semibold">{{ translate('Filter issues') }}</h3>
+        <span class="ml-auto hidden text-xs text-muted-foreground sm:block">{{
+          translate('Project, environment and time')
+        }}</span>
       </div>
       <form
         data-testid="filters"
@@ -89,98 +95,108 @@ function time(value?: string) {
         @submit.prevent="emit('apply')"
       >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Project</span
+          ><span class="block">{{ translate('Project') }}</span
           ><select
             v-model="projectId"
-            aria-label="Project"
+            :aria-label="translate('Project')"
             class="workspace-select"
             :class="fieldClass"
           >
-            <option value="">All accessible projects</option>
+            <option value="">{{ translate('All accessible projects') }}</option>
             <option v-for="project in projects" :key="project.id" :value="project.id">
               {{ project.name }}
             </option>
           </select></label
         >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Group</span
+          ><span class="block">{{ translate('Group') }}</span
           ><select
             v-model="groupId"
-            aria-label="Group"
+            :aria-label="translate('Group')"
             class="workspace-select"
             :class="fieldClass"
           >
-            <option value="">All groups</option>
+            <option value="">{{ translate('All groups') }}</option>
             <option v-for="group in groups" :key="group.id" :value="group.id">
               {{ group.name }}
             </option>
           </select></label
         >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Search</span
+          ><span class="block">{{ translate('Search') }}</span
           ><span class="relative block"
             ><Search
               class="pointer-events-none absolute top-3 left-3 size-4"
               aria-hidden="true" /><Input
               v-model="query"
-              aria-label="Search"
-              placeholder="Search issue titles"
+              :aria-label="translate('Search')"
+              :placeholder="translate('Search issue titles')"
               class="h-10 pl-9 text-foreground" /></span
         ></label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Status</span
+          ><span class="block">{{ translate('Status') }}</span
           ><select
             v-model="status"
-            aria-label="Status"
+            :aria-label="translate('Status')"
             class="workspace-select"
             :class="fieldClass"
           >
-            <option value="">All statuses</option>
-            <option value="unresolved">Unresolved</option>
-            <option value="resolved">Resolved</option>
+            <option value="">{{ translate('All statuses') }}</option>
+            <option value="unresolved">{{ translate('Unresolved') }}</option>
+            <option value="resolved">{{ translate('Resolved') }}</option>
           </select></label
         >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">Environment</span
+          ><span class="block">{{ translate('Environment') }}</span
           ><Input
             v-model="environment"
-            aria-label="Environment"
-            placeholder="e.g. production"
+            :aria-label="translate('Environment')"
+            :placeholder="translate('e.g. production')"
             class="h-10 text-foreground"
         /></label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">From</span
-          ><input v-model="from" aria-label="From" type="datetime-local" :class="fieldClass"
+          ><span class="block">{{ translate('From') }}</span
+          ><input
+            v-model="from"
+            :aria-label="translate('From')"
+            type="datetime-local"
+            :class="fieldClass"
         /></label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">To</span
-          ><input v-model="to" aria-label="To" type="datetime-local" :class="fieldClass"
+          ><span class="block">{{ translate('To') }}</span
+          ><input
+            v-model="to"
+            :aria-label="translate('To')"
+            type="datetime-local"
+            :class="fieldClass"
         /></label>
         <Button type="submit" :disabled="loading" class="h-10 w-full gap-2"
           ><LoaderCircle v-if="loading" class="size-4 animate-spin" aria-hidden="true" /><Search
             v-else
             class="size-4"
             aria-hidden="true"
-          />Apply filters</Button
+          />{{ translate('Apply filters') }}</Button
         >
       </form>
     </section>
 
     <section
       class="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm"
-      aria-label="Issue results"
+      :aria-label="translate('Issue results')"
     >
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
         <div class="flex items-center gap-2.5">
           <Bug class="size-4 text-muted-foreground" aria-hidden="true" />
-          <h3 class="text-sm font-semibold">Issues</h3>
+          <h3 class="text-sm font-semibold">{{ translate('Issues') }}</h3>
           <span
             class="rounded-full border bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
-            >{{ total }} issues</span
+            >{{ total }} {{ translate('issues') }}</span
           >
         </div>
         <span class="flex items-center gap-1.5 text-xs text-muted-foreground"
-          ><CalendarDays class="size-3.5" aria-hidden="true" />Last seen, newest first</span
+          ><CalendarDays class="size-3.5" aria-hidden="true" />{{
+            translate('Last seen, newest first')
+          }}</span
         >
       </header>
       <div
@@ -188,15 +204,19 @@ function time(value?: string) {
         role="alert"
         class="m-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
       >
-        <p>{{ error }}</p>
-        <Button type="button" variant="outline" size="sm" @click="emit('retry')">Retry</Button>
+        <p>{{ translate(error) }}</p>
+        <Button type="button" variant="outline" size="sm" @click="emit('retry')">{{
+          translate('Retry')
+        }}</Button>
       </div>
       <div
         v-else-if="loading"
         role="status"
         class="flex min-h-72 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"
       >
-        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />Loading issues…
+        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />{{
+          translate('Loading issues…')
+        }}
       </div>
       <div
         v-else-if="!records.length"
@@ -205,25 +225,29 @@ function time(value?: string) {
         <div class="mb-5 grid size-16 place-items-center rounded-2xl border bg-muted/30">
           <Bug class="size-7 text-muted-foreground" :stroke-width="1.5" aria-hidden="true" />
         </div>
-        <h4 class="text-base font-semibold">No issues found</h4>
+        <h4 class="text-base font-semibold">{{ translate('No issues found') }}</h4>
         <p class="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-          No results match these filters. Try a different project, environment or time range.
+          {{
+            translate(
+              'No results match these filters. Try a different project, environment or time range.',
+            )
+          }}
         </p>
         <p class="mt-5 text-xs text-muted-foreground">
-          Issues appear here when your projects report errors.
+          {{ translate('Issues appear here when your projects report errors.') }}
         </p>
       </div>
       <div v-else class="min-w-0 overflow-x-auto">
         <table class="app-table min-w-[960px]">
           <thead>
             <tr>
-              <th>Project</th>
-              <th>Issue</th>
-              <th>Environment</th>
-              <th>Status</th>
-              <th class="!text-right">Events</th>
-              <th>Last seen</th>
-              <th>Actions</th>
+              <th>{{ translate('Project') }}</th>
+              <th>{{ translate('Issue') }}</th>
+              <th>{{ translate('Environment') }}</th>
+              <th>{{ translate('Status') }}</th>
+              <th class="!text-right">{{ translate('Events') }}</th>
+              <th>{{ translate('Last seen') }}</th>
+              <th>{{ translate('Actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -234,14 +258,14 @@ function time(value?: string) {
             >
               <td class="max-w-40 break-words font-medium">{{ projectName(record) }}</td>
               <td class="max-w-md">
-                <p class="line-clamp-2 break-words font-medium" :title="record.title">
-                  {{ record.title }}
+                <p class="line-clamp-2 break-words font-medium" :title="translate(record.title)">
+                  {{ translate(record.title) }}
                 </p>
               </td>
               <td>
                 <span
                   class="inline-flex max-w-36 break-all rounded-md border bg-muted/30 px-2 py-1 text-xs text-muted-foreground"
-                  >{{ record.environment || '—' }}</span
+                  >{{ translate(record.environment || '—') }}</span
                 >
               </td>
               <td>
@@ -259,16 +283,18 @@ function time(value?: string) {
                     class="size-3"
                     aria-hidden="true"
                   /><Bug v-else class="size-3" aria-hidden="true" />{{
-                    record.status === 'resolved'
-                      ? 'Resolved'
-                      : record.status === 'unresolved'
-                        ? 'Unresolved'
-                        : (record.status ?? '—')
+                    translate(
+                      record.status === 'resolved'
+                        ? 'Resolved'
+                        : record.status === 'unresolved'
+                          ? 'Unresolved'
+                          : (record.status ?? '—'),
+                    )
                   }}</span
                 >
               </td>
               <td class="text-right tabular-nums">
-                {{ record.eventCount?.toLocaleString() ?? '—' }}
+                {{ record.eventCount?.toLocaleString(intlLocale()) ?? '—' }}
               </td>
               <td class="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                 <time :datetime="record.lastSeenAt">{{ time(record.lastSeenAt) }}</time>
@@ -276,7 +302,8 @@ function time(value?: string) {
               <td>
                 <Button v-if="detail(record)" as-child variant="outline" size="sm"
                   ><RouterLink :to="detail(record)!"
-                    >View issue<ArrowUpRight class="size-3.5" aria-hidden="true" /></RouterLink
+                    >{{ translate('View issue')
+                    }}<ArrowUpRight class="size-3.5" aria-hidden="true" /></RouterLink
                 ></Button>
               </td>
             </tr>
@@ -290,7 +317,7 @@ function time(value?: string) {
           :page-size="20"
           :busy="loading"
           unit="issues"
-          label="Issue pagination"
+          :label="translate('Issue pagination')"
           @change="emit('pageChange', $event)"
         />
       </footer>

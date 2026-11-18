@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { getInvitationRedirect, rememberInvitationRedirect } from "../model/invitation-redirect"
+import { translate } from '@/i18n'
+
+import { getInvitationRedirect, rememberInvitationRedirect } from '../model/invitation-redirect'
 import { ref } from 'vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -49,34 +51,44 @@ async function submit() {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="page-title">Create account</h1>
-      <p v-if="invitationRedirect">Register with the email address that received the project invitation. After verifying your email, sign in to accept it.</p>
-      <p v-if="message" role="status">{{ message }}</p>
-      <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
+      <h1 class="page-title">{{ translate('Create account') }}</h1>
+      <p v-if="invitationRedirect">
+        {{
+          translate(
+            'Register with the email address that received the project invitation. After verifying your email, sign in to accept it.',
+          )
+        }}
+      </p>
+      <p v-if="message" role="status">{{ translate(message) }}</p>
+      <p v-if="error" role="alert" class="text-destructive">{{ translate(error) }}</p>
       <form v-if="!message" class="space-y-4" @submit.prevent="submit">
-        <Input v-model="name" class="w-full" required placeholder="Name" /><Input
+        <Input v-model="name" class="w-full" required :placeholder="translate('Name')" /><Input
           v-model="email"
           class="w-full"
           required
           type="email"
-          placeholder="Email"
+          :placeholder="translate('Email')"
         /><Input
           v-model="password"
           class="w-full"
           required
           type="password"
-          placeholder="Password (at least 8 characters)"
+          :placeholder="translate('Password (at least 8 characters)')"
         /><Input
           v-model="confirmation"
           class="w-full"
           required
           type="password"
-          placeholder="Confirm password"
+          :placeholder="translate('Confirm password')"
         /><Button type="submit" class="w-full" :disabled="submitting">
-          {{ submitting ? 'Submitting…' : 'Register' }}
+          {{ translate(submitting ? 'Submitting…' : 'Register') }}
         </Button>
       </form>
-      <RouterLink :to="{ path: '/login', query: invitationRedirect ? { redirect: invitationRedirect } : {} }" class="text-sm text-primary">Back to sign in</RouterLink>
+      <RouterLink
+        :to="{ path: '/login', query: invitationRedirect ? { redirect: invitationRedirect } : {} }"
+        class="text-sm text-primary"
+        >{{ translate('Back to sign in') }}</RouterLink
+      >
     </section>
   </main>
 </template>

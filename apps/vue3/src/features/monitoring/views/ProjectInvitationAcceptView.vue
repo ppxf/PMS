@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { clearInvitationRedirect } from '@/features/auth/model/invitation-redirect'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -36,14 +38,18 @@ async function accept() {
 </script>
 <template>
   <main class="mx-auto max-w-xl space-y-5 p-8">
-    <h1 class="text-2xl font-semibold">Project invitation</h1>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <h1 class="text-2xl font-semibold">{{ translate('Project invitation') }}</h1>
+    <p v-if="error" role="alert">{{ translate(error) }}</p>
     <template v-if="preview"
-      ><p>Join {{ preview.projectName }} as {{ preview.email }}</p>
+      ><p>
+        {{ translate('Join') }} {{ preview.projectName }} {{ translate('as') }} {{ preview.email }}
+      </p>
       <ul>
         <li v-for="permission in preview.permissions" :key="permission">{{ permission }}</li>
       </ul>
-      <Button :disabled="busy" @click="accept">Accept invitation</Button></template
+      <Button :disabled="busy" @click="accept">{{
+        translate('Accept invitation')
+      }}</Button></template
     >
   </main>
 </template>

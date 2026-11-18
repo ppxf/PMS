@@ -151,5 +151,4 @@ describe('DashboardView', () => {
     expect(wrapper.text()).toContain('Waiting for SDK')
     wrapper.unmount()
   })
-
 })

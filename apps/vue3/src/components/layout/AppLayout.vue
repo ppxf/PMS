@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+
 import { computed, onMounted } from 'vue'
 import { http } from '@/services/http'
 import { ref } from 'vue'
@@ -206,13 +209,15 @@ async function logout(): Promise<void> {
         <div class="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
           <Activity class="size-5" aria-hidden="true" />
         </div>
-        <p class="font-semibold">PMS</p>
+        <p class="font-semibold">{{ translate('PMS') }}</p>
       </div>
 
       <Separator />
 
-      <nav class="space-y-1 p-3" aria-label="Main navigation">
-        <p class="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">Workbench</p>
+      <nav class="space-y-1 p-3" :aria-label="translate('Main navigation')">
+        <p class="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+          {{ translate('Workbench') }}
+        </p>
         <template v-for="item in visibleNavigation" :key="item.routeName">
           <p
             v-if="
@@ -221,7 +226,7 @@ async function logout(): Promise<void> {
             "
             class="px-3 pt-5 pb-2 text-xs font-semibold uppercase text-muted-foreground"
           >
-            Management
+            {{ translate('Management') }}
           </p>
           <RouterLink
             :to="{ name: item.routeName }"
@@ -230,7 +235,7 @@ async function logout(): Promise<void> {
             active-class=""
           >
             <component :is="item.icon" class="size-4" />
-            {{ item.label }}
+            {{ translate(item.label) }}
           </RouterLink>
         </template>
         <div v-if="currentProject">
@@ -239,7 +244,7 @@ async function logout(): Promise<void> {
             class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground"
           >
             <FolderOpen class="size-4" />
-            Current project
+            {{ translate('Current project') }}
           </p>
           <template v-for="item in visibleProjectNavigation" :key="item.routeName">
             <div v-if="item.children" class="ml-3">
@@ -247,7 +252,7 @@ async function logout(): Promise<void> {
                 class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground"
               >
                 <component :is="item.icon" class="size-4" />
-                {{ item.label }}
+                {{ translate(item.label) }}
               </p>
               <div class="ml-5 space-y-1 border-l pl-3">
                 <RouterLink
@@ -259,7 +264,7 @@ async function logout(): Promise<void> {
                   :aria-current="isActive([child.routeName]) ? 'page' : undefined"
                   active-class=""
                 >
-                  {{ child.label }}
+                  {{ translate(child.label) }}
                 </RouterLink>
               </div>
             </div>
@@ -277,7 +282,7 @@ async function logout(): Promise<void> {
               active-class=""
             >
               <component :is="item.icon" class="size-4" />
-              {{ item.label }}
+              {{ translate(item.label) }}
             </RouterLink>
           </template>
         </div>
@@ -286,18 +291,19 @@ async function logout(): Promise<void> {
 
     <div class="min-w-0">
       <header
-        class="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/90 px-6 backdrop-blur"
+        class="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b bg-background/90 px-4 backdrop-blur sm:px-6"
       >
-        <h1 class="font-semibold">{{ route.meta.title }}</h1>
+        <h1 class="min-w-0 truncate font-semibold">{{ translate(route.meta.title) }}</h1>
 
         <div class="flex items-center gap-3">
+          <LanguageSwitcher />
           <div class="hidden text-right sm:block">
             <p class="text-sm font-medium">{{ auth.user?.name }}</p>
             <p class="text-xs text-muted-foreground">{{ auth.user?.email }}</p>
           </div>
           <Button type="button" variant="outline" size="sm" @click="logout">
             <LogOut />
-            Sign out
+            {{ translate('Sign out') }}
           </Button>
         </div>
       </header>

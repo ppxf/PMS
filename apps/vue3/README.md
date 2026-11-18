@@ -2,6 +2,14 @@
 
 Vue 3 管理后台基础框架，使用 Vite、TypeScript、Tailwind CSS v4 与 shadcn-vue。
 
+## 界面语言
+
+支持简体中文与英文，可通过页面右上角的语言选择器即时切换。首次访问根据浏览器首选语言选择，手动选择后使用 `pms.locale` 保存偏好；浏览器限制存储时仍可切换当前界面。
+
+语言状态与翻译入口位于 `src/i18n/index.ts`，中文词条按功能存放于 `src/i18n/*zh-CN.ts`。英文原文作为默认文案，未匹配的词条回退到原文。
+
+新增界面文案时，在展示位置使用 `translate('English interface copy')`，并添加中文词条。状态中保留原始文案或协议值，避免在初始化时固定为某种语言。项目名称、日志内容、SDK 示例、查询字段及请求参数保持原值。日期和数值格式使用 `intlLocale()` 或公共 `formatDateTime()`。
+
 ## 技术栈
 
 - Vue 3、Vue Router、Pinia

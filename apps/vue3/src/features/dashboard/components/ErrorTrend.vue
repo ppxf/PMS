@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import { computed, ref, useId } from 'vue'
 import { useElementSize } from '@vueuse/core'
@@ -34,7 +37,7 @@ const labels = computed(() =>
     return {
       x: 48 + f * plotWidth.value,
       value: new Date(start + (Date.parse(props.end) - start) * f).toLocaleString(
-        'en-US',
+        intlLocale(),
         props.range === '24h'
           ? { hour: '2-digit', minute: '2-digit', hour12: false }
           : { month: 'short', day: 'numeric' },
@@ -50,12 +53,15 @@ const labels = computed(() =>
       class="mb-2 flex min-h-6 items-center justify-between gap-2 text-xs text-muted-foreground"
       aria-live="polite"
     >
-      <span>{{ range === '24h' ? 'Hourly' : 'Every 6 hours' }} · local time</span>
-      <span v-if="active" class="font-medium text-foreground"
-        >{{ formatDateTime(active.at) }} ·
-        {{ active.count.toLocaleString() }} events</span
+      <span
+        >{{ translate(range === '24h' ? 'Hourly' : 'Every 6 hours') }}
+        {{ translate('· local time') }}</span
       >
-      <span v-else>Hover to inspect</span>
+      <span v-if="active" class="font-medium text-foreground"
+        >{{ formatDateTime(active.at) }} · {{ active.count.toLocaleString(intlLocale()) }}
+        {{ translate('events') }}</span
+      >
+      <span v-else>{{ translate('Hover to inspect') }}</span>
     </div>
     <svg
       :viewBox="`0 0 ${chartWidth} 242`"

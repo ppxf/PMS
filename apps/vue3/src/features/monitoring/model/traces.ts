@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n'
 export type MetricFunction = 'count' | 'avg' | 'p50' | 'p75' | 'p95' | 'errorRate'
 export interface TraceMetric {
   function: MetricFunction
@@ -171,7 +172,7 @@ export function metricUnit(metric: TraceMetric): string {
 export function formatMetric(value: number | null | undefined, metric: TraceMetric): string {
   return value == null
     ? '—'
-    : `${(metric.function === 'errorRate' ? value * 100 : value).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${metricUnit(metric)}`
+    : `${(metric.function === 'errorRate' ? value * 100 : value).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} ${metricUnit(metric)}`
 }
 export function waterfallRows(
   spans: Span[],

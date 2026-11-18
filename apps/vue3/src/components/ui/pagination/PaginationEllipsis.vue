@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import type { PaginationEllipsisProps } from 'reka-ui'
 
 import type { HTMLAttributes } from 'vue'
@@ -22,7 +24,7 @@ const delegatedProps = reactiveOmit(props, 'class')
   >
     <slot>
       <MoreHorizontalIcon />
-      <span class="sr-only">More pages</span>
+      <span class="sr-only">{{ translate('More pages') }}</span>
     </slot>
   </PaginationEllipsis>
 </template>

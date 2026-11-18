@@ -45,9 +45,10 @@ html,
   outline-offset: 2px;
 }
 
-.code-block::selection {
-  background: var(--accent);
-  color: var(--accent-foreground);
+.code-block::selection,
+.code-block *::selection {
+  background: #2563eb;
+  color: #fff;
 }
 
 .app-table {

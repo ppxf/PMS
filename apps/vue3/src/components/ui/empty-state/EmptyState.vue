@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { Search } from '@lucide/vue'
 
 defineProps<{
@@ -19,8 +21,10 @@ defineProps<{
       :class="size === 'lg' ? 'size-12 opacity-70' : 'size-8'"
       :stroke-width="size === 'lg' ? 1.5 : 2"
     />
-    <p :class="size === 'lg' ? 'text-lg' : 'text-sm'">{{ title }}</p>
-    <p v-if="description" class="max-w-xs text-xs text-muted-foreground">{{ description }}</p>
+    <p :class="size === 'lg' ? 'text-lg' : 'text-sm'">{{ translate(title) }}</p>
+    <p v-if="description" class="max-w-xs text-xs text-muted-foreground">
+      {{ translate(description) }}
+    </p>
     <slot />
   </div>
 </template>

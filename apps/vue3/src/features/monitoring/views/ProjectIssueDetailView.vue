@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
@@ -193,8 +196,10 @@ onMounted(loadIssue)
 <template>
   <section class="space-y-6">
     <div v-if="error" role="alert" class="space-y-3 text-destructive">
-      <p>{{ error }}</p>
-      <Button type="button" variant="outline" size="sm" @click="loadIssue">Retry</Button>
+      <p>{{ translate(error) }}</p>
+      <Button type="button" variant="outline" size="sm" @click="loadIssue">{{
+        translate('Retry')
+      }}</Button>
     </div>
 
     <template v-else-if="issue">
@@ -205,13 +210,13 @@ onMounted(loadIssue)
             data-testid="issue-status"
             :variant="issue.status === 'resolved' ? 'success' : 'secondary'"
           >
-            {{ issue.status === 'unresolved' ? 'Unresolved' : 'Resolved' }}
+            {{ translate(issue.status === 'unresolved' ? 'Unresolved' : 'Resolved') }}
           </Badge>
           <Badge
             data-testid="issue-count"
             :variant="issue.status === 'resolved' ? 'success' : 'destructive'"
-            >{{ issue.eventCount.toLocaleString('en-US') }}
-            {{ issue.eventCount === 1 ? 'event' : 'events' }}</Badge
+            >{{ issue.eventCount.toLocaleString(intlLocale()) }}
+            {{ translate(issue.eventCount === 1 ? 'event' : 'events') }}</Badge
           >
           <Button
             v-if="projectAccess.access?.role === 'owner'"
@@ -221,7 +226,7 @@ onMounted(loadIssue)
             variant="outline"
             :disabled="statusUpdating"
             @click="toggleIssueStatus"
-            >{{ issue.status === 'unresolved' ? 'Mark as resolved' : 'Reopen' }}</Button
+            >{{ translate(issue.status === 'unresolved' ? 'Mark as resolved' : 'Reopen') }}</Button
           >
           <template v-if="issue.visibility === 'active'">
             <Button
@@ -231,7 +236,7 @@ onMounted(loadIssue)
               size="sm"
               variant="outline"
               @click="openArchiveDialog"
-              >Archive</Button
+              >{{ translate('Archive') }}</Button
             >
             <Button
               v-if="projectAccess.access?.role === 'owner'"
@@ -240,7 +245,7 @@ onMounted(loadIssue)
               size="sm"
               variant="destructive"
               @click="deleteDialogOpen = true"
-              >Delete</Button
+              >{{ translate('Delete') }}</Button
             >
           </template>
           <Button
@@ -251,7 +256,7 @@ onMounted(loadIssue)
             variant="outline"
             :disabled="actionPending"
             @click="restoreIssue"
-            >Restore</Button
+            >{{ translate('Restore') }}</Button
           >
         </div>
         <p class="mt-1 text-muted-foreground">
@@ -262,7 +267,7 @@ onMounted(loadIssue)
           data-testid="resolution-summary"
           class="mt-2 text-sm text-muted-foreground"
         >
-          Automatically resolved after 7 days without recurrence ·
+          {{ translate('Automatically resolved after 7 days without recurrence ·') }}
           {{ formatDate(issue.resolvedAt) }}
         </p>
         <p
@@ -270,59 +275,64 @@ onMounted(loadIssue)
           data-testid="resolution-summary"
           class="mt-2 text-sm text-muted-foreground"
         >
-          Manually resolved · {{ formatDate(issue.resolvedAt) }}
+          {{ translate('Manually resolved ·') }} {{ formatDate(issue.resolvedAt) }}
         </p>
         <p
           v-if="issue.reopenedAt && issue.reopenCount > 0"
           class="mt-2 text-sm text-muted-foreground"
         >
-          Last reopened: {{ formatDate(issue.reopenedAt) }} · Reopened
-          {{ issue.reopenCount.toLocaleString('en-US') }}
-          {{ issue.reopenCount === 1 ? 'time' : 'times' }}
+          {{ translate('Last reopened:') }} {{ formatDate(issue.reopenedAt) }}
+          {{ translate('· Reopened') }}
+          {{ issue.reopenCount.toLocaleString(intlLocale()) }}
+          {{ translate(issue.reopenCount === 1 ? 'time' : 'times') }}
         </p>
         <p v-if="issue.visibility !== 'active'" class="mt-2 text-sm text-muted-foreground">
           {{
-            issue.visibility === 'archived_permanent'
-              ? 'Archive permanently'
-              : `Restore after ${issue.archiveThreshold?.toLocaleString('en-US')} events`
+            translate(
+              issue.visibility === 'archived_permanent'
+                ? 'Archive permanently'
+                : `Restore after ${issue.archiveThreshold?.toLocaleString(intlLocale())} events`,
+            )
           }}
           <template v-if="issue.archivedAt"> · {{ formatDate(issue.archivedAt) }}</template>
         </p>
         <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div>
-            <dt class="inline text-muted-foreground">First seen:</dt>
+            <dt class="inline text-muted-foreground">{{ translate('First seen:') }}</dt>
             <dd data-testid="first-seen-at" class="inline">{{ formatDate(issue.firstSeenAt) }}</dd>
           </div>
           <div>
-            <dt class="inline text-muted-foreground">Last seen:</dt>
+            <dt class="inline text-muted-foreground">{{ translate('Last seen:') }}</dt>
             <dd data-testid="last-seen-at" class="inline">{{ formatDate(issue.lastSeenAt) }}</dd>
           </div>
         </dl>
       </div>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">Latest event</CardTitle></CardHeader>
+        <CardHeader
+          ><CardTitle class="text-base">{{ translate('Latest event') }}</CardTitle></CardHeader
+        >
         <CardContent v-if="issue.latestEvent" class="space-y-4">
           <dl class="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt class="text-muted-foreground">Time</dt>
+              <dt class="text-muted-foreground">{{ translate('Time') }}</dt>
               <dd>{{ formatDate(issue.latestEvent.timestamp) }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Source</dt>
+              <dt class="text-muted-foreground">{{ translate('Source') }}</dt>
               <dd>{{ issue.latestEvent.source }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">URL</dt>
+              <dt class="text-muted-foreground">{{ translate('URL') }}</dt>
               <dd class="break-all">{{ issue.latestEvent.url ?? '-' }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Environment</dt>
+              <dt class="text-muted-foreground">{{ translate('Environment') }}</dt>
               <dd>{{ issue.latestEvent.environment ?? '-' }}</dd>
             </div>
           </dl>
           <div>
-            <h3 class="mb-2 text-sm font-medium">Tags</h3>
+            <h3 class="mb-2 text-sm font-medium">{{ translate('Tags') }}</h3>
             <dl v-if="tags.length" class="grid gap-2 text-sm sm:grid-cols-2">
               <div v-for="[key, value] in tags" :key="key" class="flex gap-2 rounded border p-2">
                 <dt class="text-muted-foreground">{{ key }}</dt>
@@ -332,27 +342,29 @@ onMounted(loadIssue)
             <p v-else>-</p>
           </div>
           <div>
-            <h3 class="mb-2 text-sm font-medium">Stack trace</h3>
+            <h3 class="mb-2 text-sm font-medium">{{ translate('Stack trace') }}</h3>
             <pre class="code-block" tabindex="0">{{
               issue.latestEvent.stacktrace ?? 'No stack trace'
             }}</pre>
           </div>
         </CardContent>
-        <CardContent v-else class="text-muted-foreground">No latest event</CardContent>
+        <CardContent v-else class="text-muted-foreground">{{
+          translate('No latest event')
+        }}</CardContent>
       </Card>
 
       <Dialog v-model:open="archiveDialogOpen">
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Archive issue</DialogTitle>
-            <DialogDescription
-              >Events will still be recorded and counted while archived.</DialogDescription
-            >
+            <DialogTitle>{{ translate('Archive issue') }}</DialogTitle>
+            <DialogDescription>{{
+              translate('Events will still be recorded and counted while archived.')
+            }}</DialogDescription>
           </DialogHeader>
           <div class="space-y-3 text-sm">
             <label class="flex items-center gap-2">
               <input v-model="archiveMode" type="radio" value="permanent" />
-              Archive permanently
+              {{ translate('Archive permanently') }}
             </label>
             <label class="flex items-center gap-2">
               <input
@@ -362,7 +374,7 @@ onMounted(loadIssue)
                 value="until_count"
                 :disabled="availableArchiveThresholds.length === 0"
               />
-              Archive until an event count is reached
+              {{ translate('Archive until an event count is reached') }}
             </label>
             <div class="flex flex-wrap gap-3 pl-6">
               <label v-for="threshold in [10, 100, 1000] as const" :key="threshold">
@@ -374,20 +386,20 @@ onMounted(loadIssue)
                   :disabled="archiveMode !== 'until_count' || threshold <= issue.eventCount"
                   :data-testid="`archive-threshold-${threshold}`"
                 />
-                {{ threshold.toLocaleString('en-US') }} events
+                {{ threshold.toLocaleString(intlLocale()) }} {{ translate('events') }}
               </label>
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" @click="archiveDialogOpen = false"
-              >Cancel</Button
-            >
+            <Button type="button" variant="outline" @click="archiveDialogOpen = false">{{
+              translate('Cancel')
+            }}</Button>
             <Button
               data-testid="confirm-archive"
               type="button"
               :disabled="actionPending"
               @click="archiveIssue"
-              >Confirm archive</Button
+              >{{ translate('Confirm archive') }}</Button
             >
           </DialogFooter>
         </DialogContent>
@@ -396,10 +408,10 @@ onMounted(loadIssue)
       <Dialog v-model:open="deleteDialogOpen">
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete issue</DialogTitle>
-            <DialogDescription
-              >Deleting this issue also removes all its historical events.</DialogDescription
-            >
+            <DialogTitle>{{ translate('Delete issue') }}</DialogTitle>
+            <DialogDescription>{{
+              translate('Deleting this issue also removes all its historical events.')
+            }}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
@@ -408,14 +420,14 @@ onMounted(loadIssue)
               variant="outline"
               :disabled="actionPending"
               @click="deleteIssue"
-              >Delete this issue</Button
+              >{{ translate('Delete this issue') }}</Button
             >
             <Button
               data-testid="choose-permanent-delete"
               type="button"
               variant="destructive"
               @click="continuePermanentDelete"
-              >Delete permanently</Button
+              >{{ translate('Delete permanently') }}</Button
             >
           </DialogFooter>
         </DialogContent>
@@ -424,37 +436,44 @@ onMounted(loadIssue)
       <Dialog v-model:open="permanentConfirmOpen">
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm permanent deletion</DialogTitle>
+            <DialogTitle>{{ translate('Confirm permanent deletion') }}</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. Existing history will be removed, and future occurrences
-              of this issue will no longer be recorded.
+              {{
+                translate(
+                  'This action cannot be undone. Existing history will be removed, and future occurrences of this issue will no longer be recorded.',
+                )
+              }}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" @click="permanentConfirmOpen = false"
-              >Cancel</Button
-            >
+            <Button type="button" variant="outline" @click="permanentConfirmOpen = false">{{
+              translate('Cancel')
+            }}</Button>
             <Button
               data-testid="confirm-permanent-delete"
               type="button"
               variant="destructive"
               :disabled="actionPending"
               @click="permanentlyDeleteIssue"
-              >Confirm permanent deletion</Button
+              >{{ translate('Confirm permanent deletion') }}</Button
             >
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">Request information</CardTitle></CardHeader>
+        <CardHeader
+          ><CardTitle class="text-base">{{
+            translate('Request information')
+          }}</CardTitle></CardHeader
+        >
         <CardContent class="space-y-5">
           <div>
-            <h3 class="mb-2 text-sm font-medium">URL</h3>
+            <h3 class="mb-2 text-sm font-medium">{{ translate('URL') }}</h3>
             <p class="break-all text-sm">{{ issue.latestEvent?.url ?? '-' }}</p>
           </div>
           <div>
-            <h3 class="mb-2 text-sm font-medium">Headers</h3>
+            <h3 class="mb-2 text-sm font-medium">{{ translate('Headers') }}</h3>
             <dl v-if="requestHeaders.length" class="space-y-2 text-sm">
               <div
                 v-for="[key, value] in visibleRequestHeaders"
@@ -475,11 +494,13 @@ onMounted(loadIssue)
               size="sm"
               class="mt-2"
               @click="headersExpanded = !headersExpanded"
-              >{{ headersExpanded ? 'Collapse' : `Show all (${requestHeaders.length})` }}</Button
+              >{{
+                translate(headersExpanded ? 'Collapse' : `Show all (${requestHeaders.length})`)
+              }}</Button
             >
           </div>
           <div>
-            <h3 class="mb-2 text-sm font-medium">Cookies</h3>
+            <h3 class="mb-2 text-sm font-medium">{{ translate('Cookies') }}</h3>
             <dl v-if="requestCookies.length" class="space-y-2 text-sm">
               <div
                 v-for="[key, value] in visibleRequestCookies"
@@ -500,81 +521,87 @@ onMounted(loadIssue)
               size="sm"
               class="mt-2"
               @click="cookiesExpanded = !cookiesExpanded"
-              >{{ cookiesExpanded ? 'Collapse' : `Show all (${requestCookies.length})` }}</Button
+              >{{
+                translate(cookiesExpanded ? 'Collapse' : `Show all (${requestCookies.length})`)
+              }}</Button
             >
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">Browser context</CardTitle></CardHeader>
+        <CardHeader
+          ><CardTitle class="text-base">{{ translate('Browser context') }}</CardTitle></CardHeader
+        >
         <CardContent class="grid gap-6 lg:grid-cols-2">
           <dl class="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt class="text-muted-foreground">Browser</dt>
+              <dt class="text-muted-foreground">{{ translate('Browser') }}</dt>
               <dd>{{ formatBrowser() }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Operating system</dt>
+              <dt class="text-muted-foreground">{{ translate('Operating system') }}</dt>
               <dd>{{ issue.latestEvent?.contexts?.os?.name ?? '-' }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Platform</dt>
+              <dt class="text-muted-foreground">{{ translate('Platform') }}</dt>
               <dd>{{ issue.latestEvent?.contexts?.device?.platform ?? '-' }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Screen</dt>
+              <dt class="text-muted-foreground">{{ translate('Screen') }}</dt>
               <dd>
                 {{ issue.latestEvent?.contexts?.device?.screenWidth ?? '-' }} ×
                 {{ issue.latestEvent?.contexts?.device?.screenHeight ?? '-' }}
               </dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Viewport</dt>
+              <dt class="text-muted-foreground">{{ translate('Viewport') }}</dt>
               <dd>
                 {{ issue.latestEvent?.contexts?.device?.viewportWidth ?? '-' }} ×
                 {{ issue.latestEvent?.contexts?.device?.viewportHeight ?? '-' }}
               </dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Pixel ratio</dt>
+              <dt class="text-muted-foreground">{{ translate('Pixel ratio') }}</dt>
               <dd>{{ issue.latestEvent?.contexts?.device?.pixelRatio ?? '-' }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Language</dt>
+              <dt class="text-muted-foreground">{{ translate('Language') }}</dt>
               <dd>{{ issue.latestEvent?.contexts?.culture?.locale ?? '-' }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Languages</dt>
+              <dt class="text-muted-foreground">{{ translate('Languages') }}</dt>
               <dd>{{ issue.latestEvent?.contexts?.culture?.languages?.join(', ') || '-' }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Time zone</dt>
+              <dt class="text-muted-foreground">{{ translate('Time zone') }}</dt>
               <dd>{{ issue.latestEvent?.contexts?.culture?.timezone ?? '-' }}</dd>
             </div>
           </dl>
           <div>
-            <h3 class="mb-3 text-sm font-medium">Memory</h3>
+            <h3 class="mb-3 text-sm font-medium">{{ translate('Memory') }}</h3>
             <dl class="grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <dt class="text-muted-foreground">Used JS heap</dt>
+                <dt class="text-muted-foreground">{{ translate('Used JS heap') }}</dt>
                 <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.usedJSHeapSize) }}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground">Total JS heap</dt>
+                <dt class="text-muted-foreground">{{ translate('Total JS heap') }}</dt>
                 <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.totalJSHeapSize) }}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground">JS heap limit</dt>
+                <dt class="text-muted-foreground">{{ translate('JS heap limit') }}</dt>
                 <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.jsHeapSizeLimit) }}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground">Device memory</dt>
+                <dt class="text-muted-foreground">{{ translate('Device memory') }}</dt>
                 <dd>
                   {{
-                    issue.latestEvent?.contexts?.memory?.deviceMemoryGiB !== undefined
-                      ? `${issue.latestEvent.contexts.memory.deviceMemoryGiB} GiB`
-                      : '-'
+                    translate(
+                      issue.latestEvent?.contexts?.memory?.deviceMemoryGiB !== undefined
+                        ? `${issue.latestEvent.contexts.memory.deviceMemoryGiB} GiB`
+                        : '-',
+                    )
                   }}
                 </dd>
               </div>
@@ -584,14 +611,18 @@ onMounted(loadIssue)
       </Card>
 
       <Card>
-        <CardHeader><CardTitle class="text-base">Recent events</CardTitle></CardHeader>
+        <CardHeader
+          ><CardTitle class="text-base">{{ translate('Recent events') }}</CardTitle></CardHeader
+        >
         <CardContent>
           <div class="table-surface">
             <Table>
               <TableHeader
                 ><TableRow
-                  ><TableHead>Time</TableHead><TableHead>Source</TableHead
-                  ><TableHead>Environment</TableHead><TableHead>Message</TableHead></TableRow
+                  ><TableHead>{{ translate('Time') }}</TableHead
+                  ><TableHead>{{ translate('Source') }}</TableHead
+                  ><TableHead>{{ translate('Environment') }}</TableHead
+                  ><TableHead>{{ translate('Message') }}</TableHead></TableRow
                 ></TableHeader
               >
               <TableBody>
@@ -603,7 +634,7 @@ onMounted(loadIssue)
                 </TableRow>
                 <TableRow v-if="issue.recentEvents.length === 0">
                   <TableCell :colspan="4">
-                    <EmptyState class="py-4" title="No recent events" />
+                    <EmptyState class="py-4" :title="translate('No recent events')" />
                   </TableCell>
                 </TableRow>
               </TableBody>

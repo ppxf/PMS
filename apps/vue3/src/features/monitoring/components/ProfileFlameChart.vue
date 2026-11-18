@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { Button } from '@/components/ui/button'
@@ -110,37 +112,45 @@ onMounted(() => {
 onBeforeUnmount(() => observer?.disconnect())
 </script>
 <template>
-  <section class="space-y-3 rounded-lg border bg-background p-4" aria-label="Profile flame chart">
+  <section
+    class="space-y-3 rounded-lg border bg-background p-4"
+    :aria-label="translate('Profile flame chart')"
+  >
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex flex-1 flex-wrap items-center gap-2">
-        <h2 class="rounded border bg-muted/40 px-2 py-1 text-xs font-medium">Flame chart</h2>
+        <h2 class="rounded border bg-muted/40 px-2 py-1 text-xs font-medium">
+          {{ translate('Flame chart') }}
+        </h2>
         <input
           v-model="search"
-          aria-label="Find frames"
-          placeholder="Find frames…"
+          :aria-label="translate('Find frames')"
+          :placeholder="translate('Find frames…')"
           class="h-8 min-w-32 flex-1 rounded border bg-background px-3 text-xs"
         />
       </div>
       <Button
-        aria-label="Reset flame chart"
+        :aria-label="translate('Reset flame chart')"
         variant="outline"
         size="sm"
         :disabled="!focus"
         @click="focus = null"
-        >Reset focus</Button
+        >{{ translate('Reset focus') }}</Button
       >
     </div>
     <p class="text-xs text-muted-foreground">
       {{
-        focus
-          ? `Focused: ${focus.name}`
-          : 'Click a frame to focus its time interval and descendants.'
+        translate(
+          focus
+            ? `Focused: ${focus.name}`
+            : 'Click a frame to focus its time interval and descendants.',
+        )
       }}
     </p>
     <div class="flex justify-between text-xs text-muted-foreground">
-      <span>{{ start.toFixed(2) }} ms</span><span>{{ end.toFixed(2) }} ms</span>
+      <span>{{ start.toFixed(2) }} {{ translate('ms') }}</span
+      ><span>{{ end.toFixed(2) }} {{ translate('ms') }}</span>
     </div>
-    <EmptyState v-if="!segments.length" class="py-8" title="No samples recorded" />
+    <EmptyState v-if="!segments.length" class="py-8" :title="translate('No samples recorded')" />
     <div v-else class="grid overflow-hidden rounded border lg:grid-cols-[minmax(0,1fr)_240px]">
       <div class="max-h-[480px] min-w-0 overflow-y-auto">
         <canvas
@@ -148,7 +158,11 @@ onBeforeUnmount(() => observer?.disconnect())
           class="w-full cursor-pointer"
           :style="{ height: `${height}px` }"
           role="img"
-          aria-label="Sampled call stacks over time. Use focus function buttons below for keyboard navigation."
+          :aria-label="
+            translate(
+              'Sampled call stacks over time. Use focus function buttons below for keyboard navigation.',
+            )
+          "
           @click="select"
           @mousemove="inspect"
           @mouseleave="hover = ''"
@@ -156,34 +170,40 @@ onBeforeUnmount(() => observer?.disconnect())
       </div>
       <aside
         class="space-y-4 border-t bg-muted/10 p-4 text-xs lg:border-l lg:border-t-0"
-        aria-label="Selected function"
+        :aria-label="translate('Selected function')"
       >
-        <h3 class="font-semibold">Function</h3>
+        <h3 class="font-semibold">{{ translate('Function') }}</h3>
         <template v-if="selected">
           <dl class="space-y-3">
             <div>
-              <dt class="text-muted-foreground">Name</dt>
+              <dt class="text-muted-foreground">{{ translate('Name') }}</dt>
               <dd class="mt-1 break-all font-mono">{{ selected.name }}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Source</dt>
-              <dd class="mt-1 break-all">{{ selected.resource ?? 'Unknown resource' }}</dd>
+              <dt class="text-muted-foreground">{{ translate('Source') }}</dt>
+              <dd class="mt-1 break-all">
+                {{ translate(selected.resource ?? 'Unknown resource') }}
+              </dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Sampled time</dt>
-              <dd class="mt-1">{{ (selected.end - selected.start).toFixed(2) }} ms</dd>
+              <dt class="text-muted-foreground">{{ translate('Sampled time') }}</dt>
+              <dd class="mt-1">
+                {{ (selected.end - selected.start).toFixed(2) }} {{ translate('ms') }}
+              </dd>
             </div>
           </dl>
         </template>
         <p v-else class="text-muted-foreground">
-          Select a frame to inspect its function and source.
+          {{ translate('Select a frame to inspect its function and source.') }}
         </p>
       </aside>
     </div>
-    <p class="min-h-4 break-all text-xs text-muted-foreground" role="status">{{ hover }}</p>
+    <p class="min-h-4 break-all text-xs text-muted-foreground" role="status">
+      {{ translate(hover) }}
+    </p>
     <details v-if="choices.length">
       <summary class="cursor-pointer text-xs text-muted-foreground">
-        Focus function (keyboard accessible)
+        {{ translate('Focus function (keyboard accessible)') }}
       </summary>
       <div class="mt-2 flex max-h-32 flex-wrap gap-1 overflow-y-auto">
         <button
@@ -191,7 +211,7 @@ onBeforeUnmount(() => observer?.disconnect())
           :key="segment.frameId"
           data-frame
           class="max-w-60 truncate rounded border px-2 py-1 text-xs hover:bg-muted focus-visible:outline-2"
-          :title="segment.name"
+          :title="translate(segment.name)"
           @click="focus = segment"
         >
           {{ segment.name }}

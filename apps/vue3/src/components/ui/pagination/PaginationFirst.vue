@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import type { PaginationFirstProps } from 'reka-ui'
 
 import type { HTMLAttributes } from 'vue'
@@ -33,7 +35,7 @@ const forwarded = useForwardProps(delegatedProps)
   >
     <slot>
       <ChevronsLeftIcon data-icon="inline-start" />
-      <span class="hidden sm:block">First</span>
+      <span class="hidden sm:block">{{ translate('First') }}</span>
     </slot>
   </PaginationFirst>
 </template>

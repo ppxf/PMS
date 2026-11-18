@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -84,21 +87,21 @@ const stats = computed(() => {
     },
     {
       label: 'Unresolved issues',
-      value: t.unresolved.toLocaleString(),
+      value: t.unresolved.toLocaleString(intlLocale()),
       hint: 'Current · active issues',
       icon: CircleAlert,
       tone: t.unresolved ? 'text-amber-600 dark:text-amber-400' : '',
     },
     {
       label: 'Error events',
-      value: t.events.toLocaleString(),
+      value: t.events.toLocaleString(intlLocale()),
       hint: period.value,
       icon: Activity,
       tone: t.events ? 'text-rose-600 dark:text-rose-400' : '',
     },
     {
       label: 'New issues',
-      value: t.newIssues.toLocaleString(),
+      value: t.newIssues.toLocaleString(intlLocale()),
       hint: period.value,
       icon: Zap,
       tone: '',
@@ -135,33 +138,38 @@ function connection(p: DashboardProject) {
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Workspace overview
+          {{ translate('Workspace overview') }}
         </p>
-        <h2 class="page-title">Monitoring overview</h2>
+        <h2 class="page-title">{{ translate('Monitoring overview') }}</h2>
         <p class="mt-2 text-sm text-muted-foreground">
-          A clear view of your projects. A faster path to what needs attention.
+          {{ translate('A clear view of your projects. A faster path to what needs attention.') }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2 pt-1">
-        <select v-model="groupId" aria-label="Group" class="dashboard-select" :disabled="loading">
-          <option value="all">All groups</option>
+        <select
+          v-model="groupId"
+          :aria-label="translate('Group')"
+          class="dashboard-select"
+          :disabled="loading"
+        >
+          <option value="all">{{ translate('All groups') }}</option>
           <option v-for="group in data?.groups" :key="group.id" :value="group.id">
             {{ group.name }}
           </option>
         </select>
         <select
           v-model="range"
-          aria-label="Time range"
+          :aria-label="translate('Time range')"
           class="dashboard-select"
           :disabled="loading"
         >
-          <option value="24h">Last 24 hours</option>
-          <option value="7d">Last 7 days</option>
+          <option value="24h">{{ translate('Last 24 hours') }}</option>
+          <option value="7d">{{ translate('Last 7 days') }}</option>
         </select>
         <Button
           variant="outline"
           size="icon"
-          aria-label="Refresh dashboard"
+          :aria-label="translate('Refresh dashboard')"
           :disabled="loading"
           @click="load"
           ><RefreshCw class="size-4" :class="{ 'animate-spin': loading }"
@@ -175,25 +183,32 @@ function connection(p: DashboardProject) {
       class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 p-5"
     >
       <div>
-        <p class="font-medium">Unable to load monitoring data</p>
+        <p class="font-medium">{{ translate('Unable to load monitoring data') }}</p>
         <p class="mt-1 text-sm text-muted-foreground">
-          Please try again. Your monitoring data has not been changed.
+          {{ translate('Please try again. Your monitoring data has not been changed.') }}
         </p>
       </div>
-      <Button data-testid="retry" variant="outline" @click="load">Try again</Button>
+      <Button data-testid="retry" variant="outline" @click="load">{{
+        translate('Try again')
+      }}</Button>
     </div>
-    <div v-else-if="loading" class="space-y-6" role="status" aria-label="Loading dashboard">
+    <div
+      v-else-if="loading"
+      class="space-y-6"
+      role="status"
+      :aria-label="translate('Loading dashboard')"
+    >
       <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <div v-for="i in 4" :key="i" class="h-36 animate-pulse rounded-xl border bg-muted/40" />
       </div>
       <div class="h-80 animate-pulse rounded-xl border bg-muted/30" />
-      <span class="sr-only">Loading monitoring data…</span>
+      <span class="sr-only">{{ translate('Loading monitoring data…') }}</span>
     </div>
     <template v-else-if="data">
       <div data-testid="dashboard-stats" class="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <div v-for="stat in stats" :key="stat.label" class="dashboard-panel p-5">
           <div class="flex items-center justify-between gap-3">
-            <span class="text-sm text-muted-foreground">{{ stat.label }}</span
+            <span class="text-sm text-muted-foreground">{{ translate(stat.label) }}</span
             ><component :is="stat.icon" class="size-4 text-muted-foreground" />
           </div>
           <div class="mt-4 flex items-baseline gap-2">
@@ -202,12 +217,15 @@ function connection(p: DashboardProject) {
             }}</span
             ><span v-if="stat.suffix" class="text-lg text-muted-foreground">{{ stat.suffix }}</span>
           </div>
-          <p class="mt-2 text-xs text-muted-foreground">{{ stat.hint }}</p>
+          <p class="mt-2 text-xs text-muted-foreground">{{ translate(stat.hint) }}</p>
         </div>
       </div>
       <p v-if="unreadable" class="text-xs text-muted-foreground">
-        Error statistics include only projects you have permission to read. Restricted values appear
-        as —.
+        {{
+          translate(
+            'Error statistics include only projects you have permission to read. Restricted values appear as —.',
+          )
+        }}
       </p>
 
       <div
@@ -217,13 +235,17 @@ function connection(p: DashboardProject) {
         <div class="mb-5 flex size-12 items-center justify-center rounded-xl border bg-muted/50">
           <FolderKanban class="size-6 text-muted-foreground" />
         </div>
-        <h3 class="text-lg font-semibold">Your monitoring starts here</h3>
+        <h3 class="text-lg font-semibold">{{ translate('Your monitoring starts here') }}</h3>
         <p class="mt-2 max-w-md text-sm text-muted-foreground">
-          Create a project, connect the SDK, and bring errors and performance into one place.
+          {{
+            translate(
+              'Create a project, connect the SDK, and bring errors and performance into one place.',
+            )
+          }}
         </p>
         <Button as-child class="mt-6"
           ><RouterLink :to="{ name: 'groups' }"
-            >Manage groups and projects <ArrowRight class="size-4" /></RouterLink
+            >{{ translate('Manage groups and projects') }} <ArrowRight class="size-4" /></RouterLink
         ></Button>
       </div>
       <template v-else>
@@ -231,13 +253,17 @@ function connection(p: DashboardProject) {
           <div class="dashboard-panel min-w-0 p-5 sm:p-6">
             <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 class="font-semibold">Error activity</h3>
+                <h3 class="font-semibold">{{ translate('Error activity') }}</h3>
                 <p class="mt-1 text-xs text-muted-foreground">
-                  Error events across accessible projects
+                  {{ translate('Error events across accessible projects') }}
                 </p>
               </div>
-              <select v-model="chartProject" aria-label="Chart project" class="dashboard-select">
-                <option value="all">All projects</option>
+              <select
+                v-model="chartProject"
+                :aria-label="translate('Chart project')"
+                class="dashboard-select"
+              >
+                <option value="all">{{ translate('All projects') }}</option>
                 <option
                   v-for="project in data.projects.filter((p) => p.events !== null)"
                   :key="project.id"
@@ -250,17 +276,21 @@ function connection(p: DashboardProject) {
             <ErrorTrend :series="chartSeries" :end="data.end" :range="data.range" />
             <div class="mt-2 flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
               <ShieldCheck class="size-3.5 shrink-0" /><span>{{
-                chartTotal
-                  ? `${chartTotal.toLocaleString()} error events received in this period.`
-                  : 'No error events received in this period.'
+                translate(
+                  chartTotal
+                    ? `${chartTotal.toLocaleString(intlLocale())} error events received in this period.`
+                    : 'No error events received in this period.',
+                )
               }}</span>
             </div>
           </div>
           <div class="dashboard-panel flex min-w-0 flex-col">
             <div class="flex items-center justify-between gap-3 px-5 pt-6 sm:px-6">
               <div>
-                <h3 class="font-semibold">Needs attention</h3>
-                <p class="mt-1 text-xs text-muted-foreground">New and reopened issues first</p>
+                <h3 class="font-semibold">{{ translate('Needs attention') }}</h3>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  {{ translate('New and reopened issues first') }}
+                </p>
               </div>
               <span class="rounded-md bg-muted px-2 py-1 text-xs tabular-nums">{{
                 data.issues.length
@@ -273,9 +303,9 @@ function connection(p: DashboardProject) {
               <div class="mb-4 rounded-full bg-muted/60 p-3">
                 <CircleCheck class="size-6 text-muted-foreground" />
               </div>
-              <p class="text-sm font-medium">Nothing needs attention</p>
+              <p class="text-sm font-medium">{{ translate('Nothing needs attention') }}</p>
               <p class="mt-2 max-w-56 text-xs leading-relaxed text-muted-foreground">
-                No active unresolved issues were seen in this period.
+                {{ translate('No active unresolved issues were seen in this period.') }}
               </p>
             </div>
             <div v-else class="mt-4 divide-y px-5 pb-2 sm:px-6">
@@ -300,17 +330,19 @@ function connection(p: DashboardProject) {
                     {{ issue.title }}
                   </p>
                   <p class="mt-1.5 truncate text-xs text-muted-foreground">
-                    {{ projectFor(issue.projectId).name }} · {{ relative(issue.lastSeenAt) }}
+                    {{ projectFor(issue.projectId).name }} ·
+                    {{ translate(relative(issue.lastSeenAt)) }}
                   </p>
                   <p class="mt-1 text-[11px] text-muted-foreground">
-                    {{ issue.eventCount.toLocaleString() }} lifetime events
+                    {{ issue.eventCount.toLocaleString(intlLocale()) }}
+                    {{ translate('lifetime events') }}
                     <span
                       v-if="issue.reopenedAt && issue.reopenedAt >= data.start"
                       class="ml-1 text-amber-600"
-                      >· Reopened</span
-                    ><span v-else-if="issue.firstSeenAt >= data.start" class="ml-1 text-rose-600"
-                      >· New</span
-                    >
+                      >{{ translate('· Reopened') }}</span
+                    ><span v-else-if="issue.firstSeenAt >= data.start" class="ml-1 text-rose-600">{{
+                      translate('· New')
+                    }}</span>
                   </p>
                 </div>
                 <ArrowUpRight
@@ -332,16 +364,23 @@ function connection(p: DashboardProject) {
           </div>
           <div class="min-w-0 flex-1">
             <h3 class="text-sm font-medium">
-              Connect your
-              {{ waiting.length === 1 ? 'next project' : `${waiting.length} remaining projects` }}
+              {{ translate('Connect your') }}
+              {{
+                translate(
+                  waiting.length === 1 ? 'next project' : `${waiting.length} remaining projects`,
+                )
+              }}
             </h3>
             <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Install the SDK → Send your first event → Explore your monitoring data.
+              {{
+                translate('Install the SDK → Send your first event → Explore your monitoring data.')
+              }}
             </p>
           </div>
           <Button as-child variant="outline" size="sm"
             ><RouterLink :to="destination(setupProject, 'project-setup')"
-              >Set up {{ setupProject.name }} <ArrowRight class="size-3.5" /></RouterLink
+              >{{ translate('Set up') }} {{ setupProject.name }}
+              <ArrowRight class="size-3.5" /></RouterLink
           ></Button>
         </div>
 
@@ -349,20 +388,22 @@ function connection(p: DashboardProject) {
           <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-6">
             <div>
               <h3 class="font-semibold">
-                Project overview
+                {{ translate('Project overview') }}
                 <span class="ml-2 text-xs font-normal text-muted-foreground">{{
                   data.projects.length
                 }}</span>
               </h3>
-              <p class="mt-1 text-xs text-muted-foreground">Prioritized by unresolved issues</p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                {{ translate('Prioritized by unresolved issues') }}
+              </p>
             </div>
             <div class="relative w-full sm:w-60">
               <Search
                 class="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground"
               /><Input
                 v-model="search"
-                aria-label="Search projects"
-                placeholder="Search projects…"
+                :aria-label="translate('Search projects')"
+                :placeholder="translate('Search projects…')"
                 class="h-9 pl-9"
               />
             </div>
@@ -371,12 +412,12 @@ function connection(p: DashboardProject) {
             <table class="w-full min-w-[760px] text-left text-sm">
               <thead class="border-y bg-muted/25 text-xs text-muted-foreground">
                 <tr>
-                  <th class="px-6 py-3 font-medium">Project</th>
-                  <th class="px-4 py-3 font-medium">Data connection</th>
-                  <th class="px-4 py-3 text-right font-medium">Unresolved</th>
-                  <th class="px-4 py-3 text-right font-medium">Error events</th>
-                  <th class="px-4 py-3 font-medium">Last received</th>
-                  <th class="px-6 py-3 text-right font-medium">Explore</th>
+                  <th class="px-6 py-3 font-medium">{{ translate('Project') }}</th>
+                  <th class="px-4 py-3 font-medium">{{ translate('Data connection') }}</th>
+                  <th class="px-4 py-3 text-right font-medium">{{ translate('Unresolved') }}</th>
+                  <th class="px-4 py-3 text-right font-medium">{{ translate('Error events') }}</th>
+                  <th class="px-4 py-3 font-medium">{{ translate('Last received') }}</th>
+                  <th class="px-6 py-3 text-right font-medium">{{ translate('Explore') }}</th>
                 </tr>
               </thead>
               <tbody class="divide-y">
@@ -411,7 +452,7 @@ function connection(p: DashboardProject) {
                               ? 'bg-amber-500'
                               : 'bg-muted-foreground'
                         "
-                      />{{ connection(project) }}</span
+                      />{{ translate(connection(project)) }}</span
                     >
                   </td>
                   <td class="px-4 py-4 text-right tabular-nums">
@@ -424,22 +465,22 @@ function connection(p: DashboardProject) {
                           ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
                           : 'text-muted-foreground'
                       "
-                      >{{ project.unresolved.toLocaleString() }}</RouterLink
+                      >{{ project.unresolved.toLocaleString(intlLocale()) }}</RouterLink
                     ><span
                       v-else
-                      title="Error read permission required"
+                      :title="translate('Error read permission required')"
                       class="text-muted-foreground"
                       >—</span
                     >
                   </td>
                   <td class="px-4 py-4 text-right tabular-nums">
-                    {{ project.events?.toLocaleString() ?? '—' }}
+                    {{ project.events?.toLocaleString(intlLocale()) ?? '—' }}
                   </td>
                   <td
                     class="whitespace-nowrap px-4 py-4 text-xs text-muted-foreground"
-                    :title="project.lastSeenAt ? formatDateTime(project.lastSeenAt) : ''"
+                    :title="translate(project.lastSeenAt ? formatDateTime(project.lastSeenAt) : '')"
                   >
-                    {{ relative(project.lastSeenAt) }}
+                    {{ translate(relative(project.lastSeenAt)) }}
                   </td>
                   <td class="px-6 py-4">
                     <div class="flex justify-end gap-3 text-xs">
@@ -447,29 +488,29 @@ function connection(p: DashboardProject) {
                         v-if="can(project, 'issues')"
                         :to="destination(project, 'project-issues')"
                         class="text-muted-foreground hover:text-foreground hover:underline"
-                        >Errors</RouterLink
+                        >{{ translate('Errors') }}</RouterLink
                       ><RouterLink
                         v-if="can(project, 'traces')"
                         :to="destination(project, 'project-traces')"
                         class="text-muted-foreground hover:text-foreground hover:underline"
-                        >Traces</RouterLink
+                        >{{ translate('Traces') }}</RouterLink
                       ><RouterLink
                         v-if="can(project, 'web-vitals')"
                         :to="destination(project, 'project-web-vitals')"
                         class="whitespace-nowrap text-muted-foreground hover:text-foreground hover:underline"
-                        >Web Vitals</RouterLink
+                        >{{ translate('Web Vitals') }}</RouterLink
                       ><RouterLink
                         v-if="!project.lastSeenAt && project.role === 'owner'"
                         :to="destination(project, 'project-setup')"
                         class="inline-flex items-center gap-1 font-medium"
-                        >Set up <ArrowUpRight class="size-3"
+                        >{{ translate('Set up') }} <ArrowUpRight class="size-3"
                       /></RouterLink>
                     </div>
                   </td>
                 </tr>
                 <tr v-if="!projects.length">
                   <td colspan="6" class="px-6 py-12 text-center text-sm text-muted-foreground">
-                    No projects match “{{ search }}”.
+                    {{ translate('No projects match “') }}{{ search }}”.
                   </td>
                 </tr>
               </tbody>
@@ -478,22 +519,28 @@ function connection(p: DashboardProject) {
           <div
             class="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-3 text-xs text-muted-foreground"
           >
-            <span>Error events: {{ period.toLowerCase() }} · Unresolved: current total</span
+            <span
+              >{{ translate('Error events:') }} {{ translate(period.toLowerCase()) }}
+              {{ translate('· Unresolved: current total') }}</span
             ><RouterLink
               :to="{ name: 'groups' }"
               class="inline-flex items-center gap-1.5 hover:text-foreground"
-              >Manage groups and projects <ArrowUpRight class="size-3"
+              >{{ translate('Manage groups and projects') }} <ArrowUpRight class="size-3"
             /></RouterLink>
           </div>
         </div>
       </template>
       <div class="flex items-center justify-between gap-4 text-[11px] text-muted-foreground">
         <span class="inline-flex items-center gap-1.5"
-          ><Activity class="size-3" />PMS monitoring</span
+          ><Activity class="size-3" />{{ translate('PMS monitoring') }}</span
         ><span
-          >Updated
-          {{ new Date(data.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }} ·
-          Refresh for latest data</span
+          >{{ translate('Updated') }}
+          {{
+            translate(
+              new Date(data.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            )
+          }}
+          {{ translate('· Refresh for latest data') }}</span
         >
       </div>
     </template>

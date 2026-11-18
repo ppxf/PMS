@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { ref } from 'vue'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -47,25 +49,29 @@ async function submit() {
 <template>
   <main class="grid min-h-screen place-items-center bg-muted/40 p-4">
     <section class="w-full max-w-md space-y-5 rounded-xl bg-card p-6 shadow">
-      <h1 class="page-title">Reset password</h1>
-      <p v-if="message" role="status">{{ message }}</p>
-      <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
+      <h1 class="page-title">{{ translate('Reset password') }}</h1>
+      <p v-if="message" role="status">{{ translate(message) }}</p>
+      <p v-if="error" role="alert" class="text-destructive">{{ translate(error) }}</p>
       <form v-if="!message" class="space-y-4" @submit.prevent="submit">
         <Input
           v-model="password"
           class="w-full"
           required
           type="password"
-          placeholder="New password (at least 8 characters)"
+          :placeholder="translate('New password (at least 8 characters)')"
         /><Input
           v-model="confirmation"
           class="w-full"
           required
           type="password"
-          placeholder="Confirm new password"
-        /><Button type="submit" class="w-full" :disabled="submitting"> Reset password </Button>
+          :placeholder="translate('Confirm new password')"
+        /><Button type="submit" class="w-full" :disabled="submitting">
+          {{ translate('Reset password') }}
+        </Button>
       </form>
-      <RouterLink to="/login" class="text-sm text-primary">Back to sign in</RouterLink>
+      <RouterLink to="/login" class="text-sm text-primary">{{
+        translate('Back to sign in')
+      }}</RouterLink>
     </section>
   </main>
 </template>

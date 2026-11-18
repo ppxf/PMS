@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { translate } from '@/i18n'
 import type { HTMLAttributes } from 'vue'
 import { ErrorMessage } from 'vee-validate'
 import { toValue } from 'vue'
@@ -14,10 +15,12 @@ const { name, formMessageId } = useFormField()
 
 <template>
   <ErrorMessage
+    v-slot="{ message }"
     :id="formMessageId"
     data-slot="form-message"
     as="p"
     :name="toValue(name)"
     :class="cn('text-destructive text-sm', props.class)"
-  />
+    >{{ translate(message) }}</ErrorMessage
+  >
 </template>

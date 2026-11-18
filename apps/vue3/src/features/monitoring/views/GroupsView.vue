@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { onMounted, ref } from 'vue'
 import { Button } from '@/components/ui/button'
@@ -29,24 +31,28 @@ onMounted(load)
   <section class="space-y-6">
     <div class="flex items-center justify-between gap-4">
       <div>
-        <h2 class="page-title">Groups</h2>
-        <p class="mt-1 text-muted-foreground">Organize your monitoring projects.</p>
+        <h2 class="page-title">{{ translate('Groups') }}</h2>
+        <p class="mt-1 text-muted-foreground">
+          {{ translate('Organize your monitoring projects.') }}
+        </p>
       </div>
       <Button as-child
-        ><RouterLink :to="{ name: 'create-group-onboarding' }">Create group</RouterLink></Button
+        ><RouterLink :to="{ name: 'create-group-onboarding' }">{{
+          translate('Create group')
+        }}</RouterLink></Button
       >
     </div>
 
-    <p v-if="loading" class="text-muted-foreground">Loading…</p>
+    <p v-if="loading" class="text-muted-foreground">{{ translate('Loading…') }}</p>
     <div v-else-if="error" class="space-y-3" role="alert">
-      <p class="text-destructive">{{ error }}</p>
-      <Button variant="outline" @click="load">Retry</Button>
+      <p class="text-destructive">{{ translate(error) }}</p>
+      <Button variant="outline" @click="load">{{ translate('Retry') }}</Button>
     </div>
     <Card v-else-if="groups.length === 0">
       <EmptyState
         class="p-8"
-        title="No groups yet"
-        description="Create a group to add monitoring projects."
+        :title="translate('No groups yet')"
+        :description="translate('Create a group to add monitoring projects.')"
       />
     </Card>
     <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -60,7 +66,7 @@ onMounted(load)
             <CardTitle>{{ group.name }}</CardTitle>
             <CardDescription
               >{{ group.projectCount }}
-              {{ group.projectCount === 1 ? 'project' : 'projects' }}</CardDescription
+              {{ translate(group.projectCount === 1 ? 'project' : 'projects') }}</CardDescription
             >
           </CardHeader>
           <CardContent class="text-xs text-muted-foreground">/{{ group.slug }}</CardContent>

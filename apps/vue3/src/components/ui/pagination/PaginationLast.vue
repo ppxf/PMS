@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import type { PaginationLastProps } from 'reka-ui'
 
 import type { HTMLAttributes } from 'vue'
@@ -32,7 +34,7 @@ const forwarded = useForwardProps(delegatedProps)
     v-bind="forwarded"
   >
     <slot>
-      <span class="hidden sm:block">Last</span>
+      <span class="hidden sm:block">{{ translate('Last') }}</span>
       <ChevronsRightIcon data-icon="inline-end" />
     </slot>
   </PaginationLast>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { computed } from 'vue'
 const props = defineProps<{ dsn: string }>()
 const snippet = computed(
@@ -36,39 +38,53 @@ add_header Document-Policy "js-profiling" always;`
 </script>
 <template>
   <div class="rounded-lg border bg-background p-4">
-    <h2 class="font-medium">Profiles SDK setup</h2>
+    <h2 class="font-medium">{{ translate('Profiles SDK setup') }}</h2>
     <div class="mt-4 space-y-4 text-sm">
       <p>
-        Enable Profiles for this project, then install <code>@pmspulse/monitoring-vue</code>. Profiling
-        requires Chromium with the JS Self-Profiling API and the HTML document response header
+        {{ translate('Enable Profiles for this project, then install') }}
+        <code>@pmspulse/monitoring-vue</code>. Profiling requires Chromium with the JS
+        Self-Profiling API and the HTML document response header
         <code>Document-Policy: js-profiling</code>. Unsupported browsers safely skip collection.
       </p>
       <pre class="code-block" tabindex="0">{{ snippet }}</pre>
       <p>
-        Trace mode collects during sampled root spans and requires browserTracingIntegration. Manual
-        mode works independently of trace sampling. Session sampling is decided once at SDK
-        initialization; lower profileSessionSampleRate in production. Captures are bounded to 30
-        seconds.
+        {{
+          translate(
+            'Trace mode collects during sampled root spans and requires browserTracingIntegration. Manual mode works independently of trace sampling. Session sampling is decided once at SDK initialization; lower profileSessionSampleRate in production. Captures are bounded to 30 seconds.',
+          )
+        }}
       </p>
-      <h3 class="font-medium">Configure the HTML response header</h3>
+      <h3 class="font-medium">{{ translate('Configure the HTML response header') }}</h3>
       <p>
-        <code>Document-Policy: js-profiling</code> is an HTTP response header sent by the server
-        hosting the application you monitor. Configure it on that application's HTML document,
-        including direct visits to client-side routes. Adding it to SDK upload requests or only to
-        the PMS API response does not grant profiling permission. The SDK cannot add this header to
-        an already loaded document.
+        <code>Document-Policy: js-profiling</code>
+        {{
+          translate(
+            "is an HTTP response header sent by the server hosting the application you monitor. Configure it on that application's HTML document, including direct visits to client-side routes. Adding it to SDK upload requests or only to the PMS API response does not grant profiling permission. The SDK cannot add this header to an already loaded document.",
+          )
+        }}
       </p>
       <p>
-        For Vite development and local preview, merge these options into your existing
-        configuration, then restart the server and reload the application page:
+        {{
+          translate(
+            'For Vite development and local preview, merge these options into your existing configuration, then restart the server and reload the application page:',
+          )
+        }}
       </p>
       <pre class="code-block" tabindex="0">{{ headers }}</pre>
       <p>
-        Vite's server and preview settings apply to their respective servers. A production
-        <code>vite build</code> requires the deployed web server, CDN or reverse proxy to send the
-        header. For Nginx, add the following to the server block serving the HTML, reload Nginx, and
-        refresh cached HTML at the CDN when applicable. If a location block has its own
-        <code>add_header</code> directives, ensure the document response still includes this policy.
+        {{
+          translate(
+            "Vite's server and preview settings apply to their respective servers. A production",
+          )
+        }}
+        <code>vite build</code>
+        {{
+          translate(
+            'requires the deployed web server, CDN or reverse proxy to send the header. For Nginx, add the following to the server block serving the HTML, reload Nginx, and refresh cached HTML at the CDN when applicable. If a location block has its own',
+          )
+        }}
+        <code>add_header</code>
+        {{ translate('directives, ensure the document response still includes this policy.') }}
       </p>
       <pre class="code-block" tabindex="0">{{ productionHeaders }}</pre>
     </div>

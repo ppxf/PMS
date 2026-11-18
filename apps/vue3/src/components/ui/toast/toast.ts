@@ -16,18 +16,19 @@ export function dismissToast(id: number) {
   timers.delete(id)
   messages.value = messages.value.filter((message) => message.id !== id)
 }
-function show(kind: ToastKind, title: string, description?: string) {
+function show(kind: ToastKind, title: string, description?: string, duration = 6500) {
   const oldest = messages.value[0]
   if (messages.value.length >= 3 && oldest) dismissToast(oldest.id)
   const id = ++nextId
   messages.value.push({ id, kind, title, description })
   timers.set(
     id,
-    setTimeout(() => dismissToast(id), 6500),
+    setTimeout(() => dismissToast(id), duration),
   )
 }
 export const toast = {
-  success: (title: string, description?: string) => show('success', title, description),
+  success: (title: string, description?: string, duration?: number) =>
+    show('success', title, description, duration),
   error: (title: string, description?: string) => show('error', title, description),
   warning: (title: string, description?: string) => show('warning', title, description),
 }

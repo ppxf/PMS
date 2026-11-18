@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
-import { useProjectAccessStore } from '../model/project-access.store'
-const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
@@ -233,21 +233,23 @@ onBeforeUnmount(() => {
         params,
         query: { ...route.query, route: undefined, page: undefined },
       }"
-      >← All pages</RouterLink
+      >{{ translate('← All pages') }}</RouterLink
     >
     <header class="flex justify-between">
       <div>
-        <h1 class="page-title break-words">{{ detail ? route.query.route : 'Web Vitals' }}</h1>
-        <p class="text-sm text-muted-foreground">Real user experience · p75</p>
+        <h1 class="page-title break-words">
+          {{ translate(detail ? route.query.route : 'Web Vitals') }}
+        </h1>
+        <p class="text-sm text-muted-foreground">{{ translate('Real user experience · p75') }}</p>
         <p v-if="overview?.lastReceivedAt" class="text-xs text-muted-foreground">
-          Last metric received: {{ formatDateTime(overview.lastReceivedAt) }}
+          {{ translate('Last metric received:') }} {{ formatDateTime(overview.lastReceivedAt) }}
         </p>
       </div>
       <Button
         variant="outline"
         size="icon"
-        title="Refresh"
-        aria-label="Refresh"
+        :title="translate('Refresh')"
+        :aria-label="translate('Refresh')"
         :disabled="loading"
         @click="refreshData"
       >
@@ -256,13 +258,13 @@ onBeforeUnmount(() => {
     </header>
     <div
       class="flex flex-wrap items-end gap-3 rounded-xl border bg-background p-4"
-      aria-label="Web Vitals filters"
+      :aria-label="translate('Web Vitals filters')"
     >
       <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
-        <span>Time range</span>
+        <span>{{ translate('Time range') }}</span>
         <FormSelect
           :model-value="String(route.query.range || '24h')"
-          aria-label="Time range"
+          :aria-label="translate('Time range')"
           :options="[
             { value: '1h', label: 'Last hour' },
             { value: '24h', label: 'Last 24 hours' },
@@ -273,10 +275,10 @@ onBeforeUnmount(() => {
         />
       </label>
       <label class="flex w-44 flex-col gap-2 text-xs text-muted-foreground">
-        <span>Environment</span>
+        <span>{{ translate('Environment') }}</span>
         <FormSelect
           :model-value="String(route.query.environment || '')"
-          aria-label="Environment"
+          :aria-label="translate('Environment')"
           :options="[
             { value: '', label: 'All environments' },
             { value: 'development', label: 'development' },
@@ -286,10 +288,10 @@ onBeforeUnmount(() => {
         />
       </label>
       <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
-        <span>Device</span>
+        <span>{{ translate('Device') }}</span>
         <FormSelect
           :model-value="String(route.query.device || '')"
-          aria-label="Device"
+          :aria-label="translate('Device')"
           :options="[
             { value: '', label: 'All devices' },
             { value: 'desktop', label: 'Desktop' },
@@ -301,10 +303,10 @@ onBeforeUnmount(() => {
         />
       </label>
       <label class="flex w-40 flex-col gap-2 text-xs text-muted-foreground">
-        <span>Auto refresh</span>
+        <span>{{ translate('Auto refresh') }}</span>
         <FormSelect
           v-model="refresh"
-          aria-label="Auto refresh"
+          :aria-label="translate('Auto refresh')"
           :options="[
             { value: 'off', label: 'Off' },
             { value: '60', label: 'Every minute' },
@@ -313,37 +315,41 @@ onBeforeUnmount(() => {
         />
       </label>
     </div>
-    <p v-if="loading" role="status">Loading Web Vitals…</p>
+    <p v-if="loading" role="status">{{ translate('Loading Web Vitals…') }}</p>
     <p v-if="error" role="alert" class="rounded-xl border p-4 text-red-700">
-      {{ error }}
+      {{ translate(error) }}
       <button
         v-for="resource in failures"
         :key="resource"
         class="ml-3 underline"
         @click="load(resource)"
       >
-        Retry {{ resource }}
+        {{ translate('Retry') }} {{ resource }}
       </button>
     </p>
     <template v-if="overview">
       <EmptyState
         v-if="!loading && !overview.pageViews && !failures.includes('overview')"
         class="rounded-lg border bg-background p-6"
-        title="No Web Vitals received for these filters."
-        description="Basic SDK setup automatically collects supported browser metrics."
+        :title="translate('No Web Vitals received for these filters.')"
+        :description="
+          translate('Basic SDK setup automatically collects supported browser metrics.')
+        "
       />
       <div class="grid items-stretch gap-4 lg:grid-cols-3">
         <section class="min-w-0 rounded-xl border bg-background p-5">
           <div class="flex items-center justify-between gap-3">
-            <h2 class="font-semibold">Core Web Vitals pass rate</h2>
+            <h2 class="font-semibold">{{ translate('Core Web Vitals pass rate') }}</h2>
             <details class="relative text-xs text-muted-foreground">
-              <summary class="cursor-pointer">About</summary>
+              <summary class="cursor-pointer">{{ translate('About') }}</summary>
               <p
                 class="absolute right-0 z-10 mt-2 w-64 rounded-lg border bg-background p-3 shadow-md"
               >
-                Experiences with all three core metrics rated Good, divided by complete LCP, INP and
-                CLS experiences. Pages without interaction may have no INP. The p75 assessment
-                requires at least 5 samples for each core metric.
+                {{
+                  translate(
+                    'Experiences with all three core metrics rated Good, divided by complete LCP, INP and CLS experiences. Pages without interaction may have no INP. The p75 assessment requires at least 5 samples for each core metric.',
+                  )
+                }}
               </p>
             </details>
           </div>
@@ -363,20 +369,23 @@ onBeforeUnmount(() => {
               >
             </div>
             <div class="min-w-0 space-y-2 text-sm">
-              <p class="font-medium">{{ assessment }}</p>
+              <p class="font-medium">{{ translate(assessment) }}</p>
               <p class="text-muted-foreground">
-                {{ overview.completeSamples }} complete / {{ overview.pageViews }} page views
+                {{ overview.completeSamples }} {{ translate('complete /') }}
+                {{ overview.pageViews }} {{ translate('page views') }}
               </p>
-              <p class="text-muted-foreground">{{ formatRate(overview.coverage) }} coverage</p>
+              <p class="text-muted-foreground">
+                {{ formatRate(overview.coverage) }} {{ translate('coverage') }}
+              </p>
             </div>
           </div>
         </section>
         <section class="min-w-0 rounded-xl border bg-background p-5 lg:col-span-2">
           <div class="flex justify-between">
-            <h2 class="font-semibold">Metric trend · p75</h2>
+            <h2 class="font-semibold">{{ translate('Metric trend · p75') }}</h2>
             <FormSelect
               v-model="metric"
-              aria-label="Trend metric"
+              :aria-label="translate('Trend metric')"
               class="w-28"
               :options="
                 ['LCP', 'INP', 'CLS', 'FCP', 'TTFB'].map((value) => ({ value, label: value }))
@@ -394,13 +403,13 @@ onBeforeUnmount(() => {
             v-else
             class="flex h-40 items-center justify-center rounded-lg bg-muted/30 text-sm text-muted-foreground"
           >
-            Insufficient trend data
+            {{ translate('Insufficient trend data') }}
           </p>
         </section>
       </div>
       <section
         class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
-        aria-label="Web Vitals measurements"
+        :aria-label="translate('Web Vitals measurements')"
       >
         <div
           v-for="item in overview.metrics"
@@ -410,15 +419,16 @@ onBeforeUnmount(() => {
           <div>
             {{ item.name }}
             <p class="text-xs text-muted-foreground">
-              {{ item.count }} samples · {{ formatRate(item.coverage) }} coverage
+              {{ item.count }} {{ translate('samples ·') }} {{ formatRate(item.coverage) }}
+              {{ translate('coverage') }}
             </p>
           </div>
           <div>
             <strong>{{ formatVital(item.name, item.p75) }}</strong>
-            <p>{{ vitalRating(item.name, item.p75) }}</p>
+            <p>{{ translate(vitalRating(item.name, item.p75)) }}</p>
             <div
               class="mt-2 flex h-1.5 w-full overflow-hidden rounded bg-muted"
-              :aria-label="`${item.name} rating distribution`"
+              :aria-label="translate(`${item.name} rating distribution`)"
             >
               <span
                 v-for="(count, index) in [item.good, item.needsImprovement, item.poor]"
@@ -433,10 +443,13 @@ onBeforeUnmount(() => {
         </div>
       </section>
       <section class="rounded-xl border bg-white p-5">
-        <h2 class="font-semibold">Performance opportunities</h2>
+        <h2 class="font-semibold">{{ translate('Performance opportunities') }}</h2>
         <p class="mt-2 text-xs text-muted-foreground">
-          Core pass rate requires LCP, INP and CLS together. Good thresholds: LCP ≤ 2500 ms, INP ≤
-          200 ms, CLS ≤ 0.1.
+          {{
+            translate(
+              'Core pass rate requires LCP, INP and CLS together. Good thresholds: LCP ≤ 2500 ms, INP ≤ 200 ms, CLS ≤ 0.1.',
+            )
+          }}
         </p>
         <div
           v-for="item in opportunities.filter((x) => x.count >= 5)"
@@ -452,23 +465,23 @@ onBeforeUnmount(() => {
             }"
             >{{ item.route }}</RouterLink
           ><span
-            >{{ item.name }} · {{ formatVital(item.name, item.p75) }} · {{ item.poor }} poor
-            samples</span
+            >{{ item.name }} · {{ formatVital(item.name, item.p75) }} · {{ item.poor }}
+            {{ translate('poor samples') }}</span
           >
         </div>
       </section>
       <section v-if="!detail" class="overflow-auto rounded-xl border bg-white p-5">
-        <h2 class="mb-4 font-semibold">Pages</h2>
+        <h2 class="mb-4 font-semibold">{{ translate('Pages') }}</h2>
         <div class="table-surface">
           <table class="app-table">
             <thead>
               <tr>
-                <th>Page</th>
-                <th>Page views</th>
-                <th>Poor experiences</th>
-                <th>LCP coverage</th>
+                <th>{{ translate('Page') }}</th>
+                <th>{{ translate('Page views') }}</th>
+                <th>{{ translate('Poor experiences') }}</th>
+                <th>{{ translate('LCP coverage') }}</th>
                 <th v-for="name in ['LCP', 'INP', 'CLS', 'FCP', 'TTFB']" :key="name">
-                  {{ name }} p75
+                  {{ name }} {{ translate('p75') }}
                 </th>
               </tr>
             </thead>
@@ -489,8 +502,10 @@ onBeforeUnmount(() => {
                 <td>{{ item.poorPageViews }}</td>
                 <td>
                   {{
-                    formatRate(
-                      item.metrics.find((metric) => metric.name === 'LCP')?.coverage ?? null,
+                    translate(
+                      formatRate(
+                        item.metrics.find((metric) => metric.name === 'LCP')?.coverage ?? null,
+                      ),
                     )
                   }}
                 </td>
@@ -503,7 +518,7 @@ onBeforeUnmount(() => {
           <EmptyState
             v-if="!loading && !failures.includes('pages') && !pages.length"
             class="p-8"
-            title="No matching pages"
+            :title="translate('No matching pages')"
           />
         </div>
         <TablePagination
@@ -513,16 +528,16 @@ onBeforeUnmount(() => {
           :page-size="20"
           :busy="loading"
           unit="pages"
-          label="Web Vitals pages pagination"
+          :label="translate('Web Vitals pages pagination')"
           @change="update('page', String($event))"
         />
       </section>
       <section v-if="detail" class="rounded-xl border bg-white p-5">
-        <h2 class="font-semibold">Page samples and attribution</h2>
+        <h2 class="font-semibold">{{ translate('Page samples and attribution') }}</h2>
         <EmptyState
           v-if="!loading && !failures.includes('samples') && !samples.length"
           class="p-8"
-          title="No samples for this page"
+          :title="translate('No samples for this page')"
         />
         <article v-for="sample in samples" :key="sample.pageViewId" class="mt-4 border-t pt-3">
           <p>{{ formatDateTime(sample.startedAt) }} · {{ sample.pageViewId }}</p>
@@ -534,9 +549,9 @@ onBeforeUnmount(() => {
               params: { ...params, traceId: sample.traceId },
               query: { spanId: sample.spanId },
             }"
-            >Open sample trace</RouterLink
+            >{{ translate('Open sample trace') }}</RouterLink
           >
-          <p v-else>Trace unavailable</p>
+          <p v-else>{{ translate('Trace unavailable') }}</p>
           <div v-for="measurement in sample.measurements" :key="measurement.name">
             {{ measurement.name }} {{ formatVital(measurement.name, measurement.value) }}
             <pre v-if="measurement.attribution" class="code-block" tabindex="0">{{
@@ -551,7 +566,7 @@ onBeforeUnmount(() => {
           :page-size="20"
           :busy="loading"
           unit="samples"
-          label="Web Vitals samples pagination"
+          :label="translate('Web Vitals samples pagination')"
           previous-label="Previous samples"
           next-label="Next samples"
           @change="update('page', String($event))"

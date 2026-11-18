@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { computed, h, ref } from 'vue'
 import { Plus, Trash2 } from '@lucide/vue'
 import { createColumnHelper } from '@tanstack/vue-table'
@@ -66,7 +68,7 @@ const columns = columnHelper.columns([
         {
           variant: row.original.status === 'active' ? 'default' : 'secondary',
         },
-        () => (row.original.status === 'active' ? 'Active' : 'Inactive'),
+        () => translate(row.original.status === 'active' ? 'Active' : 'Inactive'),
       ),
   }),
 ])
@@ -119,8 +121,10 @@ const createUser = handleSubmit((values) => {
   <section class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 class="page-title">Users</h2>
-        <p class="mt-1 text-muted-foreground">Manage users, roles, and account status.</p>
+        <h2 class="page-title">{{ translate('Users') }}</h2>
+        <p class="mt-1 text-muted-foreground">
+          {{ translate('Manage users, roles, and account status.') }}
+        </p>
       </div>
 
       <Button
@@ -129,12 +133,12 @@ const createUser = handleSubmit((values) => {
         @click="dialogOpen = true"
       >
         <Plus />
-        Add user
+        {{ translate('Add user') }}
       </Button>
     </div>
 
     <div class="flex items-center justify-between rounded-lg border bg-card px-4 py-3">
-      <p class="text-sm text-muted-foreground">{{ selectedSummary }}</p>
+      <p class="text-sm text-muted-foreground">{{ translate(selectedSummary) }}</p>
       <Button
         v-permission="{ permissions: 'user:delete', behavior: 'disable' }"
         type="button"
@@ -143,7 +147,7 @@ const createUser = handleSubmit((values) => {
         :disabled="selectedUsers.length === 0"
       >
         <Trash2 />
-        Delete selected
+        {{ translate('Delete selected') }}
       </Button>
     </div>
 
@@ -160,32 +164,41 @@ const createUser = handleSubmit((values) => {
     <Dialog v-model:open="dialogOpen">
       <DialogContent class="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add user</DialogTitle>
-          <DialogDescription> Enter the details for the new user. </DialogDescription>
+          <DialogTitle>{{ translate('Add user') }}</DialogTitle>
+          <DialogDescription>
+            {{ translate('Enter the details for the new user.') }}
+          </DialogDescription>
         </DialogHeader>
 
         <form class="space-y-4" novalidate @submit="createUser">
-          <AppFormField v-slot="{ componentField }" name="name" label="Name" required>
-            <Input v-bind="componentField" placeholder="Enter a name" />
+          <AppFormField v-slot="{ componentField }" name="name" :label="translate('Name')" required>
+            <Input v-bind="componentField" :placeholder="translate('Enter a name')" />
           </AppFormField>
 
-          <AppFormField v-slot="{ componentField }" name="email" label="Email" required>
+          <AppFormField
+            v-slot="{ componentField }"
+            name="email"
+            :label="translate('Email')"
+            required
+          >
             <Input v-bind="componentField" type="email" placeholder="name@example.com" />
           </AppFormField>
 
           <AppFormField
             v-slot="{ componentField }"
             name="role"
-            label="Role"
-            description="Choose the role for this user."
+            :label="translate('Role')"
+            :description="translate('Choose the role for this user.')"
             required
           >
-            <Input v-bind="componentField" placeholder="For example: Editor" />
+            <Input v-bind="componentField" :placeholder="translate('For example: Editor')" />
           </AppFormField>
 
           <DialogFooter>
-            <Button type="button" variant="outline" @click="dialogOpen = false"> Cancel </Button>
-            <Button type="submit">Save</Button>
+            <Button type="button" variant="outline" @click="dialogOpen = false">
+              {{ translate('Cancel') }}
+            </Button>
+            <Button type="submit">{{ translate('Save') }}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

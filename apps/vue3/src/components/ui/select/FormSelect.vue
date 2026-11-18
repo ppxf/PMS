@@ -1,4 +1,7 @@
 <script setup lang="ts" generic="T extends string | number">
+import { translate } from '@/i18n'
+import { computed } from 'vue'
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.'
 import type { HTMLAttributes } from 'vue'
 import { cn } from '@/lib/utils'
@@ -10,6 +13,10 @@ const props = defineProps<{
   disabled?: boolean
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: T]; change: [value: T] }>()
+const selectedLabel = computed(() => {
+  const option = props.options.find((option) => Object.is(option.value, props.modelValue))
+  return translate(option?.label ?? props.placeholder)
+})
 // Encode every value so that None is selectable and cannot collide with a real field name.
 const encode = (value: string | number) => JSON.stringify(value)
 function select(value: unknown) {
@@ -27,8 +34,10 @@ function select(value: unknown) {
   >
     <SelectTrigger
       v-bind="{ ...$attrs, class: cn('w-full min-w-0', $attrs.class as HTMLAttributes['class']) }"
-      ><SelectValue :placeholder="placeholder"
-    /></SelectTrigger>
+      ><SelectValue :placeholder="translate(placeholder)">{{
+        selectedLabel
+      }}</SelectValue></SelectTrigger
+    >
     <SelectContent>
       <SelectItem
         v-for="option in options"
@@ -36,7 +45,7 @@ function select(value: unknown) {
         :value="encode(option.value)"
         :data-value="String(option.value)"
         :disabled="option.disabled"
-        >{{ option.label }}</SelectItem
+        >{{ translate(option.label) }}</SelectItem
       >
     </SelectContent>
   </Select>

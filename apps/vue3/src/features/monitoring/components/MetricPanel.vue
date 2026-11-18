@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -243,7 +246,9 @@ function exportCsv() {
   URL.revokeObjectURL(url)
 }
 const format = (value: number | null) =>
-  value === null ? '-' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 }).format(value)
+  value === null
+    ? '-'
+    : new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 3 }).format(value)
 watch(
   () => [route.params.groupSlug, route.params.projectSlug],
   () => {
@@ -273,13 +278,13 @@ onBeforeUnmount(() => {
     <header class="flex items-center justify-between gap-3">
       <span
         class="inline-flex size-8 items-center justify-center rounded-md bg-cyan-50 text-sm font-semibold text-cyan-700"
-        >{{ label }}</span
+        >{{ translate(label) }}</span
       >
       <div class="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon-sm"
-          aria-label="Export current sample page"
+          :aria-label="translate('Export current sample page')"
           :disabled="!result?.samples.length"
           @click="exportCsv"
           ><Download
@@ -288,7 +293,7 @@ onBeforeUnmount(() => {
           v-if="removable"
           variant="ghost"
           size="icon-sm"
-          :aria-label="`Remove metric ${label}`"
+          :aria-label="translate(`Remove metric ${label}`)"
           @click="emit('remove')"
           ><Trash2
         /></Button>
@@ -296,21 +301,22 @@ onBeforeUnmount(() => {
     </header>
     <div class="grid gap-3 md:grid-cols-3">
       <div class="min-w-0">
-        <p class="mb-1 text-xs text-muted-foreground">Metric</p>
+        <p class="mb-1 text-xs text-muted-foreground">{{ translate('Metric') }}</p>
         <MetricOptionPicker
           :model-value="selected"
           :options="metricOptions"
-          label="Metric"
+          :label="translate('Metric')"
           search-label="Search application metrics"
-          title="Application Metrics"
-          placeholder="Select a metric"
+          :title="translate('Application Metrics')"
+          :placeholder="translate('Select a metric')"
           @update:model-value="changeMetric"
         />
       </div>
       <label
-        >Aggregation<FormSelect
+        >{{ translate('Aggregation')
+        }}<FormSelect
           v-model="aggregation"
-          aria-label="Aggregation"
+          :aria-label="translate('Aggregation')"
           :options="
             aggregations.map((agg) => ({
               value: agg,
@@ -320,11 +326,11 @@ onBeforeUnmount(() => {
           @change="load()"
       /></label>
       <div class="min-w-0">
-        <p class="mb-1 text-xs text-muted-foreground">Group by</p>
+        <p class="mb-1 text-xs text-muted-foreground">{{ translate('Group by') }}</p>
         <MetricOptionPicker
           :model-value="groupBy"
           :options="groupOptions"
-          label="Group by"
+          :label="translate('Group by')"
           search-label="Search group fields"
           multiple
           @update:model-value="changeGroups"
@@ -332,13 +338,15 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <p v-if="identity" class="text-xs text-muted-foreground">
-      {{ metricTypeLabel(identity.type) }} ·
+      {{ translate(metricTypeLabel(identity.type)) }} ·
       {{
-        identity.type === 'count'
-          ? 'Counter: sum adds reported increments; count returns the number of samples.'
-          : identity.type === 'gauge'
-            ? 'Gauge: last returns the latest observation in the selected time range.'
-            : 'Distribution: percentiles and averages are calculated from reported samples.'
+        translate(
+          identity.type === 'count'
+            ? 'Counter: sum adds reported increments; count returns the number of samples.'
+            : identity.type === 'gauge'
+              ? 'Gauge: last returns the latest observation in the selected time range.'
+              : 'Distribution: percentiles and averages are calculated from reported samples.',
+        )
       }}
     </p>
     <QuerySearchBar
@@ -356,7 +364,7 @@ onBeforeUnmount(() => {
             :key="index"
             type="button"
             class="metric-filter-chip rounded-md border px-3 py-1.5 text-sm"
-            :aria-label="`Remove condition ${index + 1}`"
+            :aria-label="translate(`Remove condition ${index + 1}`)"
             @click="removeFilter(index)"
           >
             {{ filter.field }} {{ filter.operator }}
@@ -366,18 +374,20 @@ onBeforeUnmount(() => {
       </template>
     </QuerySearchBar>
     <p v-if="error" role="alert" class="flex items-center gap-3 text-sm text-destructive">
-      {{ error }} <Button variant="outline" size="sm" @click="load(false)">Retry</Button>
+      {{ translate(error) }}
+      <Button variant="outline" size="sm" @click="load(false)">{{ translate('Retry') }}</Button>
     </p>
     <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
       <span
-        >{{ result?.total ?? 0 }} samples<span v-if="result?.truncatedGroups">
-          · Showing the 20 groups with the most samples</span
-        ><span v-if="catalog?.truncated"> · Metric catalog truncated</span></span
+        >{{ result?.total ?? 0 }} {{ translate('samples')
+        }}<span v-if="result?.truncatedGroups">
+          {{ translate('· Showing the 20 groups with the most samples') }}</span
+        ><span v-if="catalog?.truncated"> {{ translate('· Metric catalog truncated') }}</span></span
       >
       <div class="flex gap-2">
         <FormSelect
           v-model="chartType"
-          aria-label="Chart type"
+          :aria-label="translate('Chart type')"
           class="w-24"
           :options="[
             { value: 'line', label: 'Line' },
@@ -386,7 +396,7 @@ onBeforeUnmount(() => {
         />
         <FormSelect
           v-model="interval"
-          aria-label="Interval"
+          :aria-label="translate('Interval')"
           class="w-36"
           :options="[
             { value: 0, label: 'Auto interval' },
@@ -407,9 +417,10 @@ onBeforeUnmount(() => {
         <div
           class="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/40 px-4 py-3 text-sm"
         >
-          <span class="font-medium">Metric trend</span>
+          <span class="font-medium">{{ translate('Metric trend') }}</span>
           <span class="truncate text-xs text-muted-foreground"
-            >{{ aggregation }} · {{ aggregateUnit === 'none' ? 'Unitless' : aggregateUnit }}</span
+            >{{ aggregation }} ·
+            {{ translate(aggregateUnit === 'none' ? 'Unitless' : aggregateUnit) }}</span
           >
         </div>
         <div class="relative min-h-0 flex-1 p-3">
@@ -418,19 +429,26 @@ onBeforeUnmount(() => {
             role="status"
             class="grid h-full place-items-center text-sm text-muted-foreground"
           >
-            Loading…
+            {{ translate('Loading…') }}
           </p>
           <VChart v-else-if="result?.total" :option="chart" autoresize class="h-full w-full" />
           <p v-else-if="error" class="grid h-full place-items-center text-sm text-muted-foreground">
-            Query not completed
+            {{ translate('Query not completed') }}
           </p>
-          <EmptyState v-else class="h-full" title="No metric samples in this time range" />
+          <EmptyState
+            v-else
+            class="h-full"
+            :title="translate('No metric samples in this time range')"
+          />
         </div>
       </div>
       <div
         class="flex h-96 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-background"
       >
-        <nav class="flex shrink-0 gap-1 overflow-x-auto border-b" aria-label="Metric data views">
+        <nav
+          class="flex shrink-0 gap-1 overflow-x-auto border-b"
+          :aria-label="translate('Metric data views')"
+        >
           <button
             v-for="item in [
               { id: 'samples', label: 'Samples' },
@@ -442,18 +460,20 @@ onBeforeUnmount(() => {
             :aria-pressed="tab === item.id"
             @click="tab = item.id"
           >
-            {{ item.label }}
+            {{ translate(item.label) }}
           </button>
         </nav>
         <div class="flex min-h-0 flex-1 flex-col overflow-auto">
           <table v-if="tab === 'samples'" class="app-table">
             <thead class="sticky top-0 z-10">
               <tr>
-                <th>Trace ID</th>
-                <th>Value ({{ displayUnit(identity?.unit ?? 'none') }})</th>
-                <th>Timestamp</th>
-                <th>Environment</th>
-                <th>Attributes</th>
+                <th>{{ translate('Trace ID') }}</th>
+                <th>
+                  {{ translate('Value (') }}{{ translate(displayUnit(identity?.unit ?? 'none')) }})
+                </th>
+                <th>{{ translate('Timestamp') }}</th>
+                <th>{{ translate('Environment') }}</th>
+                <th>{{ translate('Attributes') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -488,7 +508,7 @@ onBeforeUnmount(() => {
                 <td class="w-96 max-w-96 align-top">
                   <details v-if="Object.keys(sample.attributes).length" class="min-w-56">
                     <summary class="cursor-pointer rounded text-cyan-700 focus-visible:outline-2">
-                      Attributes ({{ Object.keys(sample.attributes).length }})
+                      {{ translate('Attributes (') }}{{ Object.keys(sample.attributes).length }})
                     </summary>
                     <MetricAttributeTree
                       :entries="Object.entries(sample.attributes)"
@@ -503,13 +523,12 @@ onBeforeUnmount(() => {
           <table v-else class="app-table">
             <thead class="sticky top-0 z-10">
               <tr>
-                <th>{{ groupLabel || 'Group' }}</th>
+                <th>{{ translate(groupLabel || 'Group') }}</th>
                 <th>
-                  {{ metricAggregationLabel(aggregation, identity?.type ?? 'count') }} ({{
-                    aggregateUnit
-                  }})
+                  {{ translate(metricAggregationLabel(aggregation, identity?.type ?? 'count')) }}
+                  ({{ aggregateUnit }})
                 </th>
-                <th>Samples</th>
+                <th>{{ translate('Samples') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -527,7 +546,9 @@ onBeforeUnmount(() => {
               !(tab === 'samples' ? result?.samples.length : result?.aggregates.length)
             "
             class="flex-1 px-4 py-8"
-            :title="tab === 'samples' ? 'No samples to display' : 'No aggregates to display'"
+            :title="
+              translate(tab === 'samples' ? 'No samples to display' : 'No aggregates to display')
+            "
           />
         </div>
         <TablePagination
@@ -538,7 +559,7 @@ onBeforeUnmount(() => {
           :page-size="20"
           :busy="loading"
           unit="samples"
-          label="Metric samples pagination"
+          :label="translate('Metric samples pagination')"
           @change="paginate($event - page)"
         />
       </div>

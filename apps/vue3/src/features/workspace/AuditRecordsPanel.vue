@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { intlLocale } from '@/i18n'
+
+import { translate } from '@/i18n'
+
 import {
   ShieldCheck,
   Filter,
@@ -50,7 +54,7 @@ function time(value?: string) {
   const date = new Date(value)
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat('en-GB', {
+    : new Intl.DateTimeFormat(intlLocale('en-GB'), {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
@@ -76,9 +80,9 @@ function projectName(record: AuditRecord) {
         <ShieldCheck class="size-6 text-primary" aria-hidden="true" />
       </div>
       <div class="min-w-0">
-        <h2 class="page-title">Audit records</h2>
+        <h2 class="page-title">{{ translate('Audit records') }}</h2>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Track changes to project settings, member access and issue activity.
+          {{ translate('Track changes to project settings, member access and issue activity.') }}
         </p>
       </div>
     </header>
@@ -86,10 +90,10 @@ function projectName(record: AuditRecord) {
     <div class="overflow-hidden rounded-xl border bg-card shadow-sm">
       <div class="flex items-center gap-2.5 border-b bg-muted/20 px-5 py-4 sm:px-6">
         <Filter class="size-4 text-muted-foreground" aria-hidden="true" />
-        <h3 class="text-sm font-semibold">Filter activity</h3>
-        <span class="ml-auto hidden text-xs text-muted-foreground sm:block"
-          >Only projects you can audit</span
-        >
+        <h3 class="text-sm font-semibold">{{ translate('Filter activity') }}</h3>
+        <span class="ml-auto hidden text-xs text-muted-foreground sm:block">{{
+          translate('Only projects you can audit')
+        }}</span>
       </div>
       <form
         data-testid="filters"
@@ -97,56 +101,56 @@ function projectName(record: AuditRecord) {
         @submit.prevent="emit('apply')"
       >
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground">
-          <span class="block">Project</span>
+          <span class="block">{{ translate('Project') }}</span>
           <select
             class="workspace-select"
             v-model="projectId"
-            aria-label="Project"
+            :aria-label="translate('Project')"
             :class="[fieldClass, 'text-foreground']"
           >
-            <option value="">All accessible projects</option>
+            <option value="">{{ translate('All accessible projects') }}</option>
             <option v-for="project in projects" :key="project.id" :value="project.id">
               {{ project.name }}
             </option>
           </select>
         </label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground">
-          <span class="block">Action</span>
+          <span class="block">{{ translate('Action') }}</span>
           <span class="relative block"
             ><Search
               class="pointer-events-none absolute top-3 left-3 size-4"
               aria-hidden="true" /><Input
               v-model="action"
-              aria-label="Action"
-              placeholder="Exact action name"
+              :aria-label="translate('Action')"
+              :placeholder="translate('Exact action name')"
               class="h-10 pl-9 text-foreground"
           /></span>
         </label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground">
-          <span class="block">Actor</span>
+          <span class="block">{{ translate('Actor') }}</span>
           <span class="relative block"
             ><Users
               class="pointer-events-none absolute top-3 left-3 size-4"
               aria-hidden="true" /><Input
               v-model="actor"
-              aria-label="Actor"
-              placeholder="Name or user ID"
+              :aria-label="translate('Actor')"
+              :placeholder="translate('Name or user ID')"
               class="h-10 pl-9 text-foreground"
           /></span>
         </label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">From</span
+          ><span class="block">{{ translate('From') }}</span
           ><input
             v-model="from"
-            aria-label="From"
+            :aria-label="translate('From')"
             type="datetime-local"
             :class="[fieldClass, 'text-foreground']"
         /></label>
         <label class="min-w-0 space-y-2 text-xs font-medium text-muted-foreground"
-          ><span class="block">To</span
+          ><span class="block">{{ translate('To') }}</span
           ><input
             v-model="to"
-            aria-label="To"
+            :aria-label="translate('To')"
             type="datetime-local"
             :class="[fieldClass, 'text-foreground']"
         /></label>
@@ -155,25 +159,27 @@ function projectName(record: AuditRecord) {
             v-else
             class="size-4"
             aria-hidden="true"
-          />Apply filters</Button
+          />{{ translate('Apply filters') }}</Button
         >
       </form>
     </div>
 
     <section
       class="min-w-0 overflow-hidden rounded-xl border bg-card shadow-sm"
-      aria-label="Audit activity"
+      :aria-label="translate('Audit activity')"
     >
       <header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
         <div class="flex items-center gap-2.5">
-          <h3 class="text-sm font-semibold">Activity log</h3>
+          <h3 class="text-sm font-semibold">{{ translate('Activity log') }}</h3>
           <span
             class="rounded-full border bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
-            >{{ total }} records</span
+            >{{ total }} {{ translate('records') }}</span
           >
         </div>
         <span class="flex items-center gap-1.5 text-xs text-muted-foreground"
-          ><CalendarDays class="size-3.5" aria-hidden="true" />Most recent first</span
+          ><CalendarDays class="size-3.5" aria-hidden="true" />{{
+            translate('Most recent first')
+          }}</span
         >
       </header>
       <div
@@ -181,15 +187,19 @@ function projectName(record: AuditRecord) {
         role="alert"
         class="m-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
       >
-        <p>{{ error }}</p>
-        <Button type="button" variant="outline" size="sm" @click="emit('retry')">Retry</Button>
+        <p>{{ translate(error) }}</p>
+        <Button type="button" variant="outline" size="sm" @click="emit('retry')">{{
+          translate('Retry')
+        }}</Button>
       </div>
       <div
         v-else-if="loading"
         role="status"
         class="flex min-h-72 flex-col items-center justify-center gap-3 text-sm text-muted-foreground"
       >
-        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />Loading audit records…
+        <LoaderCircle class="size-6 animate-spin" aria-hidden="true" />{{
+          translate('Loading audit records…')
+        }}
       </div>
       <div
         v-else-if="!records.length"
@@ -202,24 +212,25 @@ function projectName(record: AuditRecord) {
             aria-hidden="true"
           />
         </div>
-        <h4 class="text-base font-semibold">No audit records found</h4>
+        <h4 class="text-base font-semibold">{{ translate('No audit records found') }}</h4>
         <p class="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-          No results match these filters. Try a different project or time range.
+          {{ translate('No results match these filters. Try a different project or time range.') }}
         </p>
         <p class="mt-5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <ShieldCheck class="size-3.5 shrink-0" aria-hidden="true" />Activity is recorded from the
-          time auditing is enabled.
+          <ShieldCheck class="size-3.5 shrink-0" aria-hidden="true" />{{
+            translate('Activity is recorded from the time auditing is enabled.')
+          }}
         </p>
       </div>
       <div v-else class="min-w-0 overflow-x-auto">
         <table class="app-table min-w-[880px]">
           <thead>
             <tr>
-              <th>Time</th>
-              <th>Actor</th>
-              <th>Activity</th>
-              <th>Project / object</th>
-              <th>Result</th>
+              <th>{{ translate('Time') }}</th>
+              <th>{{ translate('Actor') }}</th>
+              <th>{{ translate('Activity') }}</th>
+              <th>{{ translate('Project / object') }}</th>
+              <th>{{ translate('Result') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -235,9 +246,9 @@ function projectName(record: AuditRecord) {
                 <div class="flex items-center gap-2">
                   <span
                     class="grid size-7 shrink-0 place-items-center rounded-full border bg-muted text-[10px] font-semibold text-muted-foreground"
-                    >{{ (record.actorName || 'System').slice(0, 2).toUpperCase() }}</span
+                    >{{ translate((record.actorName || 'System').slice(0, 2).toUpperCase()) }}</span
                   ><span class="max-w-40 break-words font-medium">{{
-                    record.actorName || 'System'
+                    translate(record.actorName || 'System')
                   }}</span>
                 </div>
               </td>
@@ -250,14 +261,16 @@ function projectName(record: AuditRecord) {
                     <ChevronRight
                       class="size-3.5 transition-transform group-open:rotate-90"
                       aria-hidden="true"
-                    />View change details
+                    />{{ translate('View change details') }}
                   </summary>
                   <div class="mt-2 space-y-3 rounded-lg border bg-muted/30 p-3">
                     <pre class="code-block w-80" tabindex="0">{{
                       JSON.stringify(record.summary, null, 2)
                     }}</pre>
-                    <p class="break-all font-mono text-[10px]">Request {{ record.requestId }}</p>
-                    <p>HTTP {{ record.statusCode }}</p>
+                    <p class="break-all font-mono text-[10px]">
+                      {{ translate('Request') }} {{ record.requestId }}
+                    </p>
+                    <p>{{ translate('HTTP') }} {{ record.statusCode }}</p>
                   </div>
                 </details>
               </td>
@@ -288,11 +301,13 @@ function projectName(record: AuditRecord) {
                     class="size-3"
                     aria-hidden="true"
                   />{{
-                    record.result === 'success'
-                      ? 'Success'
-                      : record.result === 'failure'
-                        ? 'Failed'
-                        : (record.result ?? '—')
+                    translate(
+                      record.result === 'success'
+                        ? 'Success'
+                        : record.result === 'failure'
+                          ? 'Failed'
+                          : (record.result ?? '—'),
+                    )
                   }}</span
                 >
               </td>
@@ -307,7 +322,7 @@ function projectName(record: AuditRecord) {
           :page-size="20"
           :busy="loading"
           unit="records"
-          label="Audit pagination"
+          :label="translate('Audit pagination')"
           @change="emit('pageChange', $event)"
         />
       </footer>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '@/i18n'
+
 import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
@@ -100,15 +102,23 @@ function inspect(name: string) {
       />
     </div>
     <p class="text-xs text-muted-foreground">
-      Estimated sampled time · Function percentiles are calculated per profile where the function
-      was observed.
+      {{
+        translate(
+          'Estimated sampled time · Function percentiles are calculated per profile where the function was observed.',
+        )
+      }}
       <span v-if="overview"
-        >{{ overview.profileCount }} profiles · {{ overview.baselineProfileCount }} comparison
-        profiles · Comparison: {{ formatDateTime(overview.comparisonStart) }} –
+        >{{ overview.profileCount }} {{ translate('profiles ·') }}
+        {{ overview.baselineProfileCount }} {{ translate('comparison profiles · Comparison:') }}
+        {{ formatDateTime(overview.comparisonStart) }} –
         {{ formatDateTime(overview.comparisonEnd) }}</span
       >
     </p>
-    <div class="flex gap-1 overflow-x-auto border-b" role="tablist" aria-label="Profile analysis">
+    <div
+      class="flex gap-1 overflow-x-auto border-b"
+      role="tablist"
+      :aria-label="translate('Profile analysis')"
+    >
       <button
         v-for="(item, index) in tabs"
         :id="`profile-tab-${item.id}`"
@@ -123,7 +133,7 @@ function inspect(name: string) {
         @click="tab = item.id"
         @keydown="navigateTabs($event, index)"
       >
-        {{ item.label }}
+        {{ translate(item.label) }}
       </button>
     </div>
     <slot name="search" />
@@ -132,8 +142,8 @@ function inspect(name: string) {
       role="alert"
       class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
     >
-      <p>{{ error }}</p>
-      <Button variant="outline" @click="emit('retry')">Retry statistics</Button>
+      <p>{{ translate(error) }}</p>
+      <Button variant="outline" @click="emit('retry')">{{ translate('Retry statistics') }}</Button>
     </div>
     <div
       v-if="tab === 'transactions'"
@@ -144,7 +154,11 @@ function inspect(name: string) {
       :aria-busy="loading"
     >
       <p class="text-xs text-muted-foreground">
-        Grouped by profile name. Percentiles measure capture duration across matching profiles.
+        {{
+          translate(
+            'Grouped by profile name. Percentiles measure capture duration across matching profiles.',
+          )
+        }}
       </p>
       <div class="table-surface">
         <table class="app-table">
@@ -159,13 +173,13 @@ function inspect(name: string) {
                 "
               >
                 <button class="whitespace-nowrap font-medium" @click="order(column.key)">
-                  {{ column.label
-                  }}{{ column.key !== 'name' && column.key !== 'count' ? ' (ms)' : '' }}
-                  <span v-if="sort === column.key">{{ descending ? '↓' : '↑' }}</span>
+                  {{ translate(column.label)
+                  }}{{ translate(column.key !== 'name' && column.key !== 'count' ? ' (ms)' : '') }}
+                  <span v-if="sort === column.key">{{ translate(descending ? '↓' : '↑') }}</span>
                 </button>
               </th>
-              <th class="px-4 py-3 font-medium">Project</th>
-              <th class="px-4 py-3 font-medium">Sample</th>
+              <th class="px-4 py-3 font-medium">{{ translate('Project') }}</th>
+              <th class="px-4 py-3 font-medium">{{ translate('Sample') }}</th>
             </tr>
           </thead>
           <tbody v-if="!loading && !error">
@@ -177,7 +191,7 @@ function inspect(name: string) {
               <td class="max-w-96 px-4 py-2.5">
                 <button
                   class="block max-w-full truncate text-left font-medium text-violet-600 hover:underline"
-                  :title="row.name"
+                  :title="translate(row.name)"
                   @click="inspect(row.name)"
                 >
                   {{ row.name }}
@@ -199,19 +213,19 @@ function inspect(name: string) {
                     name: 'project-profile-detail',
                     params: { groupSlug: group, projectSlug: project, profileId: row.profileId },
                   }"
-                  >Open profile</RouterLink
+                  >{{ translate('Open profile') }}</RouterLink
                 >
               </td>
             </tr>
           </tbody>
         </table>
         <p v-if="loading || error" class="grid min-h-52 place-items-center p-8 text-center text-sm">
-          {{ loading ? 'Loading transactions…' : 'Transaction statistics unavailable' }}
+          {{ translate(loading ? 'Loading transactions…' : 'Transaction statistics unavailable') }}
         </p>
         <EmptyState
           v-else-if="!rows.length"
           class="min-h-52 p-8"
-          title="No results found for your query"
+          :title="translate('No results found for your query')"
         >
           <RouterLink
             class="text-xs text-violet-600 hover:underline"
@@ -219,7 +233,7 @@ function inspect(name: string) {
               name: 'project-profiles-setup',
               params: { groupSlug: group, projectSlug: project },
             }"
-            >View Profiles setup instructions</RouterLink
+            >{{ translate('View Profiles setup instructions') }}</RouterLink
           >
         </EmptyState>
       </div>
@@ -230,7 +244,7 @@ function inspect(name: string) {
         :page-size="20"
         :busy="loading"
         unit="transactions"
-        label="Transactions pagination"
+        :label="translate('Transactions pagination')"
         previous-label="Previous transactions"
         next-label="Next transactions"
         @change="page = $event"
@@ -244,24 +258,28 @@ function inspect(name: string) {
       class="rounded-lg border bg-background p-5"
       :aria-busy="loading"
     >
-      <h2 class="text-sm font-medium">Aggregate Flamegraph</h2>
+      <h2 class="text-sm font-medium">{{ translate('Aggregate Flamegraph') }}</h2>
       <p class="my-3 text-xs text-muted-foreground">
-        Call stacks merged by function and source location. Width represents estimated sampled time
-        across all matching profiles; this is not a timeline.
+        {{
+          translate(
+            'Call stacks merged by function and source location. Width represents estimated sampled time across all matching profiles; this is not a timeline.',
+          )
+        }}
       </p>
       <p v-if="loading || error" class="py-20 text-center text-sm text-muted-foreground">
-        {{ loading ? 'Loading flamegraph…' : 'Flamegraph unavailable' }}
+        {{ translate(loading ? 'Loading flamegraph…' : 'Flamegraph unavailable') }}
       </p>
       <EmptyState
         v-else-if="!overview?.flamegraph.length"
         class="py-20"
-        title="No sampled stacks found"
+        :title="translate('No sampled stacks found')"
       />
       <template v-else
         ><ProfileFlameChart :segments="overview.flamegraph" :duration-ms="overview.durationMs" />
         <p class="mt-4 text-xs text-muted-foreground">
-          Total capture time: {{ overview.durationMs.toFixed(2) }} ms · Unsampled:
-          {{ overview.unsampledMs.toFixed(2) }} ms
+          {{ translate('Total capture time:') }} {{ overview.durationMs.toFixed(2) }}
+          {{ translate('ms · Unsampled:') }} {{ overview.unsampledMs.toFixed(2) }}
+          {{ translate('ms') }}
         </p></template
       >
     </div>
