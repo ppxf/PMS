@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MonitoringEnvelope, Transport } from '@pms/monitoring-core'
+import type { MonitoringEnvelope, Transport } from '@pmspulse/monitoring-core'
 
 const dsn = 'http://browser-key@localhost:3001/api/sdk/browser-project'
 
@@ -43,7 +43,7 @@ describe('browser tracing integration', () => {
     expect(spans.find(span => span.op === 'http.client')).toMatchObject({ name: 'GET /api/orders', httpStatusCode: 200 })
   })
   it('sets up a plugin on the host client without initializing this package client', async () => {
-    const { createMonitoringClient } = await import('@pms/monitoring-core')
+    const { createMonitoringClient } = await import('@pmspulse/monitoring-core')
     const sdk = await import('./index.js')
     const transport = new RecordingTransport()
     const client = createMonitoringClient()

@@ -1,5 +1,5 @@
-import { createBrowserTracing } from '@pms/monitoring-core'
-import type { MonitoringIntegration } from '@pms/monitoring-core'
+import { createBrowserTracing } from '@pmspulse/monitoring-core'
+import type { MonitoringIntegration } from '@pmspulse/monitoring-core'
 
 export interface BrowserTracingIntegration extends MonitoringIntegration {
   readonly name: 'BrowserTracing'

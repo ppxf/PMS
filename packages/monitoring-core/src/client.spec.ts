@@ -119,7 +119,7 @@ describe('monitoring core initialization and capture', () => {
         version: 1,
         type: 'client_report',
         sentAt: '2026-09-22T00:00:00.000Z',
-        sdk: { name: '@pms/monitoring-core', version: '0.1.0' },
+        sdk: { name: '@pmspulse/monitoring-core', version: '0.1.0' },
       }),
     ).resolves.toBeUndefined()
   })
@@ -143,7 +143,7 @@ describe('monitoring core initialization and capture', () => {
     expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({
       version: 1,
       type: 'client_report',
-      sdk: { name: '@pms/monitoring-core', version: '0.1.0' },
+      sdk: { name: '@pmspulse/monitoring-core', version: '0.1.0' },
       environment: 'production',
     })
   })
@@ -183,7 +183,7 @@ describe('monitoring core initialization and capture', () => {
       version: 1,
       type: 'client_report',
       sentAt: '2026-09-28T00:00:00.000Z',
-      sdk: { name: '@pms/monitoring-core', version: '0.1.0' },
+      sdk: { name: '@pmspulse/monitoring-core', version: '0.1.0' },
     })).resolves.toBeUndefined()
 
     expect(receivers).toEqual([globalThis])

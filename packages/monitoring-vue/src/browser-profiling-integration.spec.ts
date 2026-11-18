@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { MonitoringEnvelope } from '@pms/monitoring-core'
+import type { MonitoringEnvelope } from '@pmspulse/monitoring-core'
 beforeEach(() => {
   vi.resetModules()
   vi.useFakeTimers()

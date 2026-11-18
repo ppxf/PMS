@@ -1,7 +1,7 @@
 export const buildEnvSnippet = (dsn: string) => `VITE_PMS_DSN=${dsn}`
 
 export const buildLogsInitSnippet = () => `import { createApp } from 'vue'
-import { flush, init, logger } from '@pms/monitoring-vue'
+import { flush, init, logger } from '@pmspulse/monitoring-vue'
 import App from './App.vue'
 
 const app = createApp(App)
@@ -21,7 +21,7 @@ logger.warn('Payment retry', { attempt: 2 })
 void flush()`
 
 export const buildMetricsInitSnippet = () => `import { createApp } from 'vue'
-import { init } from '@pms/monitoring-vue'
+import { init } from '@pmspulse/monitoring-vue'
 import App from './App.vue'
 
 const app = createApp(App)
@@ -38,7 +38,7 @@ init({
 app.mount('#app')`
 
 export const buildMetricsUsageSnippet = () => `<script setup lang="ts">
-import { metrics, flush, getMetricStats } from '@pms/monitoring-vue'
+import { metrics, flush, getMetricStats } from '@pmspulse/monitoring-vue'
 
 async function recordMetrics() {
   // Counter: report an increment, not a running total. The value defaults to 1.
@@ -70,12 +70,12 @@ async function recordMetrics() {
   <button type="button" @click="recordMetrics">Send test metrics</button>
 </template>`
 
-export const buildInstallSnippet = () => 'pnpm add @pms/monitoring-vue'
+export const buildInstallSnippet = () => 'pnpm add @pmspulse/monitoring-vue'
 
-export const buildBrowserTracesInstallSnippet = () => 'pnpm add @pms/monitoring-vue'
+export const buildBrowserTracesInstallSnippet = () => 'pnpm add @pmspulse/monitoring-vue'
 
 export const buildBrowserTracesInitSnippet = () => `import { createApp } from 'vue'
-import { init, browserTracingIntegration } from '@pms/monitoring-vue'
+import { init, browserTracingIntegration } from '@pmspulse/monitoring-vue'
 import App from './App.vue'
 import router from './router'
 
@@ -95,8 +95,8 @@ init({
 app.mount('#app')`
 
 export const buildInitSnippet = (tracingEnabled = false) => `import { createApp } from 'vue'
-import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'
-import App from './App.vue'${tracingEnabled ? "\nimport { browserTracingIntegration } from '@pms/monitoring-vue'\nimport router from './router'" : ''}
+import { captureException, init as initPmsMonitoring } from '@pmspulse/monitoring-vue'
+import App from './App.vue'${tracingEnabled ? "\nimport { browserTracingIntegration } from '@pmspulse/monitoring-vue'\nimport router from './router'" : ''}
 
 const app = createApp(App)${tracingEnabled ? '\napp.use(router)' : ''}
 
@@ -112,7 +112,7 @@ captureException(new Error('PMS SDK test error'))
 app.mount('#app')`
 
 export const buildManualTraceSnippet = () => `<script setup lang="ts">
-import { startSpan, flush } from '@pms/monitoring-vue'
+import { startSpan, flush } from '@pmspulse/monitoring-vue'
 
 // Call after initializing Traces. Set tracesSampleRate to 1 for testing.
 async function triggerTrace() {

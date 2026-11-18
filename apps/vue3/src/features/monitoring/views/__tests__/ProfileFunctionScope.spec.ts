@@ -3,6 +3,8 @@ import { profileFunctionKind } from '../../model/profile-function-scope'
 describe('profile function source classification', () => {
   it.each([
     ['http://localhost:3002/node_modules/.vite/deps/@pms_monitoring-vue.js?v=abc', 'sdk'],
+    ['http://localhost:3002/node_modules/.vite/deps/@pmspulse_monitoring-vue.js?v=abc', 'sdk'],
+    ['https://host/node_modules/@pmspulse/monitoring-core/dist/index.js', 'sdk'],
     ['https://host/node_modules/@pms/monitoring-core/dist/index.js', 'sdk'],
     ['https://host/node_modules/.pnpm/pkg/node_modules/@pms/monitoring-vue/dist/index.js', 'sdk'],
     ['http://host/packages/monitoring-core/src/profiling.ts', 'sdk'],

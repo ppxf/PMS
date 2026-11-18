@@ -1,7 +1,7 @@
 export { captureException, getClientState, getVueClientState, init, startSpan, startInactiveSpan, flush, getTraceStats } from './vue-client.js'
-export type { MonitoringSpan, SpanHandle, SpanOptions, TraceContext } from '@pms/monitoring-core'
+export type { MonitoringSpan, SpanHandle, SpanOptions, TraceContext } from '@pmspulse/monitoring-core'
 export type { VueMonitoringInitOptions } from './vue-client.js'
-export { HttpTransport, NoopTransport, TransportError } from '@pms/monitoring-core'
+export { HttpTransport, NoopTransport, TransportError } from '@pmspulse/monitoring-core'
 export type {
   ClientState,
   ClientReportEnvelope,
@@ -14,14 +14,14 @@ export type {
   MonitoringException,
   MonitoringLevel,
   Transport,
-} from '@pms/monitoring-core'
+} from '@pmspulse/monitoring-core'
 export { metrics, getMetricStats } from './vue-client.js'
-export type { MetricType, MetricOptions, MetricSample, MetricsEnvelope } from '@pms/monitoring-core'
+export type { MetricType, MetricOptions, MetricSample, MetricsEnvelope } from '@pmspulse/monitoring-core'
 export { logger, getLogStats, captureConsoleLogs } from './vue-client.js'
-export type { LogLevel, LogEntry, LogAttributes, LogContext, LogsEnvelope, FormattedLog, ConsoleLogMethod } from '@pms/monitoring-core'
+export type { LogLevel, LogEntry, LogAttributes, LogContext, LogsEnvelope, FormattedLog, ConsoleLogMethod } from '@pmspulse/monitoring-core'
 export { browserTracingIntegration } from './browser-tracing-integration.js'
 export type { BrowserTracingIntegration } from './browser-tracing-integration.js'
 export { browserProfilingIntegration } from './browser-profiling-integration.js'
 export type { BrowserProfilingIntegration } from './browser-profiling-integration.js'
 export { uiProfiler } from './vue-client.js'
-export type { MonitoringProfile, ProfileEnvelope, ProfileFrame, ProfileStack, ProfileSample, ProfileStartOptions, UIProfiler } from '@pms/monitoring-core'
+export type { MonitoringProfile, ProfileEnvelope, ProfileFrame, ProfileStack, ProfileSample, ProfileStartOptions, UIProfiler } from '@pmspulse/monitoring-core'

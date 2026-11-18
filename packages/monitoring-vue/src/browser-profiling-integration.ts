@@ -1,4 +1,4 @@
-import type { MonitoringIntegration } from '@pms/monitoring-core'
+import type { MonitoringIntegration } from '@pmspulse/monitoring-core'
 
 export interface BrowserProfilingIntegration extends MonitoringIntegration {
   readonly name: 'BrowserProfiling'

@@ -1,5 +1,5 @@
 {
-  "name": "@pms/monitoring-core",
+  "name": "@pmspulse/monitoring-core",
   "version": "0.1.0",
   "type": "module",
   "files": [

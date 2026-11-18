@@ -293,7 +293,7 @@ importers:
 
   packages/monitoring-vue:
     dependencies:
-      '@pms/monitoring-core':
+      '@pmspulse/monitoring-core':
         specifier: workspace:*
         version: link:../monitoring-core
     devDependencies:

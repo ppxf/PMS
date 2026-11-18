@@ -1,5 +1,5 @@
 {
-  "name": "@pms/monitoring-vue",
+  "name": "@pmspulse/monitoring-vue",
   "version": "0.1.0",
   "type": "module",
   "files": [
@@ -25,7 +25,7 @@
     "vue": ">=3.3 <4"
   },
   "dependencies": {
-    "@pms/monitoring-core": "workspace:*"
+    "@pmspulse/monitoring-core": "workspace:*"
   },
   "devDependencies": {
     "@pms/config": "workspace:*",

@@ -210,7 +210,7 @@ describe('project views', () => {
     expect(wrapper.get('[data-testid="init-snippet"]').text()).not.toContain(
       'browserTracingIntegration',
     )
-    expect(wrapper.text()).not.toContain('pnpm add @pms/monitoring-vue @pms/monitoring-browser')
+    expect(wrapper.text()).not.toContain('pnpm add @pmspulse/monitoring-vue @pmspulse/monitoring-browser')
     routeState.route!.name = 'project-traces-setup'
     await flushPromises()
     expect(wrapper.text()).toContain('Traces setup')
@@ -220,7 +220,7 @@ describe('project views', () => {
     await wrapper.get('[data-testid="copy-init"]').trigger('click')
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('tracesSampleRate:'))
     const manualSnippet = wrapper.get('[data-testid="manual-trace-snippet"]').text()
-    expect(manualSnippet).toContain("import { startSpan, flush } from '@pms/monitoring-vue'")
+    expect(manualSnippet).toContain("import { startSpan, flush } from '@pmspulse/monitoring-vue'")
     expect(manualSnippet).toContain("name: 'Manual trace test'")
     expect(manualSnippet).toContain("op: 'business', parent")
     expect(manualSnippet).toContain('await flush()')
@@ -281,10 +281,10 @@ describe('project views', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain(project.dsn)
-    expect(wrapper.text()).toContain('pnpm add @pms/monitoring-vue')
+    expect(wrapper.text()).toContain('pnpm add @pmspulse/monitoring-vue')
     expect(wrapper.find('[data-testid="browser-traces-setup"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('VITE_PMS_DSN=')
-    expect(wrapper.text()).toContain("from '@pms/monitoring-vue'")
+    expect(wrapper.text()).toContain("from '@pmspulse/monitoring-vue'")
     expect(wrapper.text()).toContain('initPmsMonitoring')
     expect(wrapper.text()).toContain("captureException(new Error('PMS SDK test error'))")
     expect(wrapper.text()).toContain('Initialization sends a connection report')

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 const props = defineProps<{ dsn: string }>()
 const snippet = computed(
-  () => `import { init, browserTracingIntegration, browserProfilingIntegration, uiProfiler } from '@pms/monitoring-vue'
+  () => `import { init, browserTracingIntegration, browserProfilingIntegration, uiProfiler } from '@pmspulse/monitoring-vue'
 
 init({
   app,
@@ -39,7 +39,7 @@ add_header Document-Policy "js-profiling" always;`
     <h2 class="font-medium">Profiles SDK setup</h2>
     <div class="mt-4 space-y-4 text-sm">
       <p>
-        Enable Profiles for this project, then install <code>@pms/monitoring-vue</code>. Profiling
+        Enable Profiles for this project, then install <code>@pmspulse/monitoring-vue</code>. Profiling
         requires Chromium with the JS Self-Profiling API and the HTML document response header
         <code>Document-Policy: js-profiling</code>. Unsupported browsers safely skip collection.
       </p>

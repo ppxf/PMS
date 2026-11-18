@@ -19,7 +19,7 @@ pnpm sdk:lint
 从独立工作区迁移后，先在根目录执行 `pnpm install --frozen-lockfile`，统一更新依赖链接。
 
 修改 SDK 的依赖后，在仓库根目录运行 `pnpm install`，提交根目录锁文件。
-单包命令使用 `pnpm --filter @pms/monitoring-core ...`，Vue SDK 同理。
+单包命令使用 `pnpm --filter @pmspulse/monitoring-core ...`，Vue SDK 同理。
 发布前执行构建和测试，再在对应 SDK 包目录中执行 `pnpm pack` 并检查产物。
 先发布 Core，再发布 Vue SDK；pnpm 会把发布产物中的 `workspace:*` 转换为对应 Core 的实际版本。
 Vue 保持为 peer dependency，外部使用方使用自己的锁文件管理最终安装版本。

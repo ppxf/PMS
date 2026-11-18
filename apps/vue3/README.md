@@ -76,12 +76,12 @@ await http.post<User, CreateUserInput>('/users', input)
 
 创建项目时 Error Monitoring 默认开启，Logging、Tracing 和 Application Metrics 默认关闭，均可通过 Switch 调整。首版已实现错误采集、归组、列表与详情；Logging、Tracing 和 Metrics 尚未实现，项目也不包含 Replay。
 
-项目创建成功后会进入 SDK 接入页。SDK 使用双包架构：`@pms/monitoring-core` 提供通用采集能力，`@pms/monitoring-vue` 负责 Vue 适配并将 Core 声明为运行时依赖。两个包发布到同一个私有 npm 后，外部项目只需执行 `pnpm add @pms/monitoring-vue`，包管理器会自动安装匹配版本的 Core。运行 PMS 服务本身不要求把 SDK 发布到公网 npm，但独立项目安装前必须确保两个包都已发布到其可访问的 Registry。
+项目创建成功后会进入 SDK 接入页。SDK 使用双包架构：`@pmspulse/monitoring-core` 提供通用采集能力，`@pmspulse/monitoring-vue` 负责 Vue 适配并将 Core 声明为运行时依赖。两个包发布到 npm 公共仓库后，外部项目只需执行 `pnpm add @pmspulse/monitoring-vue`，包管理器会自动安装匹配版本的 Core。运行 PMS 服务本身不要求把 SDK 发布到公网 npm，但独立项目安装前必须确保两个包都已发布到其可访问的 Registry。
 
 配置 `VITE_PMS_DSN` 后，在业务项目的 `main.ts` 中初始化：
 
 ```ts
-import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'
+import { captureException, init as initPmsMonitoring } from '@pmspulse/monitoring-vue'
 
 initPmsMonitoring({
   app,

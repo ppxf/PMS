@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@pms/monitoring-core'],
+      external: ['vue', '@pmspulse/monitoring-core'],
     },
     sourcemap: true,
   },

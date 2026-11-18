@@ -11,8 +11,8 @@ export function profileFunctionKind(resource?: string): ProfileFunctionKind {
   }
   path = path.replace(/\\/g, '/').split(/[?#]/, 1)[0]!
   if (
-    /(?:^|\/)@pms\/(?:monitoring-core|monitoring-vue)(?:\/|$)/.test(path) ||
-    /(?:^|\/)@pms_monitoring-(?:core|vue)(?:[._]|$)/.test(path) ||
+    /(?:^|\/)@pms(?:pulse)?\/(?:monitoring-core|monitoring-vue)(?:\/|$)/.test(path) ||
+    /(?:^|\/)@pms(?:pulse)?_monitoring-(?:core|vue)(?:[._]|$)/.test(path) ||
     /(?:^|\/)packages\/monitoring-(?:core|vue)\/src\//.test(path)
   )
     return 'sdk'

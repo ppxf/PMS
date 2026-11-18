@@ -15,7 +15,7 @@ monitoring-vue 统一提供错误监控、Web Vitals、链路、指标和日志�
 执行数据库迁移，从 PMS 项目 SDK 接入页复制自动生成的初始化配置；使用 Traces 时在项目功能配置中启用 Traces。SDK 需先发布到项目使用的私有 npm；本仓库可使用工作区包。
 
 ```sh
-pnpm add @pms/monitoring-vue
+pnpm add @pmspulse/monitoring-vue
 ```
 
 业务应用 .env.local：
@@ -32,7 +32,7 @@ Vue + Vite 示例；没有 Router 时删除 router 的导入、app.use 和 init 
 
 ```ts
 import { createApp } from 'vue'
-import { init, startSpan, browserTracingIntegration } from '@pms/monitoring-vue'
+import { init, startSpan, browserTracingIntegration } from '@pmspulse/monitoring-vue'
 import App from './App.vue'
 import router from './router'
 
@@ -100,7 +100,7 @@ DSN/key 用于向项目写入监控数据，不提供管理权限。项目来源
 指标上下文的优先级为：显式 `traceContext`、当前 `startSpan` 同步回调、尚未结束的页面加载或导航 Span。嵌套 `startSpan` 默认继承当前父 Span；回调返回或抛错后恢复原作用域。`startInactiveSpan` 不会自动成为当前作用域。
 
 ```ts
-import { metrics, startSpan } from '@pms/monitoring-vue'
+import { metrics, startSpan } from '@pmspulse/monitoring-vue'
 
 startSpan({ name: 'checkout', op: 'task' }, () => {
   metrics.count('button_click', 1) // 自动关联 checkout

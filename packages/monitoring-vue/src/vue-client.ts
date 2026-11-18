@@ -1,11 +1,11 @@
-import { createMonitoringClient } from '@pms/monitoring-core'
+import { createMonitoringClient } from '@pmspulse/monitoring-core'
 import type {
   ClientState,
   MonitoringEventSource,
   MonitoringInitOptions,
   MonitoringIntegration,
   MonitoringRouter,
-} from '@pms/monitoring-core'
+} from '@pmspulse/monitoring-core'
 import type { App } from 'vue'
 
 export interface VueMonitoringInitOptions extends Omit<MonitoringInitOptions, 'sdk'> {
@@ -76,7 +76,7 @@ export function init(options: VueMonitoringInitOptions): ClientState {
   const state = initCore({
     ...coreOptions,
     tracesSampleRate: integrations.length ? options.tracesSampleRate : 0,
-    sdk: { name: '@pms/monitoring-vue', version: '0.1.0' },
+    sdk: { name: '@pmspulse/monitoring-vue', version: '0.1.0' },
   })
   configuredIntegrations = [...integrations]
   if (options.router) client.setWebVitalsRouteResolver(() => options.router?.currentRoute?.value.matched.at(-1)?.path)

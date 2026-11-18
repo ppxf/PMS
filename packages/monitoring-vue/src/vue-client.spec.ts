@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 import type { App } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MonitoringEnvelope, Transport } from '@pms/monitoring-core'
+import type { MonitoringEnvelope, Transport } from '@pmspulse/monitoring-core'
 
 const dsn = 'http://vue-key@localhost:3001/api/sdk/vue-project'
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
@@ -69,7 +69,7 @@ describe('Vue monitoring error capture', () => {
     const sdk = await import('./index.js')
     const transport = new RecordingTransport()
     const router = { beforeEach: vi.fn(), afterEach: vi.fn() }
-    const setup = vi.fn((context: Parameters<import('@pms/monitoring-core').MonitoringIntegration['setup']>[0]) => {
+    const setup = vi.fn((context: Parameters<import('@pmspulse/monitoring-core').MonitoringIntegration['setup']>[0]) => {
       const span = context.client.startInactiveSpan({ name: 'plugin-span' })
       span.end()
     })
@@ -101,7 +101,7 @@ describe('Vue monitoring error capture', () => {
     expect(transport.envelopes[0]).toMatchObject({
       version: 1,
       type: 'client_report',
-      sdk: { name: '@pms/monitoring-vue', version: '0.1.0' },
+      sdk: { name: '@pmspulse/monitoring-vue', version: '0.1.0' },
     })
   })
 

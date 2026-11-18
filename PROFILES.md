@@ -10,7 +10,7 @@ Profiles 用浏览器的真实 JavaScript 调用栈样本分析函数耗时，�
 
 ```ts
 import { createApp } from 'vue'
-import * as PMS from '@pms/monitoring-vue'
+import * as PMS from '@pmspulse/monitoring-vue'
 import App from './App.vue'
 import router from './router'
 

@@ -11,10 +11,10 @@ const dsn = 'http://abc123@localhost:3001/api/sdk/550e8400-e29b-41d4-a716-446655
 
 describe('SDK setup helpers', () => {
   it('provides independent trace-only browser installation and initialization', () => {
-    expect(buildBrowserTracesInstallSnippet()).toBe('pnpm add @pms/monitoring-vue')
+    expect(buildBrowserTracesInstallSnippet()).toBe('pnpm add @pmspulse/monitoring-vue')
     const snippet = buildBrowserTracesInitSnippet()
     expect(snippet).toContain(
-      "import { init, browserTracingIntegration } from '@pms/monitoring-vue'",
+      "import { init, browserTracingIntegration } from '@pmspulse/monitoring-vue'",
     )
     expect(snippet).toContain('init({')
     expect(snippet).toContain('integrations: [browserTracingIntegration()]')
@@ -32,11 +32,11 @@ describe('SDK setup helpers', () => {
     expect(buildInitSnippet(false)).not.toContain('monitoring-browser')
   })
   it('builds registry-based SDK installation and initialization instructions', () => {
-    expect(buildInstallSnippet()).toBe('pnpm add @pms/monitoring-vue')
+    expect(buildInstallSnippet()).toBe('pnpm add @pmspulse/monitoring-vue')
     expect(buildEnvSnippet(dsn)).toBe(`VITE_PMS_DSN=${dsn}`)
     const snippet = buildInitSnippet()
     expect(snippet).toContain(
-      "import { captureException, init as initPmsMonitoring } from '@pms/monitoring-vue'",
+      "import { captureException, init as initPmsMonitoring } from '@pmspulse/monitoring-vue'",
     )
     expect(snippet).toContain('dsn: import.meta.env.VITE_PMS_DSN')
     expect(snippet).toContain('debug: import.meta.env.DEV')
