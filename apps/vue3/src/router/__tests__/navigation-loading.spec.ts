@@ -2,16 +2,36 @@ import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { installNavigationLoading } from '../navigation-loading'
 
-function setup() {
+function setup(loadProject = async () => ({ template: '<div />' })) {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ['/a', '/b', '/c'].map((path) => ({ path, component: { template: '<div />' } })),
+    routes: [
+      ...['/a', '/b', '/c'].map((path) => ({ path, component: { template: '<div />' } })),
+      { path: '/project/setup', component: loadProject },
+    ],
   })
-  const loading = installNavigationLoading(router)
-  return { router, loading }
+  return { router, ...installNavigationLoading(router) }
 }
 
 describe('navigation loading', () => {
+  it('offers a direct link to reopen a project when its module fails to load', async () => {
+    let fail = true
+    const { router, loading, recoveryHref } = setup(async () => {
+      if (fail) throw new TypeError('Failed to fetch dynamically imported module')
+      return { template: '<div />' }
+    })
+    await router.push('/a')
+
+    await expect(router.push('/project/setup?tab=basic')).rejects.toThrow('dynamically imported')
+    expect(router.currentRoute.value.path).toBe('/a')
+    expect(loading.value).toBe(false)
+    expect(recoveryHref.value).toBe('/project/setup?tab=basic')
+
+    fail = false
+    await router.push('/project/setup')
+    expect(recoveryHref.value).toBeNull()
+  })
+
   it('covers asynchronous guards and clears after success', async () => {
     const { router, loading } = setup()
     await router.push('/a')

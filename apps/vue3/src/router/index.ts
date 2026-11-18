@@ -9,5 +9,6 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 }),
 })
 
-export const navigationLoading = installNavigationLoading(router)
+export const { loading: navigationLoading, recoveryHref: navigationRecoveryHref } =
+  installNavigationLoading(router)
 export default router
