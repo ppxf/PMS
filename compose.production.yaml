@@ -1,7 +1,7 @@
 name: pms-production
 services:
   redis:
-    image: redis:7.4-alpine
+    image: ${REDIS_IMAGE:?Set REDIS_IMAGE}
     restart: unless-stopped
     command: [redis-server, --appendonly, 'yes', --maxmemory, 256mb, --maxmemory-policy, noeviction]
     volumes:
@@ -12,7 +12,7 @@ services:
       timeout: 3s
       retries: 20
   db:
-    image: postgres:17-bookworm
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USERNAME:-pms}
@@ -26,11 +26,7 @@ services:
       timeout: 5s
       retries: 20
   api:
-    image: pms-api:${PMS_IMAGE_TAG:-local}
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: api-production
+    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/pms-api:${PMS_IMAGE_TAG:?Set PMS_IMAGE_TAG}
     restart: unless-stopped
     init: true
     environment:
@@ -77,11 +73,7 @@ services:
       start_period: 30s
       retries: 5
   web:
-    image: pms-web:${PMS_IMAGE_TAG:-local}
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: web-production
+    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/pms-web:${PMS_IMAGE_TAG:?Set PMS_IMAGE_TAG}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${HTTP_PORT:-8080}:80"

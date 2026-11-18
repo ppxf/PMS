@@ -28,18 +28,18 @@ on_error() {
 trap on_error ERR
 
 dc config --quiet
-# Build before touching running application containers. Keep commit-tagged images.
-dc build api web
-dc up -d --wait --wait-timeout 180 db redis
+# Pull all images before touching running application containers.
+dc pull api web db redis
+dc up -d --no-build --pull never --wait --wait-timeout 180 db redis
 
 BACKUP=".deploy/backups/$(date -u +%Y%m%dT%H%M%SZ)-$SHA.dump"
 dc exec -T db sh -ec \
   'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$BACKUP.tmp"
 mv "$BACKUP.tmp" "$BACKUP"
 
-dc run --rm --no-deps api node node_modules/typeorm/cli.js \
+dc run --rm --no-deps --pull never api node node_modules/typeorm/cli.js \
   migration:run -d dist/database/data-source.js
-dc up -d --no-build --wait --wait-timeout 240 api web
+dc up -d --no-build --pull never --wait --wait-timeout 240 api web
 
 WEB_ADDRESS="$(dc port web 80)"
 curl --fail --silent --show-error --retry 5 --retry-connrefused \

@@ -18,7 +18,7 @@
     "sdk:test": "pnpm --filter \"@pms/monitoring-*\" --sort run test",
     "sdk:typecheck": "pnpm --filter \"@pms/monitoring-*\" --sort run typecheck",
     "sdk:lint": "pnpm --filter \"@pms/monitoring-*\" --sort run lint",
-    "production": "docker compose --env-file .env.production -f compose.production.yaml up --build -d",
+    "production": "docker compose --env-file .env.production -f compose.production.yaml up --no-build --pull never -d",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",

@@ -1,0 +1,27 @@
+name: Sync runtime images to GHCR
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: pms-runtime-images
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror PostgreSQL and Redis
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          PREFIX="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          for SOURCE in postgres:17-bookworm redis:7.4-alpine; do
+            docker pull --platform linux/amd64 "$SOURCE"
+            TARGET="$PREFIX/pms-$SOURCE"
+            docker tag "$SOURCE" "$TARGET"
+            docker push "$TARGET"
+          done
