@@ -4,6 +4,7 @@ import { defineComponent, nextTick } from 'vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import ProjectDetailView from '@/features/monitoring/views/ProjectDetailView.vue'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
+import { selectValue } from '@/test/select'
 import { Toaster, toast } from '@/components/ui/toast'
 import { setLocale } from '..'
 
@@ -52,7 +53,8 @@ it('switches the live settings and toast without changing user data or a draft',
     expect(page.text()).toContain('Feature settings')
     expect(page.get('[data-toast]').text()).toContain('Copied DSN')
 
-    await page.get('[data-testid="language-switcher"]').setValue('zh-CN')
+    await selectValue(page, 'Language', 'zh-CN')
+    await nextTick()
     expect(page.text()).toContain('功能开关')
     expect(page.text()).toContain('SDK 上报来源')
     expect(page.get('[role="switch"][aria-label="异常监控"]').attributes('aria-checked')).toBe(
@@ -62,7 +64,8 @@ it('switches the live settings and toast without changing user data or a draft',
     expect(page.get('h2').text()).toBe('Dashboard')
     expect((origins.element as HTMLTextAreaElement).value).toBe('https://draft.example.com')
 
-    await page.get('[data-testid="language-switcher"]').setValue('en')
+    await selectValue(page, '语言', 'en')
+    await nextTick()
     expect(page.text()).toContain('Feature settings')
     expect(page.get('[data-toast]').text()).toContain('Copied DSN')
     expect((origins.element as HTMLTextAreaElement).value).toBe('https://draft.example.com')

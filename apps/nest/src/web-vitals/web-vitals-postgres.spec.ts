@@ -8,7 +8,6 @@ import { WebVitalsService } from './web-vitals.service';
 import { WebVitalsController } from './web-vitals.controller';
 import { MetricsService } from '../metrics/metrics.service';
 import type { WebVitalsEnvelope } from './web-vitals-contract';
-import { MetricQueryPipe } from '../metrics/metrics-validation';
 import { SPAN_FIELD_MAP } from '../traces/traces-contract';
 const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
 (url ? describe : describe.skip)(
@@ -130,24 +129,8 @@ const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
         count: 1,
         p75: 0,
       });
-      const result = await metrics.query(
-        'owner',
-        'team',
-        'web',
-        new MetricQueryPipe().transform({
-          source: 'web_vitals',
-          name: 'browser.web_vital.lcp.value',
-          type: 'distribution',
-          unit: 'ms',
-          aggregation: 'p75',
-          start,
-          end,
-        }),
-      );
-      expect(result.total).toBe(2);
-      expect(result.aggregates[0].value).toBe(4000);
       const catalog = await metrics.catalog('owner', 'team', 'web');
-      expect(catalog.items.some((v) => v.source === 'web_vitals')).toBe(true);
+      expect(catalog.items).toEqual([]);
       const samples = (await controller.query(req, 'team', 'web', 'samples', {
         start,
         end,
@@ -220,11 +203,41 @@ const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
       expect(aggregates[0].value).toBe(5000);
     });
     it('ranks opportunities from canonical values and applies device filters', async () => {
-      for(let i=0;i<5;i++) await service.ingest(projectId,'key',envelope(randomUUID(),'LCP',6000));
-      const actions=await controller.query(req,'team','web','opportunities',{start,end,device:'mobile'}) as {items:{route:string;name:string;p75:number;poor:number;count:number}[]};
-      expect(actions.items[0]).toMatchObject({route:'/checkout',name:'LCP',p75:6000,poor:6,count:7});
-      const desktop=await controller.query(req,'team','web','overview',{start,end,device:'desktop'}) as {pageViews:number;passRate:number|null};
-      expect(desktop.pageViews).toBe(0);expect(desktop.passRate).toBeNull();
+      for (let i = 0; i < 5; i++)
+        await service.ingest(
+          projectId,
+          'key',
+          envelope(randomUUID(), 'LCP', 6000),
+        );
+      const actions = (await controller.query(
+        req,
+        'team',
+        'web',
+        'opportunities',
+        { start, end, device: 'mobile' },
+      )) as {
+        items: {
+          route: string;
+          name: string;
+          p75: number;
+          poor: number;
+          count: number;
+        }[];
+      };
+      expect(actions.items[0]).toMatchObject({
+        route: '/checkout',
+        name: 'LCP',
+        p75: 6000,
+        poor: 6,
+        count: 7,
+      });
+      const desktop = (await controller.query(req, 'team', 'web', 'overview', {
+        start,
+        end,
+        device: 'desktop',
+      })) as { pageViews: number; passRate: number | null };
+      expect(desktop.pageViews).toBe(0);
+      expect(desktop.passRate).toBeNull();
     });
   },
 );

@@ -15,7 +15,7 @@ import {
 import { MonitoringErrorSuppression } from './entities/monitoring-error-suppression.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
 import { MonitoringEventsService } from './monitoring-events.service';
-import { createErrorFingerprint } from './fingerprint';
+import { createErrorFingerprint, createLegacyErrorFingerprint } from './fingerprint';
 
 const projectId = '550e8400-e29b-41d4-a716-446655440000';
 const secondProjectId = '550e8400-e29b-41d4-a716-446655440099';
@@ -212,6 +212,7 @@ function fixture() {
           expect(normalized).toMatch(/resolution_reason = NULL/u);
           expect(normalized).toMatch(/reopened_at = CASE WHEN monitoring_error_issues\.status = 'resolved' THEN now\(\)/u);
           expect(normalized).toMatch(/reopen_count = CASE WHEN monitoring_error_issues\.status = 'resolved' THEN monitoring_error_issues\.reopen_count \+ 1/u);
+          expect(normalized).toContain("first_seen_at = CASE WHEN monitoring_error_issues.status = 'resolved' THEN EXCLUDED.first_seen_at ELSE monitoring_error_issues.first_seen_at END");
           expect(normalized).toMatch(/RETURNING id/u);
           expect(normalized).not.toMatch(/latest_event_id/u);
           const [id, environment, fingerprint, title, exceptionType, culprit, seenAt] =
@@ -226,6 +227,7 @@ function fixture() {
               title,
               exceptionType,
               culprit,
+              firstSeenAt: wasResolved ? seenAt : issue.firstSeenAt,
               lastSeenAt: seenAt,
               status: MonitoringErrorIssueStatus.Unresolved,
               resolvedAt: null,
@@ -269,6 +271,10 @@ function fixture() {
             draft.issues.push(issue);
           }
           return Promise.resolve([{ id: issue.id }]);
+        },
+        upsert: (_target: unknown, value: {projectId: string; environment: string; fingerprint: string}) => {
+          draft.suppressions.push(value);
+          return Promise.resolve({});
         },
         existsBy: (
           target: typeof MonitoringErrorSuppression,
@@ -380,10 +386,11 @@ describe('MonitoringEventsService', () => {
     expect(app.state().projects[0].lastSeenAt).toEqual(
       new Date('2026-09-23T03:01:00.000Z'),
     );
-    expect(app.operations.slice(0, 9)).toEqual([
+    expect(app.operations.slice(0, 10)).toEqual([
       'begin',
       'transaction:duplicate',
       'transaction:lock',
+      'transaction:suppression',
       'transaction:suppression',
       'transaction:upsert',
       'transaction:insert',
@@ -393,6 +400,21 @@ describe('MonitoringEventsService', () => {
     ]);
   });
 
+  it('preserves legacy permanent deletion without an issue and promotes its identity', async () => {
+    const app = fixture();
+    const input = errorEnvelope();
+    app.state().suppressions.push({projectId, environment: 'production', fingerprint: createLegacyErrorFingerprint({
+      exceptionType: input.event!.exception.type, message: input.event!.message,
+      stacktrace: input.event!.exception.stacktrace, url: input.event!.url,
+    })});
+    await app.service.ingest(projectId, publicKey, input);
+    const changed = errorEnvelope(secondEventId);
+    changed.event!.exception.stacktrace = 'at newBuild (new.js:90:2)';
+    await app.service.ingest(projectId, publicKey, changed);
+    expect(app.state().issues).toEqual([]);
+    expect(app.state().events).toEqual([]);
+    expect(app.state().suppressions).toHaveLength(2);
+  });
   it('drops a permanently suppressed event without storing it', async () => {
     const app = fixture();
     const input = errorEnvelope();
@@ -616,10 +638,11 @@ describe('MonitoringEventsService', () => {
       app.service.ingest(projectId, publicKey, errorEnvelope()),
     ).resolves.toBeUndefined();
     expect(app.state()).toEqual(before);
-    expect(app.operations.slice(-7)).toEqual([
+    expect(app.operations.slice(-8)).toEqual([
       'begin',
       'transaction:duplicate',
       'transaction:lock',
+      'transaction:suppression',
       'transaction:suppression',
       'transaction:upsert',
       'transaction:insert',
@@ -660,7 +683,7 @@ describe('MonitoringEventsService', () => {
     expect(app.state().issues[0].environment).toBe('unknown');
   });
 
-  it('truncates only stored culprit while grouping by the complete frame', async () => {
+  it('groups changed stack locations and preserves complete event stacks', async () => {
     const app = fixture();
     const first = errorEnvelope();
     const second = errorEnvelope(secondEventId);
@@ -668,9 +691,8 @@ describe('MonitoringEventsService', () => {
     second.event!.exception.stacktrace = `at ${'x'.repeat(600)}2`;
     await app.service.ingest(projectId, publicKey, first);
     await app.service.ingest(projectId, publicKey, second);
-    expect(app.state().issues).toHaveLength(2);
+    expect(app.state().issues).toHaveLength(1);
     expect(app.state().issues.map((issue) => issue.culprit)).toEqual([
-      `at ${'x'.repeat(509)}`,
       `at ${'x'.repeat(509)}`,
     ]);
     expect(app.state().events[0].stacktrace).toHaveLength(604);

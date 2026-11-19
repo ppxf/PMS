@@ -17,7 +17,7 @@ import {
 } from './entities/monitoring-error-issue.entity';
 import { MonitoringErrorSuppression } from './entities/monitoring-error-suppression.entity';
 import { MonitoringEvent } from './entities/monitoring-event.entity';
-import { createErrorFingerprint, findCulprit } from './fingerprint';
+import { createErrorFingerprint, createLegacyErrorFingerprint, findCulprit } from './fingerprint';
 
 @Injectable()
 export class MonitoringEventsService {
@@ -73,6 +73,18 @@ export class MonitoringEventsService {
         ) {
           return;
         }
+        const legacyFingerprint = createLegacyErrorFingerprint({
+          exceptionType: event.exception.type, message: event.message,
+          stacktrace: event.exception.stacktrace, url: event.url,
+        });
+        if (await manager.existsBy(MonitoringErrorSuppression, {
+          projectId: project.id, environment, fingerprint: legacyFingerprint,
+        })) {
+          await manager.upsert(MonitoringErrorSuppression, {
+            projectId: project.id, environment, fingerprint,
+          }, ['projectId', 'environment', 'fingerprint']);
+          return;
+        }
         const culprit =
           [...findCulprit(event.exception.stacktrace, event.url)]
             .slice(0, 512)
@@ -85,6 +97,7 @@ export class MonitoringEventsService {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
            ON CONFLICT (project_id, environment, fingerprint) DO UPDATE SET
              event_count = monitoring_error_issues.event_count + 1,
+             first_seen_at = CASE WHEN monitoring_error_issues.status = 'resolved' THEN EXCLUDED.first_seen_at ELSE monitoring_error_issues.first_seen_at END,
              last_seen_at = EXCLUDED.last_seen_at,
              title = EXCLUDED.title,
              exception_type = EXCLUDED.exception_type,

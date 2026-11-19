@@ -101,18 +101,14 @@ onBeforeUnmount(() => {
         /></Button>
         <Button
           :aria-label="translate('Add metric')"
-          :disabled="!catalog || cards.length >= 5"
+          :disabled="!catalog?.items.length || cards.length >= 5"
           @click="addMetric"
           ><Plus class="size-4" />{{ translate('Add metric') }}</Button
         >
       </div>
     </header>
     <p v-if="catalog && !catalog.enabled" class="text-sm text-amber-700">
-      {{
-        translate(
-          'Custom metric ingestion is disabled for this project. Automatic Web Vitals remain available.',
-        )
-      }}
+      {{ translate('Metric ingestion is disabled for this project.') }}
       <RouterLink
         v-if="projectAccess.canRoute('project-detail')"
         :to="{ name: 'project-detail', params: route.params }"
@@ -125,7 +121,27 @@ onBeforeUnmount(() => {
       {{ translate(error) }}
       <Button variant="outline" @click="refresh">{{ translate('Retry') }}</Button>
     </p>
-    <template v-if="catalog">
+    <div
+      v-if="catalog && !catalog.items.length"
+      class="rounded-lg border p-8 text-center"
+      data-testid="metrics-setup-empty"
+    >
+      <p>{{ translate('No metric samples received yet') }}</p>
+      <p class="mt-2 text-sm text-muted-foreground">
+        {{
+          translate(
+            'Enable Metrics in project settings, configure enableMetrics: true, and report a metric sample.',
+          )
+        }}
+      </p>
+      <RouterLink
+        v-if="projectAccess.canRoute('project-metrics-setup')"
+        :to="{ name: 'project-metrics-setup', params: route.params }"
+        class="mt-4 inline-block underline"
+        >{{ translate('Metrics setup instructions') }}</RouterLink
+      >
+    </div>
+    <template v-if="catalog && catalog.items.length">
       <MetricPanel
         v-for="(card, index) in cards"
         :key="card.id"

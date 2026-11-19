@@ -1,4 +1,10 @@
 export const monitoringZhCN: Record<string, string> = {
+  'Metric ingestion is disabled for this project.': '当前项目尚未启用指标接收。',
+  'No metric samples received yet': '尚未收到指标样本',
+  'Enable Metrics in project settings, configure enableMetrics: true, and report a metric sample.':
+    '请在项目设置中启用指标，配置 enableMetrics: true，并上报指标样本。',
+  'Metrics setup instructions': '指标接入指引',
+
   'A clear view of your projects. A faster path to what needs attention.':
     '清晰掌握项目状态，快速定位需要处理的问题。',
   'Create a project, connect the SDK, and bring errors and performance into one place.':

@@ -74,27 +74,19 @@ describe('Metrics explorer', () => {
       ],
     })
   })
-  it('queries canonical Web Vitals with p75 while custom metric ingestion is disabled', async () => {
-    api.metricCatalog.mockResolvedValue({
-      items: [
-        {
-          name: 'browser.web_vital.lcp.value',
-          type: 'distribution',
-          unit: 'ms',
-          source: 'web_vitals',
-        },
-      ],
-      attributes: [],
-      enabled: false,
-    })
-    api.metricQuery.mockResolvedValue({ ...result, samples: [] })
+  it.each([false, true])('shows Metrics setup without samples when enabled=%s', async (enabled) => {
+    api.metricQuery.mockClear()
+    api.metricCatalog.mockResolvedValue({ items: [], attributes: [], enabled })
     const view = mount(ProjectMetricsView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
-    expect(api.metricQuery.mock.lastCall?.[2]).toMatchObject({
-      source: 'web_vitals',
-      aggregation: 'p75',
-    })
-    expect(view.text()).toContain('Automatic Web Vitals remain available')
+    expect(api.metricQuery).not.toHaveBeenCalled()
+    expect(view.find('[data-metric-panel]').exists()).toBe(false)
+    expect(view.text()).toContain('No metric samples received yet')
+    expect(
+      view
+        .findAllComponents({ name: 'RouterLink' })
+        .some((link) => link.props('to').name === 'project-metrics-setup'),
+    ).toBe(true)
   })
   it('links a metric sample to its trace and exact span', async () => {
     api.metricCatalog.mockResolvedValue({

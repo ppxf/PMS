@@ -29,7 +29,8 @@ function fixture(permissions: string[]) {
     find: () => Promise.resolve([project]),
   } as unknown as Repository<MonitoringProject>;
   const members = {
-    find: () => Promise.resolve(joined ? [{ projectId: project.id, permissions }] : []),
+    find: () =>
+      Promise.resolve(joined ? [{ projectId: project.id, permissions }] : []),
   } as unknown as Repository<ProjectMember>;
   const access = new ProjectAccessService(repository, members);
   const projects = new MonitoringProjectsService(
@@ -124,24 +125,17 @@ describe('module authorization using real project access checks', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('requires Web Vitals permission for a Metrics query using its source', async () => {
-    const f = fixture(['project:metrics:read']);
-    const query = new MetricQueryPipe().transform({
-      ...range(),
-      source: 'web_vitals',
-      name: 'browser.web_vital.lcp.value',
-      type: 'distribution',
-      unit: 'ms',
-      aggregation: 'p75',
-    });
-    await expect(
-      new MetricsService(f.db, f.projects).query(
-        'member',
-        'team',
-        'web',
-        query,
-      ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+  it('rejects Web Vitals as a Metrics source regardless of module permission', () => {
+    expect(() =>
+      new MetricQueryPipe().transform({
+        ...range(),
+        source: 'web_vitals',
+        name: 'browser.web_vital.lcp.value',
+        type: 'distribution',
+        unit: 'ms',
+        aggregation: 'p75',
+      }),
+    ).toThrow();
   });
 
   it('requires Web Vitals permission for trace aggregation that projects its measurements', async () => {

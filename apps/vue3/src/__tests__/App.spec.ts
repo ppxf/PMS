@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { setLocale } from '@/i18n'
+import { selectValue } from '@/test/select'
 
 import App from '@/App.vue'
 
@@ -34,7 +35,7 @@ describe('App', () => {
 
     expect(wrapper.find('[data-test="router-view"]').exists()).toBe(true)
     expect(document.title).toBe('Sign in · PMS')
-    await wrapper.get('[data-testid="language-switcher"]').setValue('zh-CN')
+    await selectValue(wrapper, 'Language', 'zh-CN')
     await nextTick()
     expect(document.title).toBe('登录 · PMS')
     expect(document.documentElement.lang).toBe('zh-CN')

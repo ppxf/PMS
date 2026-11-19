@@ -8,7 +8,6 @@ import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { contentHash } from '../traces/traces.service';
 import { MetricBatchEntity, MetricEntity } from './metric.entity';
-import { WEB_VITALS_METRIC_SOURCE } from './web-vitals-source';
 import {
   MetricQuery,
   MetricsEnvelope,
@@ -95,9 +94,12 @@ export class MetricsService {
     });
   }
   async catalog(user: string, group: string, slug: string) {
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:metrics:read');
-    const access = await this.projects.getAccess(user, group, slug);
-    const includeVitals = access.role === 'owner' || access.permissions.includes('project:web-vitals:read');
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:metrics:read',
+    );
     return this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       const items = await manager.query<
@@ -110,73 +112,17 @@ export class MetricsService {
           source?: 'custom' | 'web_vitals';
         }[]
       >(
-        `SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen", 'custom' AS source FROM monitoring_metrics WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit${includeVitals ? ` UNION ALL SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen", 'web_vitals' AS source FROM ${WEB_VITALS_METRIC_SOURCE} WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit` : ''} ORDER BY name, type, unit LIMIT 201`,
+        `SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen", 'custom' AS source FROM monitoring_metrics WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit ORDER BY name, type, unit LIMIT 201`,
         [project.id],
       );
       const attributes = await manager.query<
         { key: string; types: string[] }[]
       >(
-        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types FROM (SELECT project_id,timestamp,attributes FROM monitoring_metrics${includeVitals ? ` UNION ALL SELECT project_id,timestamp,attributes FROM ${WEB_VITALS_METRIC_SOURCE}` : ''}) source CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
+        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types FROM (SELECT project_id,timestamp,attributes FROM monitoring_metrics) source CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
         [project.id],
       );
-      for (const name of includeVitals ? ['lcp', 'inp', 'cls', 'fcp', 'ttfb'] : []) {
-        const key = `browser.web_vital.${name}.value`;
-        if (
-          !items.some(
-            (item) => item.source === 'web_vitals' && item.name === key,
-          )
-        )
-          items.push({
-            name: key,
-            type: 'distribution',
-            unit: name === 'cls' ? 'none' : 'ms',
-            source: 'web_vitals',
-            sampleCount: 0,
-            lastSeen: null,
-          });
-      }
-      const vitalAttributes: Record<string, 'string' | 'number'> = {
-        'page.route': 'string',
-        device: 'string',
-        'navigation.type': 'string',
-        'browser.name': 'string',
-        target: 'string',
-        element: 'string',
-        interactionTarget: 'string',
-        interactionType: 'string',
-        url: 'string',
-        inputDelay: 'number',
-        processingDuration: 'number',
-        presentationDelay: 'number',
-        timeToFirstByte: 'number',
-        resourceLoadDelay: 'number',
-        resourceLoadDuration: 'number',
-        elementRenderDelay: 'number',
-        loadTime: 'number',
-        renderTime: 'number',
-        size: 'number',
-        largestShiftTime: 'number',
-        largestShiftValue: 'number',
-      };
-      for (const [key, type] of Object.entries(includeVitals ? vitalAttributes : {}))
-        if (!attributes.some((attribute) => attribute.key === key))
-          attributes.unshift({ key, types: [type] });
-      if (items.some((item) => item.source === 'web_vitals')) {
-        for (const key of [
-          'page.route',
-          'device',
-          'navigation.type',
-          'browser.name',
-        ]) {
-          if (!attributes.some((attribute) => attribute.key === key))
-            attributes.push({ key, types: ['string'] });
-        }
-      }
       return {
-        items: [
-          ...items.filter((item) => item.source === 'web_vitals'),
-          ...items.filter((item) => item.source !== 'web_vitals'),
-        ].slice(0, 200),
+        items: items.slice(0, 200),
         truncated: items.length > 200,
         attributes: attributes.slice(0, 100).map((row) => row.key),
         groupFields: [
@@ -241,7 +187,12 @@ export class MetricsService {
   ) {
     if (!validId(traceId, 32)) throw new BadRequestException('Invalid traceId');
     const q = new TraceMetricsQueryPipe().transform(input);
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:metrics:read');
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:metrics:read',
+    );
     const params: unknown[] = [project.id, traceId];
     let where = 'project_id = $1 AND trace_id = $2';
     if (q.spanId !== undefined) {
@@ -272,12 +223,13 @@ export class MetricsService {
   }
   async query(user: string, group: string, slug: string, input: MetricQuery) {
     const q = new MetricQueryPipe().transform(input);
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:metrics:read');
-    if (q.source === 'web_vitals') await this.projects.findReadableBySlug(user,group,slug,'project:web-vitals:read');
-    const source =
-      q.source === 'web_vitals'
-        ? WEB_VITALS_METRIC_SOURCE
-        : 'monitoring_metrics';
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:metrics:read',
+    );
+    const source = 'monitoring_metrics';
     const params: unknown[] = [
       project.id,
       q.start,
@@ -424,5 +376,3 @@ export class MetricsService {
     });
   }
 }
-
-

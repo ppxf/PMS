@@ -20,13 +20,11 @@ describe('createErrorFingerprint', () => {
     });
 
     expect(second).toEqual(first);
-    expect(first).toBe(
-      'ccdbb35b4d346ea60fcdafe7ea3d903eebb5329017ad440ca53fb34c4b95dbf4',
-    );
+
     expect(first).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it('includes the exception type, normalized message, and first stack frame', () => {
+  it('includes exception type and normalized message but ignores stack locations', () => {
     const baseline = createErrorFingerprint(firstError);
 
     expect(
@@ -44,7 +42,7 @@ describe('createErrorFingerprint', () => {
         stacktrace:
           'TypeError: payment failed\n  at retryOrder (checkout.ts:12:3)',
       }),
-    ).not.toBe(baseline);
+    ).toBe(baseline);
   });
 
   it('returns a stable digest for repeated input', () => {
@@ -75,4 +73,3 @@ describe('findCulprit', () => {
     expect(findCulprit()).toBe('');
   });
 });
-
