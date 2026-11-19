@@ -19,6 +19,7 @@ export function createBrowserTracing(client: Client) {
   let root: SpanHandle | undefined
   let idle: ReturnType<typeof setTimeout> | undefined
   let deadline: ReturnType<typeof setTimeout> | undefined
+  let initialNavigationPending = false
   let pending = 0
   const resources = new WeakSet<PerformanceResourceTiming>()
   const requestStarts = new Map<string, number[]>()
@@ -48,7 +49,7 @@ export function createBrowserTracing(client: Client) {
       const w = performanceWindow
       const collector = createBrowserPerformance(client, w, url => excluded(url, w))
       const page = root
-      const end = page.end
+      const end = page.end.bind(page)
       // Wrap the handle itself so deadline endings also drain entries before sealing.
       page.end = (status, reason, endTime) => {
         if (page.ended) return
@@ -62,13 +63,21 @@ export function createBrowserTracing(client: Client) {
       }
     }
     client.setPageSpan?.(root)
+    initialNavigationPending = false
     pending = 0
     if (op === 'navigation') pending++
     deadline = later(() => endRoot('deadline_exceeded'), 30_000)
     scheduleIdle()
     return root
   }
-  function navigationReady() { pending = Math.max(0, pending - 1); scheduleIdle() }
+  function startInitialNavigation(name?: string) {
+    if (!root || root.ended || root.span.op !== 'pageload') return false
+    if (!initialNavigationPending) { initialNavigationPending = true; pending++ }
+    if (name !== undefined) { root.span.name = name.slice(0, 512); root.span.pageRoute = name.slice(0, 512) }
+    if (idle) clearTimeout(idle)
+    return true
+  }
+  function navigationReady() { initialNavigationPending = false; pending = Math.max(0, pending - 1); scheduleIdle() }
   function address(input: string, w: Window) {
     const url = new URL(input, w.location.href)
     return { raw: url.href, route: url.pathname.slice(0, 512) }
@@ -80,7 +89,7 @@ export function createBrowserTracing(client: Client) {
   }
   function measurements(span: SpanHandle, raw: string, started: number, w: Window) {
     if ((requestStarts.get(raw) ?? []).filter((time) => Math.abs(time - started) <= 110).length > 1) return true
-    const entries = w.performance.getEntriesByType('resource') as PerformanceResourceTiming[]
+    const entries = w.performance.getEntriesByType('resource')
     const candidates = entries.filter((e) => e.name === raw && e.startTime >= started - 10 && e.startTime <= started + 100)
     if (candidates.length !== 1) return false
     const entry = candidates[0]
@@ -220,5 +229,5 @@ export function createBrowserTracing(client: Client) {
       }
     }
   }
-  return { install, startNavigation, navigationReady, endNavigation: endRoot }
+  return { install, startNavigation, startInitialNavigation, navigationReady, endNavigation: endRoot }
 }

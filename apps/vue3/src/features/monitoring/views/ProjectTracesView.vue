@@ -772,12 +772,20 @@ onMounted(async () => {
                   @click.stop
                   >{{ s.name }}</RouterLink
                 >
+                <p class="mt-1 font-mono text-xs text-muted-foreground" data-testid="span-identity">
+                  Span ID: {{ s.spanId }}
+                </p>
               </td>
               <td>{{ s.op }}</td>
               <td>{{ s.isTransaction }}</td>
-              <td>{{ formatDateTime(s.startTime) }}</td>
+              <td>{{ formatDateTime(s.startTime, { milliseconds: true }) }}</td>
               <td>{{ s.durationMs }} {{ translate('ms') }}</td>
-              <td>{{ s.status }} {{ translate(s.truncated ? 'Truncated' : '') }}</td>
+              <td>
+                {{ s.status }} {{ translate(s.truncated ? 'Truncated' : '') }}
+                <p class="mt-1 text-xs text-muted-foreground" data-testid="span-end-reason">
+                  {{ translate('End reason') }}: {{ s.endReason }}
+                </p>
+              </td>
             </tr>
           </template>
           <template v-else-if="tab === 'Trace Samples'">
@@ -787,7 +795,7 @@ onMounted(async () => {
                   t.traceId
                 }}</RouterLink>
               </td>
-              <td>{{ formatDateTime(t.startTime) }}</td>
+              <td>{{ formatDateTime(t.startTime, { milliseconds: true }) }}</td>
               <td>{{ t.durationMs }} {{ translate('ms') }}</td>
               <td>{{ t.spanCount }}</td>
               <td>{{ translate(t.truncated ? 'Truncated' : 'Retained records') }}</td>

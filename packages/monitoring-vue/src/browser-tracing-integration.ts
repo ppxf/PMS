@@ -16,8 +16,16 @@ export function browserTracingIntegration(): BrowserTracingIntegration {
       tracing.install(window)
       installed.add(client)
       if (router) {
-        router.beforeEach(to => { tracing.startNavigation(to.matched.at(-1)?.path ?? to.path) })
+        const initialRoute = router.currentRoute?.value
+        let initialNavigation = initialRoute?.matched.length === 0 && initialRoute.path === '/'
+        if (initialNavigation) tracing.startInitialNavigation()
+        router.beforeEach((to, from) => {
+          const name = to.matched.at(-1)?.path ?? to.path
+          const isInitialRoute = initialNavigation && (!from || (from.matched.length === 0 && from.path === '/'))
+          if (!isInitialRoute || !tracing.startInitialNavigation(name)) tracing.startNavigation(name)
+        })
         router.afterEach((_to, _from, failure) => {
+          initialNavigation = false
           if (failure) tracing.endNavigation('navigation_failed')
           else tracing.navigationReady()
         })

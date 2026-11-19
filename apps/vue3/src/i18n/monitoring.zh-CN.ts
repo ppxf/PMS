@@ -1,4 +1,5 @@
 export const monitoringZhCN: Record<string, string> = {
+  'End reason': '结束原因',
   'Metric ingestion is disabled for this project.': '当前项目尚未启用指标接收。',
   'No metric samples received yet': '尚未收到指标样本',
   'Enable Metrics in project settings, configure enableMetrics: true, and report a metric sample.':

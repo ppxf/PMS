@@ -64,6 +64,27 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
+  it('distinguishes samples with millisecond timestamps, Span IDs and end reasons', async () => {
+    api.spanSamples.mockResolvedValue({
+      items: [
+        {
+          ...root,
+          startTime: '2026-10-01T00:00:00.123Z',
+          endReason: 'navigation',
+          truncated: true,
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    })
+    const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(view.get('[data-testid="span-identity"]').text()).toContain('root')
+    expect(view.get('[data-testid="span-end-reason"]').text()).toContain('navigation')
+    expect(view.text()).toContain('.123')
+  })
+
   it('filters resources while keeping their parent, collapses branches and positions late paint markers', async () => {
     api.traceDetail.mockResolvedValue({
       items: [

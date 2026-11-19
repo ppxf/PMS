@@ -72,3 +72,61 @@ describe('browser tracing integration', () => {
   })
 })
 
+
+it('keeps the initial router navigation and redirects in one pageload', async () => {
+  vi.useFakeTimers()
+  try {
+    const { createMonitoringClient } = await import('@pmspulse/monitoring-core')
+    const { browserTracingIntegration } = await import('./index.js')
+    const transport = new RecordingTransport()
+    const client = createMonitoringClient()
+    client.init({dsn, transport, tracesSampleRate: 1})
+    const target = new EventTarget() as Window
+    Object.assign(target, {document: Object.assign(new EventTarget(), {readyState:'complete', visibilityState:'visible'}),
+      location:new URL('https://app.test/'),performance:{now:()=>performance.now(),getEntriesByType:()=>[]}})
+    const initial = {matched:[],path:'/'}
+    const checkout = {matched:[{path:'/checkout'}],path:'/checkout'}
+    const orders = {matched:[{path:'/orders/:id'}],path:'/orders/123'}
+    const router = {currentRoute:{value:initial},beforeEach:vi.fn(),afterEach:vi.fn()}
+    browserTracingIntegration().setup({client,window:target,router})
+    const before = router.beforeEach.mock.calls[0][0], after = router.afterEach.mock.calls[0][0]
+    before(checkout,initial)
+    await vi.advanceTimersByTimeAsync(2500)
+    await client.flush()
+    expect(transport.envelopes.filter(e=>e.type==='transaction')).toHaveLength(0)
+    before(orders,initial)
+    after(orders,initial)
+    await vi.advanceTimersByTimeAsync(2100)
+    before(checkout,orders)
+    after(checkout,orders)
+    await vi.advanceTimersByTimeAsync(2100)
+    await client.flush()
+    const roots = transport.envelopes.filter(e=>e.type==='transaction').flatMap(e=>e.transaction.spans).filter(s=>s.isTransaction)
+    expect(roots).toHaveLength(2)
+    expect(roots[0]).toMatchObject({op:'pageload',name:'/orders/:id',pageRoute:'/orders/:id',status:'ok',truncated:false})
+    expect(roots[1]).toMatchObject({op:'navigation',name:'/checkout',status:'ok',truncated:false})
+  } finally {vi.useRealTimers()}
+})
+
+it.each(['cancelled initial navigation', 'ready unmatched route'])('records navigation after %s', async (scenario) => {
+  vi.useFakeTimers()
+  try {
+    const { createMonitoringClient } = await import('@pmspulse/monitoring-core')
+    const { browserTracingIntegration } = await import('./index.js')
+    const transport = new RecordingTransport(), client = createMonitoringClient()
+    client.init({dsn,transport,tracesSampleRate:1})
+    const target = new EventTarget() as Window
+    Object.assign(target,{document:Object.assign(new EventTarget(),{readyState:'complete',visibilityState:'visible'}),location:new URL('https://app.test/'),performance:{now:()=>performance.now(),getEntriesByType:()=>[]}})
+    const from = {matched:[],path:scenario==='ready unmatched route' ? '/missing':'/'}
+    const to = {matched:[{path:'/orders'}],path:'/orders'}
+    const router = {currentRoute:{value:from},beforeEach:vi.fn(),afterEach:vi.fn()}
+    browserTracingIntegration().setup({client,window:target,router})
+    const before=router.beforeEach.mock.calls[0][0],after=router.afterEach.mock.calls[0][0]
+    if(scenario==='cancelled initial navigation') {before(to,from);after(to,from,new Error('cancelled'))}
+    before(to,from);after(to,from)
+    await vi.advanceTimersByTimeAsync(2100);await client.flush()
+    const spans=transport.envelopes.filter(e=>e.type==='transaction').flatMap(e=>e.transaction.spans)
+    expect(spans.filter(s=>s.op==='navigation')).toHaveLength(1)
+    expect(spans.find(s=>s.op==='navigation')).toMatchObject({name:'/orders',status:'ok',truncated:false})
+  }finally{vi.useRealTimers()}
+})
