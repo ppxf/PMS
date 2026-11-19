@@ -1,4 +1,10 @@
 export const monitoringZhCN: Record<string, string> = {
+  'SDK functions': 'SDK 函数',
+  'Framework and dependencies': '框架和依赖',
+  'Unknown source': '来源未知',
+  'Self excludes child calls. Total includes child calls; do not add totals across functions.':
+    '自身耗时不含子调用；总耗时包含子调用，不应将各函数总耗时相加。',
+
   'End reason': '结束原因',
   'Metric ingestion is disabled for this project.': '当前项目尚未启用指标接收。',
   'No metric samples received yet': '尚未收到指标样本',

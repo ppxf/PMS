@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
 import ProfileFlameChart from '../components/ProfileFlameChart.vue'
 import { profileDetail } from '../api/profiles.api'
+import { profileFunctionKind } from '../model/profile-function-scope'
 import { analyzeProfile, type Profile } from '../model/profiles'
 const route = useRoute()
 const group = computed(() => String(route.params.groupSlug))
@@ -17,13 +18,20 @@ const profile = ref<Profile | null>(null)
 const loading = ref(false)
 const error = ref('')
 const sort = ref('self')
+const scope = ref('application')
 const analysis = computed(() =>
   profile.value ? analyzeProfile(profile.value) : { functions: [], segments: [], unsampledMs: 0 },
 )
 const functions = computed(() =>
-  [...analysis.value.functions].sort((a, b) =>
-    sort.value === 'self' ? b.selfMs - a.selfMs : b.totalMs - a.totalMs,
-  ),
+  analysis.value.functions
+    .filter(
+      (fn) =>
+        scope.value === 'all' ||
+        (scope.value === 'application'
+          ? ['application', 'unknown'].includes(profileFunctionKind(fn.resource))
+          : profileFunctionKind(fn.resource) === scope.value),
+    )
+    .sort((a, b) => (sort.value === 'self' ? b.selfMs - a.selfMs : b.totalMs - a.totalMs)),
 )
 let generation = 0
 async function load() {
@@ -113,6 +121,17 @@ onBeforeUnmount(() => {
         <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
           <h2 class="font-semibold">{{ translate('Functions') }}</h2>
           <FormSelect
+            v-model="scope"
+            :aria-label="translate('Function scope')"
+            class="w-48"
+            :options="[
+              { value: 'application', label: 'Application functions' },
+              { value: 'sdk', label: 'SDK functions' },
+              { value: 'dependency', label: 'Framework and dependencies' },
+              { value: 'all', label: 'All functions' },
+            ]"
+          />
+          <FormSelect
             v-model="sort"
             class="w-44"
             :aria-label="translate('Function ranking')"
@@ -122,6 +141,20 @@ onBeforeUnmount(() => {
             ]"
           />
         </div>
+        <p class="p-4 text-sm text-muted-foreground">
+          {{
+            translate(
+              'Unknown-source frames remain visible. View All functions to inspect SDK and framework overhead.',
+            )
+          }}
+        </p>
+        <p class="px-4 pb-4 text-sm text-muted-foreground">
+          {{
+            translate(
+              'Self excludes child calls. Total includes child calls; do not add totals across functions.',
+            )
+          }}
+        </p>
         <div class="table-surface">
           <table class="app-table">
             <thead class="bg-muted/40 text-xs text-muted-foreground">
@@ -135,6 +168,16 @@ onBeforeUnmount(() => {
               <tr v-for="fn in functions" :key="fn.frameId" class="border-t">
                 <td class="max-w-xl break-all p-3">
                   <span class="font-mono text-xs">{{ fn.name }}</span>
+                  <span class="ml-2 text-xs text-muted-foreground">{{
+                    translate(
+                      {
+                        application: 'Application',
+                        sdk: 'SDK',
+                        dependency: 'Framework and dependencies',
+                        unknown: 'Unknown source',
+                      }[profileFunctionKind(fn.resource)],
+                    )
+                  }}</span>
                   <p v-if="fn.resource" class="mt-1 text-xs text-muted-foreground">
                     {{ fn.resource }}{{ translate(fn.line == null ? '' : `:${fn.line}`)
                     }}{{ translate(fn.column == null ? '' : `:${fn.column}`) }}

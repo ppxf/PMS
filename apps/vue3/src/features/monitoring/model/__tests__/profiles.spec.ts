@@ -75,3 +75,22 @@ describe('profile sample analysis', () => {
     expect(analyzeProfile({ ...profile, durationMs: 0 }).functions).toEqual([])
   })
 })
+
+it('merges identical source frames without double counting inclusive time', () => {
+  const result = analyzeProfile({
+    ...profile,
+    frames: [
+      { name: 'stop', resourceId: 0, line: 10, column: 2 },
+      { name: 'stop', resourceId: 0, line: 10, column: 2 },
+      { name: 'stop', resourceId: 0, line: 20, column: 2 },
+    ],
+    stacks: [{ frameId: 0 }, { frameId: 1, parentId: 0 }, { frameId: 2 }],
+    samples: [
+      { timestamp: 0, stackId: 1 },
+      { timestamp: 20, stackId: 2 },
+    ],
+  })
+  expect(result.functions).toHaveLength(2)
+  expect(result.functions.find((f) => f.line === 10)).toMatchObject({ selfMs: 20, totalMs: 20 })
+  expect(result.functions.find((f) => f.line === 20)).toMatchObject({ selfMs: 10, totalMs: 10 })
+})

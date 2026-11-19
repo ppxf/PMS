@@ -62,7 +62,7 @@ export function analyzeProfile(profile: Profile): {
   segments: ProfileSegment[]
   unsampledMs: number
 } {
-  const functions = new Map<number, ProfileFunction>()
+  const functions = new Map<string, ProfileFunction>()
   const segments: ProfileSegment[] = []
   const paths: number[][] = []
   let unsampledMs = profile.samples.length ? 0 : Math.max(0, profile.durationMs)
@@ -78,14 +78,20 @@ export function analyzeProfile(profile: Profile): {
   function interval(start: number, end: number, stackId?: number) {
     if (end <= start) return
     const path = stackId == null ? undefined : paths[stackId]
-    const seen = new Set<number>()
+    const seen = new Set<string>()
     if (!path?.length) unsampledMs += end - start
     const chain: (number | undefined)[] = path?.length ? path : [undefined]
     for (const [depth, id] of chain.entries()) {
       const frameId = id == null ? undefined : profile.stacks[id]?.frameId
       const frame = frameId == null ? undefined : profile.frames[frameId]
       if (frame && frameId != null) {
-        let fn = functions.get(frameId)
+        const resource = frame.resourceId == null ? undefined : profile.resources[frame.resourceId]
+        // Missing locations cannot safely establish that two native/anonymous frames are identical.
+        const key =
+          resource && frame.line != null && frame.column != null
+            ? JSON.stringify([frame.name, resource, frame.line, frame.column])
+            : `frame:${frameId}`
+        let fn = functions.get(key)
         if (!fn) {
           fn = {
             frameId,
@@ -96,10 +102,10 @@ export function analyzeProfile(profile: Profile): {
             totalMs: 0,
             selfMs: 0,
           }
-          functions.set(frameId, fn)
+          functions.set(key, fn)
         }
-        if (!seen.has(frameId)) fn.totalMs += end - start
-        seen.add(frameId)
+        if (!seen.has(key)) fn.totalMs += end - start
+        seen.add(key)
         if (depth === chain.length - 1) fn.selfMs += end - start
       }
       const last = lastByDepth[depth]
