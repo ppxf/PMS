@@ -78,10 +78,11 @@ describe('Profiles overview statistics', () => {
       [capture(10), capture(30)],
     );
     const fn = result.functions[0];
-    expect(fn.self).toEqual({ avg: 50, p50: 50, p95: 59 });
+    expect(fn.self).toEqual({ avg: 50, p50: 50, p75: 55, p90: 58, p95: 59 });
     expect(fn.baselineSelfP95).toBe(29);
     expect(fn.changePercent).toBeCloseTo(((59 - 29) / 29) * 100);
-    expect(result.transactions[0]).not.toHaveProperty('p75');
+    expect(result.transactions[0]).toHaveProperty('p75');
+    expect(result.transactions[0]).toHaveProperty('p90');
     expect(result.transactions[0]).not.toHaveProperty('p99');
   });
   it('aggregates the complete capture, keeps unsampled time, and compares equal function identities', () => {
@@ -104,6 +105,8 @@ describe('Profiles overview statistics', () => {
       name: 'Checkout',
       count: 2,
       p50: 40,
+      p75: 45,
+      p90: 48,
       p95: 49,
     });
     expect(result.functions.find((f) => f.name === 'root')).toMatchObject({
@@ -174,7 +177,12 @@ describe('Profiles overview scope', () => {
   });
   it('binds every filter and loads the previous equal interval in the same snapshot', async () => {
     await service.overview('owner', 'team', 'web', q);
-    expect(owned).toHaveBeenCalledWith('owner', 'team', 'web', 'project:profiles:read');
+    expect(owned).toHaveBeenCalledWith(
+      'owner',
+      'team',
+      'web',
+      'project:profiles:read',
+    );
     const call = query.mock.calls.find(([sql]: [string]) =>
       sql.includes('SELECT profile'),
     )!;
@@ -260,5 +268,3 @@ describe('Profiles overview scope', () => {
     );
   });
 });
-
-

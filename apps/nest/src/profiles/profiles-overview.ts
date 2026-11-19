@@ -4,6 +4,8 @@ import type { MonitoringProfile } from './profiles-contract';
 export interface Distribution {
   avg: number;
   p50: number;
+  p75: number;
+  p90: number;
   p95: number;
 }
 export interface FunctionOverview {
@@ -54,6 +56,8 @@ function distribution(values: number[]): Distribution {
   return {
     avg: values.reduce((sum, n) => sum + n, 0) / values.length,
     p50: quantile(0.5),
+    p75: quantile(0.75),
+    p90: quantile(0.9),
     p95: quantile(0.95),
   };
 }

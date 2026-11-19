@@ -289,6 +289,7 @@ export class MetricsService {
       count: 'count(*)::double precision',
       p50: 'percentile_cont(0.5) WITHIN GROUP (ORDER BY value)',
       p75: 'percentile_cont(0.75) WITHIN GROUP (ORDER BY value)',
+      p90: 'percentile_cont(0.9) WITHIN GROUP (ORDER BY value)',
       p95: 'percentile_cont(0.95) WITHIN GROUP (ORDER BY value)',
       last: '(array_agg(value ORDER BY timestamp DESC, event_id DESC, sample_index DESC))[1]',
     };

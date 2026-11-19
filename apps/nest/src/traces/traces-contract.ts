@@ -36,7 +36,7 @@ export interface TransactionEnvelope {
 }
 
 export type AggregateFunction =
-  'count' | 'avg' | 'p50' | 'p75' | 'p95' | 'errorRate';
+  'count' | 'avg' | 'p50' | 'p75' | 'p90' | 'p95' | 'errorRate';
 export type FilterOperator =
   'eq' | 'in' | 'not_in' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'exists';
 export interface SpanQuery {
@@ -103,7 +103,7 @@ function measurement(name: string, sql: string, unit: 'ms' | 'byte' | 'none') {
     type: 'number',
     groupable: name.startsWith('browser.web_vital.'),
     operators: numberOps,
-    aggregations: ['avg', 'p50', 'p75', 'p95'],
+    aggregations: ['avg', 'p50', 'p75', 'p90', 'p95'],
   });
 }
 dimension('span.op', 'op');

@@ -1,9 +1,11 @@
 import type { ProfileSegment } from './profiles'
-export const PROFILE_DURATION_AGGREGATIONS = ['avg', 'p50', 'p95'] as const
+export const PROFILE_DURATION_AGGREGATIONS = ['avg', 'p50', 'p75', 'p90', 'p95'] as const
 
 export interface ProfileDistribution {
   avg: number
   p50: number
+  p75: number
+  p90: number
   p95: number
 }
 export interface ProfileFunctionOverview {

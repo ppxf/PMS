@@ -165,6 +165,7 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
         'count',
         'p50',
         'p75',
+        'p90',
         'p95',
         'last',
       ].includes(String(q.aggregation))

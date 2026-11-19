@@ -1,5 +1,5 @@
 import { intlLocale } from '@/i18n'
-export type MetricFunction = 'count' | 'avg' | 'p50' | 'p75' | 'p95' | 'errorRate'
+export type MetricFunction = 'count' | 'avg' | 'p50' | 'p75' | 'p90' | 'p95' | 'errorRate'
 export interface TraceMetric {
   function: MetricFunction
   field: string

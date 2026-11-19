@@ -87,8 +87,8 @@ describe('Logs explorer', () => {
         .props('fields')
         .map((f) => f.key),
     ).toEqual(expected)
-    for (const removed of ['p75', 'p90', 'p99']) expect(LOG_AGGREGATES).not.toContain(removed)
-    for (const aggregate of ['sum', 'avg', 'p50', 'p95', 'max', 'min']) {
+    for (const removed of ['p99']) expect(LOG_AGGREGATES).not.toContain(removed)
+    for (const aggregate of ['sum', 'avg', 'p50', 'p75', 'p90', 'p95', 'max', 'min']) {
       await selectValue(view, 'Aggregate 1', aggregate)
       expect(keys('Chart field 1')).toEqual(['payload_size'])
       expect(api.logQuery.mock.lastCall![2].visualizations[0].field).toBe('payload_size')

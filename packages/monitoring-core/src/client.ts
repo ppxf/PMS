@@ -11,12 +11,16 @@ import type { CaptureExceptionContext, ClientState, MonitoringEnvelope, Monitori
 
 export function createMonitoringClient() {
   const tracing = createTracing()
-  const webVitals = createWebVitals(tracing.getActiveTraceContext)
   const profiling = createProfiling()
   tracing.setRootSpanObserver(profiling)
   let activeProfileRate = 0
   let activeProfileLifecycle: MonitoringInitOptions['profileLifecycle'] = 'manual'
   const metricRecorder = createMetrics(tracing.getActiveTraceContext)
+  const webVitals = createWebVitals(tracing.getActiveTraceContext, (name, value, route) => {
+    metricRecorder.metrics.distribution(`browser.web_vital.${name.toLowerCase()}.value`, value, {
+      unit: name === 'CLS' ? 'none' : 'ms', attributes: { 'page.route': route },
+    })
+  })
   const logs = createLogs()
   let activeLogs = false
   let activeBeforeSendLog: MonitoringInitOptions['beforeSendLog']

@@ -90,3 +90,16 @@ describe('automatic document Web Vitals', () => {
     expect(vitals().at(-1)?.measurements[0]?.attribution).toEqual({url:'/image.webp',target:'img',elementRenderDelay:100})
   })
 })
+
+it.each([false,true])('exports Web Vitals to Metrics only with enableMetrics=%s', async (enableMetrics) => {
+  browser()
+  const sent: MonitoringEnvelope[] = []
+  const client = createMonitoringClient(); clients.push(client)
+  client.init({dsn,enableMetrics,transport:{send:e=>{sent.push(e);return Promise.resolve()}}})
+  await client.flush()
+  report('CLS',0);report('LCP',2000);report('LCP',2000)
+  await client.flush()
+  const samples=sent.filter(e=>e.type==='metrics').flatMap(e=>e.samples)
+  expect(samples.map(s=>[s.name,s.value,s.unit])).toEqual(enableMetrics ? [['browser.web_vital.cls.value',0,'none'],['browser.web_vital.lcp.value',2000,'ms']] : [])
+  expect(sent.some(e=>e.type==='web_vitals')).toBe(true)
+})

@@ -31,17 +31,26 @@ const queryInput = () => {
   };
 };
 describe('logs validation', () => {
-  it.each(['p75', 'p90', 'p99'])(
-    'rejects removed percentile %s',
+  it.each(['p50', 'p75', 'p90', 'p95'])(
+    'accepts percentile %s',
     (aggregate) => {
-      expect(() =>
+      expect(
         new LogQueryPipe().transform({
           ...queryInput(),
           visualizations: [{ aggregate, field: 'payload_size' }],
-        }),
-      ).toThrow(BadRequestException);
+        }).visualizations![0]!.aggregate,
+      ).toBe(aggregate);
     },
   );
+
+  it.each(['p99'])('rejects removed percentile %s', (aggregate) => {
+    expect(() =>
+      new LogQueryPipe().transform({
+        ...queryInput(),
+        visualizations: [{ aggregate, field: 'payload_size' }],
+      }),
+    ).toThrow(BadRequestException);
+  });
   it('accepts structured logs and rejects the whole malformed batch', () => {
     expect(new LogsEnvelopePipe().transform(envelope()).logs[0].level).toBe(
       'info',

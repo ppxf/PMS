@@ -83,13 +83,15 @@ beforeEach(() => {
         name: 'root',
         profileId: 'p',
         count: 2,
-        self: { avg: 20, p50: 20, p95: 25 },
-        total: { avg: 30, p50: 30, p95: 30 },
+        self: { avg: 20, p50: 20, p75: 20, p90: 20, p95: 25 },
+        total: { avg: 30, p50: 30, p75: 30, p90: 30, p95: 30 },
         baselineSelfP95: 10,
         changePercent: 150,
       },
     ],
-    transactions: [{ name: 'Checkout', profileId: 'p', count: 2, avg: 30, p50: 30, p95: 30 }],
+    transactions: [
+      { name: 'Checkout', profileId: 'p', count: 2, avg: 30, p50: 30, p75: 30, p90: 30, p95: 30 },
+    ],
     flamegraph: [{ name: 'root', frameId: 0, stackId: 0, start: 0, end: 60, depth: 0 }],
   })
   api.profilesConfig.mockResolvedValue({ enabled: false, dsn: 'https://key@host/sdk/p' })
@@ -139,8 +141,8 @@ describe('Profiles views', () => {
       key: 'fast',
       name: 'improved',
       profileId: 'p2',
-      self: { avg: 2, p50: 2, p95: 2 },
-      total: { avg: 50, p50: 50, p95: 50 },
+      self: { avg: 2, p50: 2, p75: 2, p90: 2, p95: 2 },
+      total: { avg: 50, p50: 50, p75: 50, p90: 50, p95: 50 },
       changePercent: -50,
     })
     const view = mount(ProfileFunctionCard, {
@@ -215,7 +217,8 @@ describe('Profiles views', () => {
     expect(view.text()).toContain('Checkout')
     expect(view.text()).toContain('AVG')
     expect(view.text()).toContain('P95')
-    expect(view.text()).not.toContain('P75')
+    expect(view.text()).toContain('P75')
+    expect(view.text()).toContain('P90')
     expect(view.text()).not.toContain('P99')
     await view.get('[data-testid="aggregate-tab"]').trigger('click')
     expect(view.getComponent(ProfileFlameChart).props('durationMs')).toBe(60)

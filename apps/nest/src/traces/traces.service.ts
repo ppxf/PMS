@@ -118,9 +118,22 @@ export class TracesService {
   }
 
   async fields(userId: string, groupSlug: string, projectSlug: string) {
-    await this.projects.findReadableBySlug(userId, groupSlug, projectSlug, 'project:traces:read');
-    const access = await this.projects.getAccess(userId, groupSlug, projectSlug);
-    return SPAN_FIELDS.filter(field => !field.name.startsWith('browser.web_vital.') || access.permissions.includes('project:web-vitals:read')).map((field) => ({
+    await this.projects.findReadableBySlug(
+      userId,
+      groupSlug,
+      projectSlug,
+      'project:traces:read',
+    );
+    const access = await this.projects.getAccess(
+      userId,
+      groupSlug,
+      projectSlug,
+    );
+    return SPAN_FIELDS.filter(
+      (field) =>
+        !field.name.startsWith('browser.web_vital.') ||
+        access.permissions.includes('project:web-vitals:read'),
+    ).map((field) => ({
       name: field.name,
       type: field.type,
       unit: field.unit,
@@ -184,8 +197,16 @@ export class TracesService {
     const project = await this.projects.findReadableBySlug(
       userId,
       groupSlug,
-      projectSlug, 'project:traces:read');
-    if (JSON.stringify(query).includes('browser.web_vital.')) await this.projects.findReadableBySlug(userId,groupSlug,projectSlug,'project:web-vitals:read');
+      projectSlug,
+      'project:traces:read',
+    );
+    if (JSON.stringify(query).includes('browser.web_vital.'))
+      await this.projects.findReadableBySlug(
+        userId,
+        groupSlug,
+        projectSlug,
+        'project:web-vitals:read',
+      );
     const scope = this.scope(project.id, query);
     return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
@@ -253,7 +274,7 @@ export class TracesService {
           expression =
             metric.function === 'avg'
               ? `avg(${field.sql}) FILTER (WHERE ${eligibility})`
-              : `percentile_cont(${metric.function === 'p50' ? '0.5' : metric.function === 'p75' ? '0.75' : '0.95'}) WITHIN GROUP (ORDER BY ${field.sql}) FILTER (WHERE ${eligibility})`;
+              : `percentile_cont(${metric.function === 'p50' ? '0.5' : metric.function === 'p75' ? '0.75' : metric.function === 'p90' ? '0.9' : '0.95'}) WITHIN GROUP (ORDER BY ${field.sql}) FILTER (WHERE ${eligibility})`;
           count = `count(*) FILTER (WHERE ${eligibility})`;
         }
         return `${expression} AS m${index}, ${count} AS n${index}`;
@@ -490,7 +511,9 @@ export class TracesService {
     const project = await this.projects.findReadableBySlug(
       userId,
       groupSlug,
-      projectSlug, 'project:traces:read');
+      projectSlug,
+      'project:traces:read',
+    );
     const parameters: unknown[] = [project.id, traceId];
     let continuation = '';
     if (cursor !== undefined) {
@@ -577,5 +600,3 @@ export class TracesService {
     ) as unknown as MonitoringSpan;
   }
 }
-
-

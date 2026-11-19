@@ -44,7 +44,7 @@ function navigateTabs(event: KeyboardEvent, index: number) {
   buttons?.[next]?.focus()
 }
 const page = ref(1)
-const sort = ref<'name' | 'avg' | 'p50' | 'p95' | 'count'>('count')
+const sort = ref<'name' | 'avg' | 'p50' | 'p75' | 'p90' | 'p95' | 'count'>('count')
 const descending = ref(true)
 const transactions = computed(() =>
   [...(props.overview?.transactions ?? [])].sort((a, b) => {

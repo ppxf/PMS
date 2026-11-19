@@ -493,7 +493,7 @@ onMounted(async () => {
             class="control w-full"
             @change="changeFunction(metric)"
             :options="
-              (['count', 'avg', 'p50', 'p75', 'p95', 'errorRate'] as const).map((value) => ({
+              (['count', 'avg', 'p50', 'p75', 'p90', 'p95', 'errorRate'] as const).map((value) => ({
                 value,
                 label: value,
               }))
