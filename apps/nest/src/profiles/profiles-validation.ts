@@ -106,6 +106,8 @@ export class ProfileEnvelopePipe implements PipeTransform<
       'release',
       'traceId',
       'spanId',
+      'captureMode',
+      'endReason',
       'truncated',
       'resources',
       'frames',
@@ -126,6 +128,23 @@ export class ProfileEnvelopePipe implements PipeTransform<
       (p.spanId !== undefined && !validId(p.spanId, 16))
     )
       reject('Invalid profile trace/span ID');
+    if (
+      p.captureMode !== undefined &&
+      (typeof p.captureMode !== 'string' ||
+        !['manual', 'trace'].includes(p.captureMode))
+    )
+      reject('Invalid capture mode');
+    if (
+      p.endReason !== undefined &&
+      (typeof p.endReason !== 'string' ||
+        ![
+          'completed',
+          'manual_takeover',
+          'collection_limit',
+          'page_hidden',
+        ].includes(p.endReason))
+    )
+      reject('Invalid capture end reason');
     if (typeof p.truncated !== 'boolean') reject('Invalid profile truncated');
     array(p.resources, 2000);
     array(p.frames, 2000);

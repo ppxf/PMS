@@ -1,4 +1,33 @@
 export const monitoringZhCN: Record<string, string> = {
+  'Manual captures take priority over automatic captures. Await startProfiler before running the operation, then stop its returned handle. An active trace resumes as a new segment afterwards. A missing handle means collection did not start; getStartStatus() explains why.':
+    '手动采集优先于自动采集。请等待 startProfiler 返回后再执行操作，并通过返回句柄停止。结束后，仍活跃的链路会恢复为新的自动片段。未返回句柄表示未启动，可用 getStartStatus() 查看原因。',
+
+  'Capture mode': '采集方式',
+  'Manual takeover': '手动采集接管',
+  'Automatic trace': '自动随链路采集',
+  'Collection limit': '达到采集上限',
+  'Automatic captures may be split by manual collection; segments retain their trace association.':
+    '自动采集可能因手动接管而分段，各片段保留关联链路。',
+
+  'Capture duration': '采集时长',
+  'Capture name': '采集名称',
+  'Capture duration is elapsed time from profiler start to stop, including waiting and idle time. It is not function CPU time.':
+    '采集时长是采样器启动到停止的经过时间，包含等待和空闲，不是函数 CPU 耗时。',
+  'Capture names identify recordings, not functions. Automatic trace captures use the root span name (often a route); manual captures use the supplied name.':
+    '采集名称用于标识一次录制，不是函数名。随链路自动采集使用根 Span 名称（通常为路由），手动采集使用指定名称。',
+  'How to read this capture': '如何理解本次采集',
+  'A zero self time means no interval was attributed directly to this function, or the value rounds to zero. It does not prove the function has no execution cost.':
+    '自身耗时为零表示没有采样区间直接归属于该函数，或数值被四舍五入为零，不代表实际执行无成本。',
+  'Unsampled time has no usable function stack. It may include waiting, idle time or sampling gaps; it cannot be assigned to a business function.':
+    '未采样时间没有可用函数栈，可能包含等待、空闲或采样空缺，不能据此分配给业务函数。',
+  'Profiling samples the whole page during a time window. Short functions may be missed; asynchronous parents may be absent. Naming a capture does not target or rename a function.':
+    '性能剖析采样的是时间窗口内整个页面的执行栈。短函数可能漏采，异步父函数也可能不在栈中。命名采集不会指定或重命名某个函数。',
+  'Manual collection': '手动采集',
+  'Use manual mode for explicit start/stop collection. Do not mix this example with trace mode: an active automatic capture can cause a manual start to be ignored, and manual stop can end that capture.':
+    '需要显式启停时使用 manual 模式。不要将此示例与 trace 模式混用：已有自动采集时手动启动可能被忽略，手动停止还可能结束该次自动采集。',
+  'To measure elapsed time for one asynchronous operation, use a business span or performance.now(); this includes waits and differs from estimated sampled execution time.':
+    '测量单次异步操作的经过时间，请使用业务 Span 或 performance.now()；其中包含等待，与估算采样执行时间不同。',
+
   'SDK functions': 'SDK 函数',
   'Framework and dependencies': '框架和依赖',
   'Unknown source': '来源未知',

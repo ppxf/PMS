@@ -185,13 +185,20 @@ onBeforeUnmount(() => {
         </div></template
       >
       <p v-if="error" role="alert" class="text-sm text-destructive">{{ translate(error) }}</p>
+      <p class="text-sm text-muted-foreground">
+        {{
+          translate(
+            'Capture duration is elapsed time from profiler start to stop, including waiting and idle time. It is not function CPU time.',
+          )
+        }}
+      </p>
       <div class="table-surface" :aria-busy="loading">
         <table class="app-table">
           <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th class="p-3">{{ translate('Profile') }}</th>
+              <th class="p-3">{{ translate('Capture name') }}</th>
               <th class="p-3">{{ translate('Started') }}</th>
-              <th class="p-3">{{ translate('Duration') }}</th>
+              <th class="p-3">{{ translate('Capture duration') }}</th>
               <th class="p-3">{{ translate('Samples') }}</th>
               <th class="p-3">{{ translate('Environment') }}</th>
               <th class="p-3">{{ translate('Release') }}</th>
@@ -213,7 +220,18 @@ onBeforeUnmount(() => {
                 }}</span>
               </td>
               <td class="whitespace-nowrap p-3">{{ formatDateTime(item.startedAt) }}</td>
-              <td class="p-3">{{ item.durationMs.toFixed(2) }} {{ translate('ms') }}</td>
+              <td class="p-3">
+                <span class="text-xs text-muted-foreground">{{
+                  translate(
+                    item.captureMode === 'manual'
+                      ? 'Manual'
+                      : item.captureMode === 'trace'
+                        ? 'Automatic trace'
+                        : 'Unknown source',
+                  )
+                }}</span
+                ><br />{{ item.durationMs.toFixed(2) }} {{ translate('ms') }}
+              </td>
               <td class="p-3">{{ item.sampleCount }}</td>
               <td class="p-3">{{ item.environment ?? '—' }}</td>
               <td class="max-w-48 break-all p-3">{{ item.release ?? '—' }}</td>

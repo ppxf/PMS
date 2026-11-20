@@ -16,10 +16,19 @@ init({
   profileLifecycle: 'trace',
 })
 
-// For independent manual collection, set profileLifecycle: 'manual'.
-uiProfiler.startProfiler({ name: 'Checkout' })
-// Run the interaction to measure, then stop:
-await uiProfiler.stopProfiler()`,
+// Trace mode starts and stops captures automatically with sampled root spans.`,
+)
+const manualSnippet = computed(() =>
+  snippet.value.replace("profileLifecycle: 'trace'", "profileLifecycle: 'manual'").replace(
+    '// Trace mode starts and stops captures automatically with sampled root spans.',
+    `// Run after initialization; do not initialize a second client.
+const capture = await uiProfiler.startProfiler({ name: 'Checkout' })
+try {
+  await checkout() // Replace with the operation to observe.
+} finally {
+  await capture?.stop()
+}`,
+  ),
 )
 const headers = `// vite.config.ts (or vite.config.js)
 import { defineConfig } from 'vite'
@@ -54,6 +63,15 @@ add_header Document-Policy "js-profiling" always;`
           )
         }}
       </p>
+      <h3 class="font-medium">{{ translate('Manual collection') }}</h3>
+      <p>
+        {{
+          translate(
+            'Manual captures take priority over automatic captures. Await startProfiler before running the operation, then stop its returned handle. An active trace resumes as a new segment afterwards. A missing handle means collection did not start; getStartStatus() explains why.',
+          )
+        }}
+      </p>
+      <pre class="code-block" tabindex="0">{{ manualSnippet }}</pre>
       <h3 class="font-medium">{{ translate('Configure the HTML response header') }}</h3>
       <p>
         <code>Document-Policy: js-profiling</code>

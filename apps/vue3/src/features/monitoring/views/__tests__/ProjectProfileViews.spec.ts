@@ -296,6 +296,21 @@ describe('Profiles views', () => {
     await flushPromises()
     expect(api.getProject).toHaveBeenCalledWith('team', 'web')
     expect(view.get('h1').text()).toBe('Profiles setup')
+    const examples = view.findAll('pre').map((block) => block.text())
+    expect(
+      examples.some(
+        (code) =>
+          code.includes("profileLifecycle: 'trace'") && !code.includes('uiProfiler.startProfiler('),
+      ),
+    ).toBe(true)
+    expect(
+      examples.some(
+        (code) =>
+          code.includes("profileLifecycle: 'manual'") &&
+          code.includes('finally') &&
+          code.includes('await capture?.stop()'),
+      ),
+    ).toBe(true)
     expect(view.text()).toContain('https://key@host/sdk/p')
     expect(view.text()).toContain('Document-Policy')
     expect(view.text()).toContain('Chromium')
@@ -333,6 +348,11 @@ describe('Profiles views', () => {
     const view = mount(ProjectProfileDetailView, options)
     await flushPromises()
     expect(view.text()).toContain('Estimated sampled time')
+    expect(view.text()).toContain('Capture duration')
+    expect(view.get('[data-testid="profile-explanation"]').text()).toContain('A zero self time')
+    expect(view.get('[data-testid="profile-explanation"]').text()).toContain(
+      'Capture names identify recordings, not functions.',
+    )
     expect(view.text()).toContain('Functions')
     expect(view.get('a[data-testid="profile-trace-link"]').attributes('data-to')).toContain(
       'project-trace-detail',

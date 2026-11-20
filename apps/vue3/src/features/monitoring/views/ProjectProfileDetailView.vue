@@ -79,9 +79,44 @@ onBeforeUnmount(() => {
     <template v-else-if="profile">
       <header class="space-y-3">
         <h1 class="page-title break-all">{{ profile.name }}</h1>
+        <p class="text-sm text-muted-foreground">
+          {{ translate('Capture mode') }}:
+          {{
+            translate(
+              profile.captureMode === 'manual'
+                ? 'Manual'
+                : profile.captureMode === 'trace'
+                  ? 'Automatic trace'
+                  : 'Unknown source',
+            )
+          }}
+          · {{ translate('End reason') }}:
+          {{
+            translate(
+              profile.endReason === 'manual_takeover'
+                ? 'Manual takeover'
+                : profile.endReason === 'collection_limit'
+                  ? 'Collection limit'
+                  : profile.endReason === 'page_hidden'
+                    ? 'Page hidden'
+                    : profile.endReason === 'completed'
+                      ? 'Completed'
+                      : 'Unknown source',
+            )
+          }}
+        </p>
+        <p v-if="profile.captureMode === 'trace'" class="text-sm text-muted-foreground">
+          {{
+            translate(
+              'Automatic captures may be split by manual collection; segments retain their trace association.',
+            )
+          }}
+        </p>
         <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
           <span>{{ formatDateTime(profile.startedAt) }}</span
-          ><span>{{ profile.durationMs.toFixed(2) }} {{ translate('ms duration') }}</span
+          ><span
+            >{{ profile.durationMs.toFixed(2) }} {{ translate('ms') }} ·
+            {{ translate('Capture duration') }}</span
           ><span
             >{{ profile.samples.length }} {{ translate('samples ·') }}
             {{ profile.sampleIntervalMs }} {{ translate('ms interval') }}</span
@@ -116,6 +151,55 @@ onBeforeUnmount(() => {
         {{ analysis.unsampledMs.toFixed(2) }}
         {{ translate('ms. Function names are shown without Source Map processing.') }}
       </p>
+      <details class="rounded-lg border p-4 text-sm" data-testid="profile-explanation">
+        <summary class="cursor-pointer font-medium">
+          {{ translate('How to read this capture') }}
+        </summary>
+        <ul class="mt-3 list-disc space-y-2 pl-5">
+          <li>
+            {{
+              translate(
+                'Capture duration is elapsed time from profiler start to stop, including waiting and idle time. It is not function CPU time.',
+              )
+            }}
+          </li>
+          <li>
+            {{
+              translate(
+                'Capture names identify recordings, not functions. Automatic trace captures use the root span name (often a route); manual captures use the supplied name.',
+              )
+            }}
+          </li>
+          <li>
+            {{
+              translate(
+                'A zero self time means no interval was attributed directly to this function, or the value rounds to zero. It does not prove the function has no execution cost.',
+              )
+            }}
+          </li>
+          <li>
+            {{
+              translate(
+                'Unsampled time has no usable function stack. It may include waiting, idle time or sampling gaps; it cannot be assigned to a business function.',
+              )
+            }}
+          </li>
+          <li>
+            {{
+              translate(
+                'Profiling samples the whole page during a time window. Short functions may be missed; asynchronous parents may be absent. Naming a capture does not target or rename a function.',
+              )
+            }}
+          </li>
+          <li>
+            {{
+              translate(
+                'To measure elapsed time for one asynchronous operation, use a business span or performance.now(); this includes waits and differs from estimated sampled execution time.',
+              )
+            }}
+          </li>
+        </ul>
+      </details>
       <ProfileFlameChart :segments="analysis.segments" :duration-ms="profile.durationMs" />
       <section class="overflow-hidden rounded-lg border bg-background">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">

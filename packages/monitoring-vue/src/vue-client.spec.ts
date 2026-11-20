@@ -1,3 +1,4 @@
+import packageInfo from '../package.json'
 import { createApp } from 'vue'
 import type { App } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -101,7 +102,7 @@ describe('Vue monitoring error capture', () => {
     expect(transport.envelopes[0]).toMatchObject({
       version: 1,
       type: 'client_report',
-      sdk: { name: '@pmspulse/monitoring-vue', version: '0.1.0' },
+      sdk: { name: '@pmspulse/monitoring-vue', version: packageInfo.version },
     })
   })
 

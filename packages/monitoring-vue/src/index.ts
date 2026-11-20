@@ -24,4 +24,4 @@ export type { BrowserTracingIntegration } from './browser-tracing-integration.js
 export { browserProfilingIntegration } from './browser-profiling-integration.js'
 export type { BrowserProfilingIntegration } from './browser-profiling-integration.js'
 export { uiProfiler } from './vue-client.js'
-export type { MonitoringProfile, ProfileEnvelope, ProfileFrame, ProfileStack, ProfileSample, ProfileStartOptions, UIProfiler } from '@pmspulse/monitoring-core'
+export type { MonitoringProfile, ProfileEnvelope, ProfileFrame, ProfileStack, ProfileSample, ProfileStartOptions, ProfileCapture, UIProfiler } from '@pmspulse/monitoring-core'

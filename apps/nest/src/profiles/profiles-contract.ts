@@ -8,6 +8,9 @@ export interface MonitoringProfile {
   release?: string;
   traceId?: string;
   spanId?: string;
+  captureMode?: 'manual' | 'trace';
+  endReason?:
+    'completed' | 'manual_takeover' | 'collection_limit' | 'page_hidden';
   truncated: boolean;
   resources: string[];
   frames: {

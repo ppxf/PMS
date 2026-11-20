@@ -93,7 +93,12 @@ export class ProfilesService {
   }
   async query(user: string, group: string, slug: string, input: ProfileQuery) {
     const q = new ProfileQueryPipe().transform(input);
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:profiles:read');
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:profiles:read',
+    );
     const params: unknown[] = [project.id, q.start, q.end];
     const bind = (value: unknown) => {
       params.push(value);
@@ -112,7 +117,7 @@ export class ProfilesService {
         params,
       );
       const rows = await manager.query<ProfileSummary[]>(
-        `SELECT profile_id AS "profileId", started_at AS "startedAt", duration_ms AS "durationMs", sample_interval_ms AS "sampleIntervalMs", name, environment, release, trace_id AS "traceId", span_id AS "spanId", truncated, sample_count AS "sampleCount" FROM monitoring_profiles WHERE ${where} ORDER BY started_at DESC, profile_id DESC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
+        `SELECT profile_id AS "profileId", started_at AS "startedAt", duration_ms AS "durationMs", sample_interval_ms AS "sampleIntervalMs", name, profile->>'captureMode' AS "captureMode", profile->>'endReason' AS "endReason", environment, release, trace_id AS "traceId", span_id AS "spanId", truncated, sample_count AS "sampleCount" FROM monitoring_profiles WHERE ${where} ORDER BY started_at DESC, profile_id DESC LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
         params,
       );
       const items = rows.map((row) => ({
@@ -134,7 +139,12 @@ export class ProfilesService {
     input: ProfileQuery,
   ) {
     const q = new ProfileQueryPipe().transform(input);
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:profiles:read');
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:profiles:read',
+    );
     const start = Date.parse(q.start);
     const previousStart = new Date(
       start - (Date.parse(q.end) - start),
@@ -194,7 +204,12 @@ export class ProfilesService {
   ): Promise<MonitoringProfile> {
     if (!validProfileId(profileId))
       throw new BadRequestException('Invalid profileId');
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:profiles:read');
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:profiles:read',
+    );
     const row = await this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       return manager.getRepository(ProfileEntity).findOneBy({
@@ -206,5 +221,3 @@ export class ProfilesService {
     return row.profile;
   }
 }
-
-
