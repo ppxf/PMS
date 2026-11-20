@@ -14,19 +14,20 @@ function resource(overrides: Partial<PerformanceResourceTiming> = {}) {
 }
 
 function setup(entries: PerformanceResourceTiming[] = [], navigation?: Partial<PerformanceNavigationTiming>) {
-  const spans: { options: SpanOptions; handle: SpanHandle; end: ReturnType<typeof vi.fn> }[] = []
+  const spans: { options: SpanOptions; handle: SpanHandle; end: ReturnType<typeof vi.fn>; setMeasurements: ReturnType<typeof vi.fn> }[] = []
   const root = {
     context: { traceId: 'a'.repeat(32), spanId: 'b'.repeat(16), sampled: true },
     ended: false, span: { droppedSpanCount: 0, truncated: false },
   } as SpanHandle
   const client = { startInactiveSpan: (options: SpanOptions) => {
     const end = vi.fn()
+    const setMeasurements = vi.fn()
     const attributes = { ...options.attributes }
     const handle = {
       end, span: { attributes }, setAttribute: (key: string, value: unknown) => { attributes[key] = value as string },
-      setMeasurements: vi.fn(),
+      setMeasurements,
     } as unknown as SpanHandle
-    spans.push({ options, handle, end })
+    spans.push({ options, handle, end, setMeasurements })
     return handle
   } }
   const w = {
@@ -43,19 +44,19 @@ describe('browser performance collector', () => {
     collector.collect(root, 0, 100, true)
     collector.collect(root, 0, 100, true)
     expect(spans).toHaveLength(1)
-    expect(spans[0]!.options).toMatchObject({ parent: root, op: 'resource.script', startTime: 10, name: 'https://app.test/assets/app.js' })
-    expect(spans[0]!.end).toHaveBeenCalledWith('unknown', 'completed', 90)
-    expect(spans[0]!.handle.setMeasurements).toHaveBeenCalledWith({ ttfbMs: 40, transferSize: 900, encodedBodySize: 600, decodedBodySize: 1200 })
-    expect(spans[0]!.handle.span.attributes).toMatchObject({ 'resource.timing_available': true, 'resource.dns_duration': 2, 'resource.tls_duration': 4 })
-    expect(JSON.stringify(spans[0]!.options)).not.toContain('private')
+    expect(spans[0].options).toMatchObject({ parent: root, op: 'resource.script', startTime: 10, name: 'https://app.test/assets/app.js' })
+    expect(spans[0].end).toHaveBeenCalledWith('unknown', 'completed', 90)
+    expect(spans[0].setMeasurements).toHaveBeenCalledWith({ ttfbMs: 40, transferSize: 900, encodedBodySize: 600, decodedBodySize: 1200 })
+    expect(spans[0].handle.span.attributes).toMatchObject({ 'resource.timing_available': true, 'resource.dns_duration': 2, 'resource.tls_duration': 4 })
+    expect(JSON.stringify(spans[0].options)).not.toContain('private')
   })
 
   it('omits restricted cross-origin measurements without inventing zero values', () => {
     const { client, w, root, spans } = setup([resource({ name: 'https://cdn.test/app.css', initiatorType: 'link', requestStart: 0, responseStart: 0, domainLookupStart: 0, domainLookupEnd: 0 })])
     createBrowserPerformance(client, w, () => false).collect(root, 0, 100, true)
-    expect(spans[0]!.options.op).toBe('resource.css')
-    expect(spans[0]!.handle.span.attributes).toMatchObject({ 'resource.timing_available': false })
-    expect(spans[0]!.handle.setMeasurements).not.toHaveBeenCalled()
+    expect(spans[0].options.op).toBe('resource.css')
+    expect(spans[0].handle.span.attributes).toMatchObject({ 'resource.timing_available': false })
+    expect(spans[0].setMeasurements).not.toHaveBeenCalled()
   })
 
   it('skips HTTP wrappers, excluded/invalid URLs, unfinished resources and other navigation windows', () => {

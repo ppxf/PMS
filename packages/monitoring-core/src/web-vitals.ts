@@ -103,7 +103,7 @@ export function createWebVitals(getTrace: () => TraceContext | undefined, record
         revisions.set(metric.id, { value: metric.value, revision })
         const attribution: Record<string, string | number | boolean> = {}
         if (metric.name === 'LCP') {
-          const entry = metric.entries?.at(-1) as (PerformanceEntry & {loadTime?: number; renderTime?: number; size?: number}) | undefined
+          const entry: (PerformanceEntry & {loadTime?: number; renderTime?: number; size?: number}) | undefined = metric.entries?.at(-1)
           for (const key of ['loadTime','renderTime','size'] as const) {
             const value = entry?.[key]
             if (typeof value === 'number' && Number.isFinite(value) && value >= 0) attribution[key] = value

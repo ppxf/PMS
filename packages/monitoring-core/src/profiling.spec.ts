@@ -641,75 +641,55 @@ describe("browser profiles", () => {
   });
 });
 
-it("manual takeover saves automatic segments, resumes roots, and isolates stale handles", async () => {
+it("ignores manual start and stop throughout trace mode without changing automatic captures", async () => {
   const { client, profiles } = setup({
     tracesSampleRate: 1,
     profileLifecycle: "trace",
-  });
-  const root = client.startInactiveSpan({ name: "/" });
-  const capture = await client.uiProfiler.startProfiler({ name: "work" });
-  expect(capture).toBeDefined();
-  expect(profiles()[0].profile).toMatchObject({
-    captureMode: "trace",
-    endReason: "manual_takeover",
-    name: "/",
   });
   expect(
-    void client.uiProfiler.startProfiler({ name: "duplicate" }),
+    await client.uiProfiler.startProfiler({ name: "before" }),
+  ).toBeUndefined();
+  expect(client.uiProfiler.getStartStatus()).toBe("ignored_trace_mode");
+  expect(instances).toHaveLength(0);
+  const root = client.startInactiveSpan({ name: "/" });
+  expect(
+    await client.uiProfiler.startProfiler({ name: "ignored" }),
+  ).toBeUndefined();
+  await client.uiProfiler.stopProfiler();
+  expect(instances[0].stopped).toBe(false);
+  root.end();
+  await client.flush();
+  expect(profiles()).toHaveLength(1);
+  expect(profiles()[0].profile).toMatchObject({
+    name: "/",
+    captureMode: "trace",
+    endReason: "completed",
+  });
+  await client.uiProfiler.stopProfiler();
+  expect(
+    await client.uiProfiler.startProfiler({ name: "after" }),
+  ).toBeUndefined();
+  expect(instances).toHaveLength(1);
+});
+it("manual mode ignores span lifecycles and stale handles cannot stop another capture", async () => {
+  const { client, profiles } = setup({
+    tracesSampleRate: 1,
+    profileLifecycle: "manual",
+  });
+  const root = client.startInactiveSpan({ name: "/" });
+  expect(instances).toHaveLength(0);
+  const first = await client.uiProfiler.startProfiler({ name: "first" });
+  root.end();
+  expect(instances[0].stopped).toBe(false);
+  expect(
+    await client.uiProfiler.startProfiler({ name: "duplicate" }),
   ).toBeUndefined();
   expect(client.uiProfiler.getStartStatus()).toBe("busy");
-  await capture!.stop();
-  expect(instances).toHaveLength(3);
-  expect(profiles()[1].profile).toMatchObject({
-    captureMode: "manual",
-    name: "work",
-  });
-  await capture!.stop();
-  await client.uiProfiler.stopProfiler();
-  expect(instances[2].stopped).toBe(false);
-  root.end();
-  await client.flush();
-  expect(profiles()).toHaveLength(3);
-  expect(profiles()[2].profile).toMatchObject({
-    captureMode: "trace",
-    traceId: root.context.traceId,
-  });
-});
-it("root endings cannot stop a manual capture and ended roots are not resumed", async () => {
-  const { client, profiles } = setup({
-    tracesSampleRate: 1,
-    profileLifecycle: "trace",
-  });
-  const root = client.startInactiveSpan({ name: "/" });
-  const capture = await client.uiProfiler.startProfiler({ name: "manual" });
-  root.end();
+  await first!.stop();
+  const second = await client.uiProfiler.startProfiler({ name: "second" });
+  await first!.stop();
   expect(instances[1].stopped).toBe(false);
-  await capture!.stop();
+  await second!.stop();
   await client.flush();
-  expect(instances).toHaveLength(2);
-  expect(profiles().map((e) => e.profile.name)).toEqual(["/", "manual"]);
-});
-
-it("a cancelled pending manual request cannot steal a later request", async () => {
-  const { client, profiles } = setup({
-    tracesSampleRate: 1,
-    profileLifecycle: "trace",
-  });
-  const root = client.startInactiveSpan({ name: "/" });
-  let finish!: (trace: ReturnType<FakeProfiler["trace"]>) => void;
-  instances[0].stopResult = new Promise((resolve) => {
-    finish = resolve;
-  });
-  const cancelled = client.uiProfiler.startProfiler({ name: "cancelled" });
-  const cancellation = client.uiProfiler.stopProfiler();
-  const replacement = client.uiProfiler.startProfiler({ name: "replacement" });
-  finish(instances[0].trace());
-  expect(await cancelled).toBeUndefined();
-  await cancellation;
-  const capture = await replacement;
-  expect(capture).toBeDefined();
-  root.end();
-  await capture!.stop();
-  await client.flush();
-  expect(profiles().map((e) => e.profile.name)).toEqual(["/", "replacement"]);
+  expect(profiles().map((e) => e.profile.name)).toEqual(["first", "second"]);
 });

@@ -41,7 +41,7 @@ it('enables manual browser profiling with tracing sampling disabled', async () =
     profileSessionSampleRate: 1,
     integrations: [sdk.browserProfilingIntegration()],
   })
-  sdk.uiProfiler.startProfiler({ name: 'manual' })
+  await sdk.uiProfiler.startProfiler({ name: 'manual' })
   await vi.advanceTimersByTimeAsync(10)
   await sdk.uiProfiler.stopProfiler()
   await sdk.flush()
@@ -82,7 +82,7 @@ it('profiling remains enabled when automatic browser tracing is explicitly disab
     },
     integrations: [sdk.browserProfilingIntegration()],
   })
-  sdk.uiProfiler.startProfiler()
+  await sdk.uiProfiler.startProfiler()
   await sdk.uiProfiler.stopProfiler()
   await sdk.flush()
   expect(envelopes.filter((e) => e.type === 'profile')).toHaveLength(1)

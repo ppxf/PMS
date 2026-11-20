@@ -341,15 +341,6 @@ export function createProfiling() {
         const next = requested;
         requested = undefined;
         if (manualPending) return;
-        if (
-          (active.lifecycle === "manual" ||
-            active.endReason === "manual_takeover") &&
-          roots.size &&
-          !next
-        ) {
-          const first = roots.values().next().value;
-          if (first) startForRoot(first);
-        }
         if (next?.lifecycle === "trace") {
           const first = roots.values().next().value;
           if (first) startForRoot(first);
@@ -366,6 +357,10 @@ export function createProfiling() {
     });
   }
   function startManual(options: ProfileStartOptions = {}) {
+    if (config?.profileLifecycle === "trace") {
+      lastStartStatus = "ignored_trace_mode";
+      return undefined;
+    }
     if (manualPending || recording?.lifecycle === "manual") {
       lastStartStatus = "busy";
       return undefined;
@@ -374,11 +369,11 @@ export function createProfiling() {
       lastStartStatus = "unavailable";
       return undefined;
     }
-    if (recording?.lifecycle === "trace" || stopping) {
+    if (stopping) {
       manualPending = true;
       const requestId = ++manualRequestId;
       const token = generation;
-      const previous = recording ? stop(false, "manual_takeover") : stopping!;
+      const previous = stopping;
       return previous.then(() => {
         if (
           token !== generation ||
@@ -470,6 +465,7 @@ export function createProfiling() {
       startProfiler: startManual,
       getStartStatus: () => lastStartStatus,
       stopProfiler: () => {
+        if (config?.profileLifecycle === "trace") return Promise.resolve();
         if (manualPending) {
           manualRequestId++;
           manualPending = false;

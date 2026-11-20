@@ -1,4 +1,4 @@
-import packageInfo from "../package.json";
+import packageInfo from "../package.json" with { type: "json" };
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   captureException,

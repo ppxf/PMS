@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
         <p v-if="profile.captureMode === 'trace'" class="text-sm text-muted-foreground">
           {{
             translate(
-              'Automatic captures may be split by manual collection; segments retain their trace association.',
+              'In trace mode, spans control collection; manual start and stop calls do not affect the capture.',
             )
           }}
         </p>

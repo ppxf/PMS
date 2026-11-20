@@ -67,7 +67,7 @@ add_header Document-Policy "js-profiling" always;`
       <p>
         {{
           translate(
-            'Manual captures take priority over automatic captures. Await startProfiler before running the operation, then stop its returned handle. An active trace resumes as a new segment afterwards. A missing handle means collection did not start; getStartStatus() explains why.',
+            'Trace and manual are mutually exclusive lifecycle modes. In trace mode, spans control collection and manual start/stop calls are safely ignored. For explicit collection, configure manual mode, await startProfiler, and stop the returned handle. getStartStatus() reports ignored_trace_mode when manual start is ignored.',
           )
         }}
       </p>
