@@ -1,4 +1,22 @@
 export const profilesZhCN: Record<string, string> = {
+  'Profile view': '剖析视图',
+  'Call tree': '调用树',
+  'Sampled coverage': '有效采样占比',
+  'Sampled calls': '采样调用',
+  'Capture share': '占采集时长',
+  'Time interval': '时间区间',
+  'Focus sampled range': '聚焦有效调用区间',
+  'Focus this call': '在火焰图中聚焦',
+  'Toggle child calls for {name}': '展开或收起 {name} 的子调用',
+  'Expand calls to follow the stack. Select a function to inspect its details.':
+    '展开层级查看调用关系，点击函数查看完整名称、来源与耗时。',
+  'Width shows sampled interval; rows show call depth. Click a frame to zoom in.':
+    '横向宽度表示采样时长，纵向层级表示调用深度。点击色块可放大查看。',
+  'No matching function calls': '未找到匹配的函数调用',
+  'No sampled function calls': '暂无可用的函数调用栈',
+  'Show more calls': '显示更多调用',
+  'Intervals are estimates from samples, not precise CPU time. Parent intervals include child calls; percentages must not be added together.':
+    '时长由采样估算，并非精确 CPU 耗时。父调用包含子调用时长，占比不能相加。',
   Profile: '性能剖析',
   'Profile analysis': '性能剖析分析',
   'Profile details': '性能剖析详情',
