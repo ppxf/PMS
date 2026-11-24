@@ -1,4 +1,6 @@
 export const monitoringZhCN: Record<string, string> = {
+  'Trace Root': '链路根操作',
+  'Root span not retained': '根 Span 未保留',
   'Trace and manual are mutually exclusive lifecycle modes. In trace mode, spans control collection and manual start/stop calls are safely ignored. For explicit collection, configure manual mode, await startProfiler, and stop the returned handle. getStartStatus() reports ignored_trace_mode when manual start is ignored.':
     'trace 和 manual 是互斥的生命周期模式。trace 模式由 Span 控制采集，手动启停调用会被安全忽略。需要显式采集时，请配置 manual 模式，等待 startProfiler 并通过返回句柄停止。手动启动被忽略时，getStartStatus() 返回 ignored_trace_mode。',
   'In trace mode, spans control collection; manual start and stop calls do not affect the capture.':

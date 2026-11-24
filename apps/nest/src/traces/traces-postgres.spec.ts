@@ -67,7 +67,11 @@ postgres('PostgreSQL traces integration', () => {
     const projects = {
       findForIngestion: (id: string) =>
         Promise.resolve({ id, tracingEnabled: true }),
-      getAccess: async () => ({role:'owner',permissions:['project:web-vitals:read']}),
+      getAccess: () =>
+        Promise.resolve({
+          role: 'owner',
+          permissions: ['project:web-vitals:read'],
+        }),
       findReadableBySlug: () => Promise.resolve({ id: projectId }),
     };
     service = new TracesService(
@@ -157,6 +161,20 @@ postgres('PostgreSQL traces integration', () => {
     });
     expect(samples.total).toBe(2);
     expect(samples.items).toHaveLength(1);
+    const traces = await service.traceSamples(
+      'user',
+      'group',
+      'project',
+      query,
+    );
+    expect(traces.items).toHaveLength(1);
+    expect(traces.items[0]).toMatchObject({
+      traceId: envelope.transaction.spans[0].traceId,
+      rootSpanId: envelope.transaction.spans[0].spanId,
+      rootName: envelope.transaction.spans[0].name,
+      rootOp: 'http.client',
+      spanCount: 2,
+    });
     const detail = await service.detail(
       'user',
       'group',
@@ -167,4 +185,3 @@ postgres('PostgreSQL traces integration', () => {
     expect(detail.hasMore).toBe(false);
   });
 });
-

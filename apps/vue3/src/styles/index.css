@@ -19,6 +19,16 @@ html,
   @apply min-w-0 overflow-x-auto rounded-lg border bg-background;
 }
 
+/* Keep interactive rows discoverable across native and shared table components. */
+tbody > tr:is([role='link'], [role='button'], [data-clickable='true']),
+tbody > tr:has(a[href], button:not(:disabled), summary, [role='link'], [role='button']) {
+  cursor: pointer;
+}
+
+tbody :is(a[href], button:not(:disabled), summary, [role='link'], [role='button']) {
+  cursor: pointer;
+}
+
 .code-block {
   min-width: 0;
   max-width: 100%;

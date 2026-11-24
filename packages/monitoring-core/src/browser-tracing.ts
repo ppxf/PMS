@@ -1,4 +1,4 @@
-import type { SpanHandle, SpanOptions } from './tracing-types.js'
+import type { SpanHandle, SpanOptions, TraceContext } from './tracing-types.js'
 import { matchesPropagationTarget, traceparent } from './propagation.js'
 import { createBrowserPerformance } from './browser-performance.js'
 
@@ -17,6 +17,7 @@ export interface BrowserTracingOptions {
 export function createBrowserTracing(client: Client) {
   const windows = new WeakSet<Window>()
   let root: SpanHandle | undefined
+  let documentContext: TraceContext | undefined
   let idle: ReturnType<typeof setTimeout> | undefined
   let deadline: ReturnType<typeof setTimeout> | undefined
   let initialNavigationPending = false
@@ -44,7 +45,8 @@ export function createBrowserTracing(client: Client) {
   function startNavigation(name: string, op = 'navigation', startTime?: number) {
     endRoot('navigation')
     const started = startTime ?? performanceWindow?.performance.now()
-    root = client.startInactiveSpan({ name, op, pageRoute: name, startTime: started })
+    root = client.startInactiveSpan({ name, op, pageRoute: name, startTime: started, parent: documentContext })
+    documentContext ??= root.context
     if (performanceWindow && root.context.sampled) {
       const w = performanceWindow
       const collector = createBrowserPerformance(client, w, url => excluded(url, w))
@@ -110,7 +112,7 @@ export function createBrowserTracing(client: Client) {
     const started = w.performance.now()
     if (requestStarts.size >= 1000 && !requestStarts.has(raw)) requestStarts.delete(requestStarts.keys().next().value!)
     requestStarts.set(raw, [...(requestStarts.get(raw) ?? []).filter((time) => started - time < 60_000), started].slice(-200))
-    const parent = root && !root.ended ? root : undefined
+    const parent = root && !root.ended ? root : documentContext
     const span = client.startInactiveSpan({ name: `${method} ${route}`, op: 'http.client', parent, attributes: { 'http.instrumentation': instrumentation } })
     span.setMeasurements({ httpMethod: method.slice(0, 16), httpRoute: route })
     pending++

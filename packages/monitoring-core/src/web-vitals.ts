@@ -5,9 +5,10 @@ import type { TraceContext } from './tracing-types.js'
 import type { WebVitalsEnvelope, WebVitalsPage, WebVitalName } from './web-vitals-types.js'
 
 const uuid = () => globalThis.crypto?.randomUUID?.() ?? 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16) })
-export function createWebVitals(getTrace: () => TraceContext | undefined, recordMetric?: (name: string, value: number, route: string) => void) {
+export function createWebVitals(getTrace: () => TraceContext | undefined, recordMetric?: (name: string, value: number, route: string, context?: TraceContext) => void) {
   let generation = 0
   let page: WebVitalsPage | undefined
+  let pageContext: TraceContext | undefined
   let transport: Transport | undefined
   let pending: WebVitalsEnvelope[] = []
   let draining: Promise<void> | undefined
@@ -70,6 +71,7 @@ export function createWebVitals(getTrace: () => TraceContext | undefined, record
     function start(restored = false) {
       revisions.clear()
       const trace = restored ? undefined : getTrace()
+      pageContext = trace
       const browser = captureBrowserIdentity().name
       const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent
       const device = /iPad|Tablet/i.test(ua) ? 'tablet' : /Mobi|Android/i.test(ua) ? 'mobile' : ua ? 'desktop' : 'unknown'
@@ -121,7 +123,7 @@ export function createWebVitals(getTrace: () => TraceContext | undefined, record
             if (tag) attribution[key] = tag.toLowerCase()
           }
         }
-        if (options.enableMetrics) recordMetric?.(metric.name, metric.value, page.route)
+        if (options.enableMetrics) recordMetric?.(metric.name, metric.value, page.route, pageContext)
         enqueue([{ name: metric.name as WebVitalName, metricId: metric.id, revision, value: metric.value, observedAt: new Date().toISOString(), attribution }])
       }
       for (const subscribe of [onCLS, onFCP, onINP, onLCP, onTTFB]) {

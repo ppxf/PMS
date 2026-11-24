@@ -487,7 +487,11 @@ export class TracesService {
           query.sortBy === 'durationMs' ? '"durationMs"' : '"startTime"';
         const direction = query.sortDirection === 'asc' ? 'ASC' : 'DESC';
         const rows = await manager.query<Record<string, unknown>[]>(
-          `SELECT trace_id AS "traceId", min(start_time) AS "startTime", max(end_time) AS "endTime", count(*)::integer AS "spanCount", COALESCE(max(duration_ms) FILTER (WHERE is_transaction), max(duration_ms)) AS "durationMs", bool_or(truncated OR dropped_span_count > 0) AS truncated FROM monitoring_spans WHERE project_id = $1 AND trace_id IN (${matched}) GROUP BY trace_id ORDER BY ${sort} ${direction}, trace_id LIMIT ${query.pageSize} OFFSET ${(query.page - 1) * query.pageSize}`,
+          `SELECT trace_id AS "traceId", min(start_time) AS "startTime", max(end_time) AS "endTime", count(*)::integer AS "spanCount", COALESCE(max(duration_ms) FILTER (WHERE is_transaction), max(duration_ms)) AS "durationMs",
+           (array_agg(span_id ORDER BY (parent_span_id IS NULL) DESC, start_time, span_id) FILTER (WHERE parent_span_id IS NULL OR is_transaction))[1] AS "rootSpanId",
+           (array_agg(name ORDER BY (parent_span_id IS NULL) DESC, start_time, span_id) FILTER (WHERE parent_span_id IS NULL OR is_transaction))[1] AS "rootName",
+           (array_agg(op ORDER BY (parent_span_id IS NULL) DESC, start_time, span_id) FILTER (WHERE parent_span_id IS NULL OR is_transaction))[1] AS "rootOp",
+           bool_or(truncated OR dropped_span_count > 0) AS truncated FROM monitoring_spans WHERE project_id = $1 AND trace_id IN (${matched}) GROUP BY trace_id ORDER BY ${sort} ${direction}, trace_id LIMIT ${query.pageSize} OFFSET ${(query.page - 1) * query.pageSize}`,
           scope.parameters,
         );
         return {

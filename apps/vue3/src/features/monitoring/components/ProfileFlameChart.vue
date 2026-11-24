@@ -10,6 +10,7 @@ const search = ref('')
 const selected = ref<ProfileSegment | null>(null)
 const canvas = ref<HTMLCanvasElement>()
 const focus = ref<ProfileSegment | null>(null)
+const focusHistory = ref<(ProfileSegment | null)[]>([])
 const hover = ref('')
 const mode = ref<'tree' | 'timeline'>('tree')
 const sampledOnly = ref(false)
@@ -37,10 +38,16 @@ const start = computed(() => focus.value?.start ?? (sampledOnly.value ? sampledS
 const end = computed(
   () => focus.value?.end ?? (sampledOnly.value ? sampledEnd.value : props.durationMs),
 )
-const depth = computed(() => focus.value?.depth ?? 0)
+const depth = computed(() => 0)
 const visible = computed(() =>
   props.segments.filter(
-    (s) => s.depth >= depth.value && s.end > start.value && s.start < end.value,
+    (s) =>
+      Number((s.end - s.start).toFixed(2)) > 0 &&
+      s.end > start.value &&
+      s.start < end.value &&
+      (!focus.value ||
+        s.depth >= focus.value.depth ||
+        (s.start <= focus.value.start && s.end >= focus.value.end)),
   ),
 )
 // Flatten in chronological, parent-first order; retain ancestors when searching.
@@ -98,15 +105,23 @@ function toggle(segment: ProfileSegment) {
 }
 function reset() {
   focus.value = null
+  focusHistory.value = []
   sampledOnly.value = false
 }
 function focusSampled() {
   focus.value = null
+  focusHistory.value = []
   sampledOnly.value = true
 }
 function focusCall(segment: ProfileSegment) {
+  if (focus.value !== segment) focusHistory.value.push(focus.value)
   focus.value = segment
   selected.value = segment
+}
+function back() {
+  focus.value = focusHistory.value.pop() ?? null
+  selected.value = focus.value
+  hover.value = ''
 }
 function focusSelected() {
   if (!selected.value) return
@@ -169,7 +184,15 @@ function draw() {
       context.clip()
       context.fillStyle = '#172033'
       const label = segment.frameId == null ? translate('Unsampled') : segment.name
-      context.fillText(`${label} · ${(segment.end - segment.start).toFixed(2)} ms`, x + 6, y + 19)
+      const full = `${label} · ${(segment.end - segment.start).toFixed(2)} ms`
+      let text = full
+      while (text.length && context.measureText(text).width > w - 12) text = text.slice(0, -1)
+      if (text !== full) {
+        while (text.length && context.measureText(`${text}…`).width > w - 12)
+          text = text.slice(0, -1)
+        text += '…'
+      }
+      context.fillText(text, x + 6, y + 19)
       context.restore()
     }
   }
@@ -185,8 +208,7 @@ function hit(event: MouseEvent) {
 function select(event: MouseEvent) {
   const segment = hit(event)
   if (segment) {
-    selected.value = segment
-    focus.value = segment
+    focusCall(segment)
   }
 }
 function inspect(event: MouseEvent) {
@@ -199,6 +221,7 @@ watch(
   () => props.segments,
   () => {
     focus.value = null
+    focusHistory.value = []
     hover.value = ''
     selected.value = null
     sampledOnly.value = false
@@ -289,6 +312,14 @@ onBeforeUnmount(() => observer?.disconnect())
           class="h-8 min-w-32 flex-1 rounded border bg-background px-3 text-xs"
         />
       </div>
+      <Button
+        data-focus-back
+        variant="outline"
+        size="sm"
+        :disabled="!focusHistory.length"
+        @click="back"
+        >{{ translate('Back to previous focus') }}</Button
+      >
       <Button
         :aria-label="translate('Reset flame chart')"
         variant="outline"
@@ -412,6 +443,7 @@ onBeforeUnmount(() => observer?.disconnect())
           class="w-full cursor-pointer"
           :style="{ height: `${height}px` }"
           role="img"
+          :title="hover"
           :aria-label="
             translate(
               'Sampled call stacks over time. Use focus function buttons below for keyboard navigation.',

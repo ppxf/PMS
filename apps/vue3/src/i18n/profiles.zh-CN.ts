@@ -1,4 +1,5 @@
 export const profilesZhCN: Record<string, string> = {
+  'Back to previous focus': '返回上一级焦点',
   'Profile view': '剖析视图',
   'Call tree': '调用树',
   'Sampled coverage': '有效采样占比',

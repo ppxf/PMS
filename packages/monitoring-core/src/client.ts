@@ -16,9 +16,9 @@ export function createMonitoringClient() {
   let activeProfileRate = 0
   let activeProfileLifecycle: MonitoringInitOptions['profileLifecycle'] = 'manual'
   const metricRecorder = createMetrics(tracing.getActiveTraceContext)
-  const webVitals = createWebVitals(tracing.getActiveTraceContext, (name, value, route) => {
+  const webVitals = createWebVitals(tracing.getActiveTraceContext, (name, value, route, context) => {
     metricRecorder.metrics.distribution(`browser.web_vital.${name.toLowerCase()}.value`, value, {
-      unit: name === 'CLS' ? 'none' : 'ms', attributes: { 'page.route': route },
+      unit: name === 'CLS' ? 'none' : 'ms', attributes: { 'page.route': route }, traceContext: context,
     })
   })
   const logs = createLogs()

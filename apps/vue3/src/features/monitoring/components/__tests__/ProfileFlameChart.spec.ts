@@ -4,6 +4,32 @@ import { setLocale } from '@/i18n'
 import ProfileFlameChart from '../ProfileFlameChart.vue'
 
 describe('readable profile calls', () => {
+  it('hides calls that round to zero without hiding a timed child', () => {
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 10,
+        segments: [
+          { frameId: 0, name: 'zero', start: 1, end: 1, depth: 0 },
+          { frameId: 1, name: 'tiny', start: 2, end: 2.004, depth: 0 },
+          { frameId: 2, name: 'timed', start: 3, end: 3.01, depth: 1 },
+        ],
+      },
+    })
+    expect(view.findAll('[data-call-row]')).toHaveLength(1)
+    expect(view.findAll('[data-frame]').map((button) => button.text())).toEqual(['timed'])
+    view.unmount()
+  })
+  it('keeps ancestors available and returns to the previous focus', async () => {
+    setLocale('en')
+    const view = mount(ProfileFlameChart, { props: { segments, durationMs: 100 } })
+    await view.get('[data-view="timeline"]').trigger('click')
+    await view.findAll('[data-frame]')[0]!.trigger('click')
+    await view.findAll('[data-frame]')[1]!.trigger('click')
+    expect(view.findAll('[data-frame]').map((button) => button.text())).toContain('root')
+    await view.get('[data-focus-back]').trigger('click')
+    expect(view.get('[data-time-range]').text()).toContain('10.00')
+    view.unmount()
+  })
   const segments = [
     { frameId: 0, stackId: 0, name: 'root', start: 0, end: 10, depth: 0 },
     { frameId: 1, stackId: 1, name: 'render', resource: '/app.ts', start: 2, end: 8, depth: 1 },

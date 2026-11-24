@@ -24,6 +24,23 @@ function setup(navigationStart?: number) {
 }
 
 describe('browser tracing instrumentation', () => {
+  it('retains the document trace across idle requests and SPA navigation', async () => {
+    vi.useFakeTimers()
+    const { client, tracing, envelopes, w } = setup()
+    await vi.advanceTimersByTimeAsync(1100)
+    await client.flush()
+    const initial = envelopes.find(e => e.type === 'transaction')!.transaction.spans[0]
+    await w.fetch('/api/after-idle')
+    const next = tracing.startNavigation('/orders')
+    expect(next.context.traceId).toBe(initial.traceId)
+    expect(next.context.spanId).not.toBe(initial.spanId)
+    tracing.navigationReady()
+    tracing.endNavigation('page_hidden')
+    await client.flush()
+    const spans = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+    expect(spans.find(s => s.name === 'GET /api/after-idle')?.traceId).toBe(initial.traceId)
+    client.resetClientForTests()
+  })
   it('collects completed static assets before sealing the page without duplicating HTTP entries', async () => {
     const { client, tracing, envelopes, w } = setup(0)
     const entry = {

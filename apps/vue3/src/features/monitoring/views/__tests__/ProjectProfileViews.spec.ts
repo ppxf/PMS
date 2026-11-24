@@ -364,7 +364,7 @@ describe('Profiles views', () => {
       .find((b) => b.text().includes('child'))!
       .trigger('click')
     expect(chart.text()).toContain('Focused: child')
-    expect(chart.findAll('button[data-frame]').some((b) => b.text().includes('root'))).toBe(false)
+    expect(chart.findAll('button[data-frame]').some((b) => b.text().includes('root'))).toBe(true)
     await chart.get('button[aria-label="Reset flame chart"]').trigger('click')
     expect(chart.findAll('button[data-frame]').some((b) => b.text().includes('root'))).toBe(true)
     expect(view.find('img').exists()).toBe(false)

@@ -9,6 +9,7 @@ import { addQuery, queryBar } from '@/test/query'
 import { openSelect, selectValue } from '@/test/select'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { RouterLink } from 'vue-router'
 enableAutoUnmount(afterEach)
 const api = vi.hoisted(() => ({
   spanSamples: vi.fn<typeof import('../../api/traces.api').spanSamples>(),
@@ -64,7 +65,7 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
-  it('distinguishes samples with millisecond timestamps, Span IDs and end reasons', async () => {
+  it('links Span IDs directly to the selected waterfall row without a completeness column', async () => {
     api.spanSamples.mockResolvedValue({
       items: [
         {
@@ -78,11 +79,51 @@ describe('Traces views', () => {
       page: 1,
       pageSize: 20,
     })
-    const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
+    const view = mount(ProjectTracesView, {
+      global: { stubs: { RouterLink: { props: ['to'], template: '<a><slot /></a>' } } },
+    })
     await flushPromises()
     expect(view.get('[data-testid="span-identity"]').text()).toContain('root')
-    expect(view.get('[data-testid="span-end-reason"]').text()).toContain('navigation')
+    expect(
+      view
+        .findAllComponents(RouterLink)
+        .find((link) => link.attributes('data-testid') === 'span-identity')!
+        .props('to'),
+    ).toMatchObject({ query: { spanId: 'root', tab: 'waterfall' } })
+    expect(view.findAll('th').map((th) => th.text())).not.toContain('Status / completeness')
     expect(view.text()).toContain('.123')
+  })
+  it('displays the retained trace root and removes completeness from trace samples', async () => {
+    api.traceSamples.mockResolvedValueOnce({
+      items: [
+        {
+          traceId: 'trace',
+          startTime: root.startTime,
+          endTime: root.endTime,
+          durationMs: 1000,
+          spanCount: 2,
+          truncated: true,
+          rootName: 'Home',
+          rootSpanId: 'root',
+          rootOp: 'pageload',
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    })
+    const view = mount(ProjectTracesView, {
+      global: { stubs: { RouterLink: { props: ['to'], template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    await view
+      .findAll('nav button')
+      .find((b) => b.text() === 'Trace Samples')!
+      .trigger('click')
+    await flushPromises()
+    expect(view.findAll('th').map((th) => th.text())).toContain('Trace Root')
+    expect(view.findAll('th').map((th) => th.text())).not.toContain('Completeness')
+    expect(view.get('tbody').text()).toContain('Home')
   })
 
   it('filters resources while keeping their parent, collapses branches and positions late paint markers', async () => {

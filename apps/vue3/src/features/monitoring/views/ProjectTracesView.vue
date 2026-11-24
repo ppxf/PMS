@@ -375,11 +375,14 @@ const charts = computed(() =>
     option: chartOptions(metric, chartSettings.value[index]!),
   })),
 )
-function detailLink(traceId: string) {
+function detailLink(traceId: string, spanId?: string) {
   return {
     name: 'project-trace-detail',
     params: { groupSlug: group.value, projectSlug: project.value, traceId },
-    query: { highlight: JSON.stringify(filters.value) },
+    query: {
+      highlight: JSON.stringify(filters.value),
+      ...(spanId ? { spanId, tab: 'waterfall' } : {}),
+    },
   }
 }
 watch([filters, metrics, groups, limit], loadCharts, { deep: true })
@@ -697,12 +700,12 @@ onMounted(async () => {
                 <component :is="sortIcon('durationMs')" class="sort-icon" aria-hidden="true" />
               </button>
             </th>
-            <th>{{ translate('Status / completeness') }}</th>
           </tr>
         </thead>
         <thead v-else-if="tab === 'Trace Samples'">
           <tr>
             <th>{{ translate('Trace') }}</th>
+            <th>{{ translate('Trace Root') }}</th>
             <th :aria-sort="columnSort('startTime')">
               <button
                 class="sort-header"
@@ -724,7 +727,6 @@ onMounted(async () => {
               </button>
             </th>
             <th>{{ translate('Retained spans') }}</th>
-            <th>{{ translate('Completeness') }}</th>
           </tr>
         </thead>
         <thead v-else>
@@ -746,7 +748,7 @@ onMounted(async () => {
           <tr v-if="loading || (tab === 'Aggregates' ? !aggregates?.items.length : !total)">
             <td
               :colspan="
-                tab === 'Span Samples' ? 6 : tab === 'Trace Samples' ? 5 : seriesMetrics.length + 1
+                tab === 'Span Samples' ? 5 : tab === 'Trace Samples' ? 5 : seriesMetrics.length + 1
               "
               class="result-placeholder text-muted-foreground"
             >
@@ -762,43 +764,62 @@ onMounted(async () => {
               tabindex="0"
               role="link"
               :aria-label="translate(`View trace for ${s.name}`)"
-              @click="router.push(detailLink(s.traceId))"
-              @keydown.enter.self="router.push(detailLink(s.traceId))"
+              @click="router.push(detailLink(s.traceId, s.spanId))"
+              @keydown.enter.self="router.push(detailLink(s.traceId, s.spanId))"
             >
               <td>
                 <RouterLink
                   class="text-primary hover:underline"
-                  :to="detailLink(s.traceId)"
+                  :to="detailLink(s.traceId, s.spanId)"
                   @click.stop
                   >{{ s.name }}</RouterLink
                 >
-                <p class="mt-1 font-mono text-xs text-muted-foreground" data-testid="span-identity">
+                <RouterLink
+                  class="mt-1 block font-mono text-xs text-primary hover:underline"
+                  data-testid="span-identity"
+                  :to="detailLink(s.traceId, s.spanId)"
+                  @click.stop
+                >
                   Span ID: {{ s.spanId }}
-                </p>
+                </RouterLink>
               </td>
               <td>{{ s.op }}</td>
               <td>{{ s.isTransaction }}</td>
               <td>{{ formatDateTime(s.startTime, { milliseconds: true }) }}</td>
               <td>{{ s.durationMs }} {{ translate('ms') }}</td>
-              <td>
-                {{ s.status }} {{ translate(s.truncated ? 'Truncated' : '') }}
-                <p class="mt-1 text-xs text-muted-foreground" data-testid="span-end-reason">
-                  {{ translate('End reason') }}: {{ s.endReason }}
-                </p>
-              </td>
             </tr>
           </template>
           <template v-else-if="tab === 'Trace Samples'">
-            <tr v-for="t in traces" :key="t.traceId">
+            <tr
+              v-for="t in traces"
+              :key="t.traceId"
+              role="link"
+              tabindex="0"
+              class="cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50"
+              @click="router.push(detailLink(t.traceId))"
+              @keydown.enter.self="router.push(detailLink(t.traceId))"
+            >
               <td>
-                <RouterLink class="text-primary hover:underline" :to="detailLink(t.traceId)">{{
-                  t.traceId
-                }}</RouterLink>
+                <RouterLink
+                  class="text-primary hover:underline"
+                  :to="detailLink(t.traceId)"
+                  @click.stop
+                  >{{ t.traceId }}</RouterLink
+                >
+              </td>
+              <td>
+                <RouterLink
+                  v-if="t.rootSpanId"
+                  class="text-primary hover:underline"
+                  :to="detailLink(t.traceId, t.rootSpanId)"
+                  @click.stop
+                  >{{ t.rootName || t.rootOp || t.rootSpanId }}</RouterLink
+                >
+                <span v-else>{{ translate('Root span not retained') }}</span>
               </td>
               <td>{{ formatDateTime(t.startTime, { milliseconds: true }) }}</td>
               <td>{{ t.durationMs }} {{ translate('ms') }}</td>
               <td>{{ t.spanCount }}</td>
-              <td>{{ translate(t.truncated ? 'Truncated' : 'Retained records') }}</td>
             </tr>
           </template>
           <template v-else>

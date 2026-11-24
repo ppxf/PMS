@@ -51,6 +51,9 @@ export interface Span {
 }
 export interface TraceSample {
   traceId: string
+  rootSpanId?: string | null
+  rootName?: string | null
+  rootOp?: string | null
   startTime: string
   endTime: string
   spanCount: number

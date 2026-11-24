@@ -23,6 +23,24 @@ function report(name: string, value: number, attribution: object = {}) {
 beforeEach(() => { observers.clear() })
 afterEach(() => { for (const c of clients.splice(0)) c.resetClientForTests(); vi.unstubAllGlobals() })
 describe('automatic document Web Vitals', () => {
+  it('correlates metric samples with the original page after context is cleared or replaced', async () => {
+    browser()
+    const sent: MonitoringEnvelope[] = []
+    const client = createMonitoringClient(); clients.push(client)
+    client.init({dsn, enableMetrics: true, tracesSampleRate: 1, transport: {send: e => {sent.push(e); return Promise.resolve()}}})
+    const page = client.startInactiveSpan({name: 'page', op: 'pageload'}); client.setPageSpan(page)
+    await client.flush()
+    client.setPageSpan(undefined)
+    report('CLS', 0)
+    const next = client.startInactiveSpan({name: 'next'}); client.setPageSpan(next)
+    report('LCP', 1000)
+    await client.flush()
+    const samples = sent.filter(e => e.type === 'metrics').flatMap(e => e.samples)
+    expect(samples).toHaveLength(2)
+    expect(samples.map(s => [s.traceId, s.spanId])).toEqual([
+      [page.context.traceId, page.context.spanId], [page.context.traceId, page.context.spanId],
+    ])
+  })
   it('collects without custom metrics or traces and preserves missing INP and zero CLS', async () => {
     browser(); const {client, vitals} = setup(); await client.flush()
     expect(vitals()).toHaveLength(1)
