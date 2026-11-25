@@ -4,6 +4,27 @@ import { setLocale } from '@/i18n'
 import ProfileFlameChart from '../ProfileFlameChart.vue'
 
 describe('readable profile calls', () => {
+  it('shows every full name directly, including tiny blocks and long names', async () => {
+    const longName = 'veryLongFunctionName'.repeat(12)
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 20,
+        segments: [
+          { frameId: 0, name: 'main', start: 0, end: 15.6, depth: 0 },
+          { frameId: 1, name: 'safe', start: 15.6, end: 15.9, depth: 0 },
+          { frameId: 2, name: longName, start: 15.6, end: 15.9, depth: 1 },
+        ],
+      },
+    })
+    const labels = view.findAll('[data-flame-label]').map((label) => label.text())
+    expect(labels).toHaveLength(3)
+    expect(labels.some((label) => label.includes('main'))).toBe(true)
+    expect(labels.some((label) => label.includes('safe'))).toBe(true)
+    expect(labels.some((label) => label.includes(longName))).toBe(true)
+    await view.findAll('[data-flame-frame]')[1]!.trigger('click')
+    expect(view.get('aside').text()).toContain('safe')
+    view.unmount()
+  })
   it('hides calls that round to zero without hiding a timed child', async () => {
     const view = mount(ProfileFlameChart, {
       props: {
@@ -75,9 +96,9 @@ describe('readable profile calls', () => {
     await view.get('[data-view="timeline"]').trigger('click')
     expect(view.get('[data-time-range]').text()).toContain('0.00')
     expect(view.get('[data-time-range]').text()).toContain('15.60')
-    expect(view.get('canvas').attributes('style')).toContain('80px')
+    expect(view.get('[data-flame-chart]').attributes('height')).toBe('80')
     await view.setProps({ segments: [{ name: 'Unsampled', start: 0, end: 1000, depth: 0 }] })
-    expect(view.find('canvas').exists()).toBe(false)
+    expect(view.find('[data-flame-chart]').exists()).toBe(false)
     expect(view.text()).toContain('No sampled function calls')
     view.unmount()
   })
@@ -111,12 +132,11 @@ describe('readable profile calls', () => {
         ],
       },
     })
-    const canvas = view.get('canvas')
-    Object.defineProperty(canvas.element, 'getBoundingClientRect', {
-      value: () => ({ left: 0, top: 0, width: 100, height: 80 }),
-    })
     const range = view.get('[data-time-range]').text()
-    await canvas.trigger('click', { clientX: 10, clientY: 40 })
+    await view
+      .findAll('[data-flame-frame]')
+      .find((frame) => frame.attributes('aria-label') === 'request')!
+      .trigger('click')
     expect(view.get('aside').text()).toContain('request')
     expect(view.get('aside').text()).toContain('32.00')
     expect(view.get('[data-time-range]').text()).toBe(range)

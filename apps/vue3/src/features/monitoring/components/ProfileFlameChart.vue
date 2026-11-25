@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { locale, translate } from '@/i18n'
+import { translate } from '@/i18n'
 
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
-import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import type { ProfileSegment } from '../model/profiles'
-import { profileFlamegraph } from '../model/profile-flamegraph'
+import { profileFlamegraph, type FlameFrame } from '../model/profile-flamegraph'
+import { profileFlameLabels } from '../model/profile-flame-labels'
 const props = defineProps<{ segments: ProfileSegment[]; durationMs: number }>()
 const search = ref('')
 const selected = ref<ProfileSegment | null>(null)
-const canvas = ref<HTMLCanvasElement>()
+const chart = ref<HTMLElement>()
 const hover = ref('')
 const mode = ref<'tree' | 'timeline'>('timeline')
 const rowLimit = ref(200)
@@ -103,98 +104,39 @@ const selectedSummary = computed(() =>
     ? functionRows.value.find((row) => row.name === selected.value!.name.trim())
     : flame.value.frames.find((frame) => selected.value && frame.segments.includes(selected.value)),
 )
-const rowHeight = 32
-const height = computed(() =>
-  Math.max(
-    80,
-    (flame.value.frames.reduce((max, frame) => Math.max(max, frame.depth), 0) + 1) * rowHeight,
-  ),
+const chartWidth = ref(800)
+let measuringContext: CanvasRenderingContext2D | null | undefined
+function measureLabel(text: string) {
+  if (typeof CanvasRenderingContext2D !== 'undefined') {
+    measuringContext ??= document.createElement('canvas').getContext('2d')
+    if (measuringContext) {
+      measuringContext.font = '12px monospace'
+      return measuringContext.measureText(text).width
+    }
+  }
+  return Array.from(text).reduce(
+    (width, char) => width + (char.codePointAt(0)! > 255 ? 12 : 7.25),
+    0,
+  )
+}
+const diagram = computed(() =>
+  profileFlameLabels(flame.value.frames, flame.value.duration, chartWidth.value, measureLabel),
 )
-// Canvas keeps the DOM bounded even for 10,000 distinct samples and deep stacks.
 const choices = computed(() => {
   const seen = new Set<string>()
-  return visible.value.filter((s) => {
-    const name = s.name.trim()
-    if (s.frameId == null || !name || seen.has(name)) return false
+  return visible.value.filter((segment) => {
+    const name = segment.name.trim()
+    if (seen.has(name)) return false
     seen.add(name)
     return true
   })
 })
+function inspect(frame: FlameFrame) {
+  hover.value = `${frame.name} · ${frame.totalMs.toFixed(2)} ms · ${translate('Sampled intervals')}: ${frame.count}`
+}
 let observer: ResizeObserver | undefined
-function draw() {
-  const el = canvas.value
-  if (!el || typeof CanvasRenderingContext2D === 'undefined') return
-  const context = el.getContext('2d')
-  if (!context) return
-  const width = Math.max(1, el.clientWidth)
-  const ratio = window.devicePixelRatio || 1
-  el.width = width * ratio
-  el.height = height.value * ratio
-  context.scale(ratio, ratio)
-  context.font = '12px sans-serif'
-  const duration = flame.value.duration || 1
-  // Vertical time guides make horizontal position easier to read.
-  context.strokeStyle = '#94a3b833'
-  for (let tick = 0; tick <= 4; tick++) {
-    context.beginPath()
-    context.moveTo((width * tick) / 4, 0)
-    context.lineTo((width * tick) / 4, height.value)
-    context.stroke()
-  }
-  for (const frame of flame.value.frames) {
-    const x = (frame.start / duration) * width
-    const w = (frame.totalMs / duration) * width
-    const y = frame.depth * rowHeight
-    context.fillStyle =
-      search.value && !frame.name.toLowerCase().includes(search.value.trim().toLowerCase())
-        ? '#e4e4e7'
-        : ['#bfdbfe', '#c7d2fe', '#ddd6fe', '#a5f3fc'][frame.depth % 4]!
-    context.fillRect(x, y, Math.max(w - 1, 0.5), rowHeight - 3)
-    if (selected.value && frame.segments.includes(selected.value)) {
-      context.strokeStyle = '#7c3aed'
-      context.lineWidth = 2
-      context.strokeRect(x + 1, y + 1, Math.max(0, w - 3), rowHeight - 5)
-    }
-    if (w > 30) {
-      context.save()
-      context.beginPath()
-      context.rect(x + 3, y, Math.max(0, w - 6), rowHeight - 3)
-      context.clip()
-      context.fillStyle = '#172033'
-      const full = `${frame.name} · ${frame.totalMs.toFixed(2)} ms`
-      let text = full
-      while (text.length && context.measureText(text).width > w - 12) text = text.slice(0, -1)
-      if (text !== full) {
-        while (text.length && context.measureText(`${text}…`).width > w - 12)
-          text = text.slice(0, -1)
-        text += '…'
-      }
-      context.fillText(text, x + 6, y + 19)
-      context.restore()
-    }
-  }
-}
-function hit(event: MouseEvent) {
-  const el = canvas.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const time = ((event.clientX - rect.left) / rect.width) * flame.value.duration
-  const row = Math.floor((event.clientY - rect.top) / rowHeight)
-  return flame.value.frames.find(
-    (frame) => frame.depth === row && frame.start <= time && frame.end > time,
-  )
-}
-function select(event: MouseEvent) {
-  const segment = hit(event)
-  if (segment) {
-    selected.value = segment.segment
-  }
-}
-function inspect(event: MouseEvent) {
-  const s = hit(event)
-  hover.value = s
-    ? `${s.name} · ${s.totalMs.toFixed(2)} ms · ${translate('Sampled intervals')}: ${s.count}`
-    : ''
+function resize() {
+  chartWidth.value = Math.max(240, chart.value?.clientWidth || 800)
 }
 watch(
   () => props.segments,
@@ -204,23 +146,20 @@ watch(
     rowLimit.value = 200
   },
 )
-watch([visible, height, search, mode, locale, selected], () => {
-  void nextTick(draw)
-})
 watch(search, () => {
   rowLimit.value = 200
 })
-watch(canvas, (el) => {
+watch(chart, (el) => {
   observer?.disconnect()
   if (el) observer?.observe(el)
-  void nextTick(draw)
+  resize()
 })
 onMounted(() => {
   if (typeof ResizeObserver !== 'undefined') {
-    observer = new ResizeObserver(draw)
-    if (canvas.value) observer.observe(canvas.value)
+    observer = new ResizeObserver(resize)
+    if (chart.value) observer.observe(chart.value)
   }
-  draw()
+  resize()
 })
 onBeforeUnmount(() => observer?.disconnect())
 </script>
@@ -362,20 +301,85 @@ onBeforeUnmount(() => observer?.disconnect())
           >
         </div>
       </div>
-      <div v-else-if="visible.length" class="max-h-[480px] min-w-0 overflow-y-auto">
-        <canvas
-          ref="canvas"
-          class="w-full cursor-pointer"
-          :style="{ height: `${height}px` }"
-          role="img"
-          :title="hover"
-          :aria-label="
-            translate('Named sampled call stacks. Select a function below for keyboard navigation.')
-          "
-          @click="select"
-          @mousemove="inspect"
-          @mouseleave="hover = ''"
-        />
+      <div v-else-if="visible.length" ref="chart" class="max-h-[480px] min-w-0 overflow-auto">
+        <svg
+          data-flame-chart
+          :width="chartWidth"
+          :height="diagram.height"
+          :viewBox="`0 0 ${chartWidth} ${diagram.height}`"
+          :aria-label="translate('Profile flame chart')"
+          class="block"
+        >
+          <g
+            v-for="item in diagram.items"
+            :key="item.index"
+            data-flame-frame
+            role="button"
+            tabindex="0"
+            :aria-label="item.frame.name"
+            :aria-pressed="!!selected && item.frame.segments.includes(selected)"
+            class="cursor-pointer focus-visible:outline-2"
+            @click="selected = item.frame.segment"
+            @keydown.enter.prevent="selected = item.frame.segment"
+            @keydown.space.prevent="selected = item.frame.segment"
+            @mouseenter="inspect(item.frame)"
+            @mouseleave="hover = ''"
+          >
+            <title>{{ item.frame.name }} · {{ item.frame.totalMs.toFixed(2) }} ms</title>
+            <rect
+              :x="item.x"
+              :y="item.y"
+              :width="Math.max(0.5, item.width - 1)"
+              :height="29"
+              :fill="
+                search.trim() &&
+                !item.frame.name.toLowerCase().includes(search.trim().toLowerCase())
+                  ? '#e4e4e7'
+                  : ['#bfdbfe', '#c7d2fe', '#ddd6fe', '#a5f3fc'][item.frame.depth % 4]
+              "
+              :stroke="
+                selected && item.frame.segments.includes(selected) ? '#7c3aed' : 'transparent'
+              "
+              stroke-width="2"
+            />
+            <template v-if="item.label.outside">
+              <line
+                :x1="item.x + item.width / 2"
+                :y1="item.y + 29"
+                :x2="
+                  Math.max(
+                    item.label.x + 6,
+                    Math.min(item.label.x + item.label.width - 6, item.x + item.width / 2),
+                  )
+                "
+                :y2="item.label.y"
+                stroke="#64748b"
+              />
+              <rect
+                :x="item.label.x"
+                :y="item.label.y"
+                :width="item.label.width"
+                :height="item.label.height"
+                rx="3"
+                fill="var(--background)"
+                stroke="var(--border)"
+              />
+            </template>
+            <text
+              data-flame-label
+              class="pointer-events-none fill-foreground font-mono text-[12px]"
+            >
+              <tspan
+                v-for="(line, index) in item.label.lines"
+                :key="index"
+                :x="item.label.x + 6"
+                :y="item.label.y + (item.label.outside ? 18 : 19) + index * 16"
+              >
+                {{ line }}
+              </tspan>
+            </text>
+          </g>
+        </svg>
       </div>
       <p v-else class="p-8 text-center text-sm text-muted-foreground">
         {{ translate('No sampled function calls') }}
