@@ -1,4 +1,6 @@
 export const profilesZhCN: Record<string, string> = {
+  'Calls are aggregated by stack path with idle gaps removed. Width shows accumulated sampled time. Click a function to inspect details.':
+    '按调用路径聚合同类调用，已移除空闲间隔；宽度表示累计采样时长。点击函数查看详情。',
   'Named calls fill the sampled range. Click a frame to inspect its details without changing the chart.':
     '默认铺满有效采样区间，仅显示有名称的调用。点击函数查看详情，图表范围保持不变。',
   'Named sampled call stacks. Select a function below for keyboard navigation.':

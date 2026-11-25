@@ -5,6 +5,7 @@ import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { Button } from '@/components/ui/button'
 import type { ProfileSegment } from '../model/profiles'
+import { profileFlamegraph } from '../model/profile-flamegraph'
 const props = defineProps<{ segments: ProfileSegment[]; durationMs: number }>()
 const search = ref('')
 const selected = ref<ProfileSegment | null>(null)
@@ -48,29 +49,7 @@ const end = computed(() =>
     visible.value.reduce((max, s) => Math.max(max, s.end), 0),
   ),
 )
-// Removing unnamed frames must also remove their empty rows, per call branch.
-const levels = computed(() => {
-  const result = new Map<ProfileSegment, number>()
-  const parents: ProfileSegment[] = []
-  const ordered = visible.value
-    .slice()
-    .sort((a, b) => a.start - b.start || a.depth - b.depth || b.end - a.end)
-  for (const segment of ordered) {
-    while (parents.length) {
-      const parent = parents[parents.length - 1]!
-      if (
-        parent.depth < segment.depth &&
-        parent.start <= segment.start &&
-        parent.end >= segment.end
-      )
-        break
-      parents.pop()
-    }
-    result.set(segment, parents.length)
-    parents.push(segment)
-  }
-  return result
-})
+const flame = computed(() => profileFlamegraph(visible.value, props.durationMs))
 // One row per named function. Union recursive intervals before averaging.
 const functionRows = computed(() => {
   const groups = new Map<
@@ -122,13 +101,13 @@ const tree = computed(() =>
 const selectedSummary = computed(() =>
   mode.value === 'tree' && selected.value
     ? functionRows.value.find((row) => row.name === selected.value!.name.trim())
-    : undefined,
+    : flame.value.frames.find((frame) => selected.value && frame.segments.includes(selected.value)),
 )
 const rowHeight = 32
 const height = computed(() =>
   Math.max(
     80,
-    (visible.value.reduce((max, s) => Math.max(max, levels.value.get(s) ?? 0), 0) + 1) * rowHeight,
+    (flame.value.frames.reduce((max, frame) => Math.max(max, frame.depth), 0) + 1) * rowHeight,
   ),
 )
 // Canvas keeps the DOM bounded even for 10,000 distinct samples and deep stacks.
@@ -153,7 +132,7 @@ function draw() {
   el.height = height.value * ratio
   context.scale(ratio, ratio)
   context.font = '12px sans-serif'
-  const duration = end.value - start.value || 1
+  const duration = flame.value.duration || 1
   // Vertical time guides make horizontal position easier to read.
   context.strokeStyle = '#94a3b833'
   for (let tick = 0; tick <= 4; tick++) {
@@ -162,19 +141,16 @@ function draw() {
     context.lineTo((width * tick) / 4, height.value)
     context.stroke()
   }
-  for (const segment of visible.value) {
-    const x = ((Math.max(start.value, segment.start) - start.value) / duration) * width
-    const w =
-      ((Math.min(end.value, segment.end) - Math.max(start.value, segment.start)) / duration) * width
-    const y = (levels.value.get(segment) ?? 0) * rowHeight
+  for (const frame of flame.value.frames) {
+    const x = (frame.start / duration) * width
+    const w = (frame.totalMs / duration) * width
+    const y = frame.depth * rowHeight
     context.fillStyle =
-      search.value && !segment.name.toLowerCase().includes(search.value.toLowerCase())
+      search.value && !frame.name.toLowerCase().includes(search.value.trim().toLowerCase())
         ? '#e4e4e7'
-        : segment.frameId == null
-          ? '#e2e8f0'
-          : ['#bfdbfe', '#c7d2fe', '#ddd6fe', '#a5f3fc'][segment.depth % 4]!
+        : ['#bfdbfe', '#c7d2fe', '#ddd6fe', '#a5f3fc'][frame.depth % 4]!
     context.fillRect(x, y, Math.max(w - 1, 0.5), rowHeight - 3)
-    if (selected.value === segment) {
+    if (selected.value && frame.segments.includes(selected.value)) {
       context.strokeStyle = '#7c3aed'
       context.lineWidth = 2
       context.strokeRect(x + 1, y + 1, Math.max(0, w - 3), rowHeight - 5)
@@ -185,8 +161,7 @@ function draw() {
       context.rect(x + 3, y, Math.max(0, w - 6), rowHeight - 3)
       context.clip()
       context.fillStyle = '#172033'
-      const label = segment.name.trim()
-      const full = `${label} · ${(segment.end - segment.start).toFixed(2)} ms`
+      const full = `${frame.name} · ${frame.totalMs.toFixed(2)} ms`
       let text = full
       while (text.length && context.measureText(text).width > w - 12) text = text.slice(0, -1)
       if (text !== full) {
@@ -203,20 +178,22 @@ function hit(event: MouseEvent) {
   const el = canvas.value
   if (!el) return
   const rect = el.getBoundingClientRect()
-  const time = start.value + ((event.clientX - rect.left) / rect.width) * (end.value - start.value)
+  const time = ((event.clientX - rect.left) / rect.width) * flame.value.duration
   const row = Math.floor((event.clientY - rect.top) / rowHeight)
-  return visible.value.find((s) => levels.value.get(s) === row && s.start <= time && s.end > time)
+  return flame.value.frames.find(
+    (frame) => frame.depth === row && frame.start <= time && frame.end > time,
+  )
 }
 function select(event: MouseEvent) {
   const segment = hit(event)
   if (segment) {
-    selected.value = segment
+    selected.value = segment.segment
   }
 }
 function inspect(event: MouseEvent) {
   const s = hit(event)
   hover.value = s
-    ? `${s.name.trim()} · ${s.start.toFixed(2)}–${s.end.toFixed(2)} ms · ${(s.end - s.start).toFixed(2)} ms`
+    ? `${s.name} · ${s.totalMs.toFixed(2)} ms · ${translate('Sampled intervals')}: ${s.count}`
     : ''
 }
 watch(
@@ -316,7 +293,7 @@ onBeforeUnmount(() => observer?.disconnect())
         translate(
           mode === 'tree'
             ? 'Named functions are merged across stack levels. Counts represent sampled intervals, not exact invocation counts.'
-            : 'Named calls fill the sampled range. Click a frame to inspect its details without changing the chart.',
+            : 'Calls are aggregated by stack path with idle gaps removed. Width shows accumulated sampled time. Click a function to inspect details.',
         )
       }}
     </p>
@@ -330,7 +307,7 @@ onBeforeUnmount(() => observer?.disconnect())
       </div>
       <div data-time-range class="flex justify-between text-xs tabular-nums text-muted-foreground">
         <span v-for="tick in 5" :key="tick"
-          >{{ (start + ((end - start) * (tick - 1)) / 4).toFixed(2) }} ms</span
+          >{{ ((flame.duration * (tick - 1)) / 4).toFixed(2) }} ms</span
         >
       </div>
     </div>

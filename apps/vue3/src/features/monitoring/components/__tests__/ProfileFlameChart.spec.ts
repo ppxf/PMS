@@ -73,12 +73,53 @@ describe('readable profile calls', () => {
       },
     })
     await view.get('[data-view="timeline"]').trigger('click')
-    expect(view.get('[data-time-range]').text()).toContain('0.20')
-    expect(view.get('[data-time-range]').text()).toContain('15.80')
+    expect(view.get('[data-time-range]').text()).toContain('0.00')
+    expect(view.get('[data-time-range]').text()).toContain('15.60')
     expect(view.get('canvas').attributes('style')).toContain('80px')
     await view.setProps({ segments: [{ name: 'Unsampled', start: 0, end: 1000, depth: 0 }] })
     expect(view.find('canvas').exists()).toBe(false)
     expect(view.text()).toContain('No sampled function calls')
+    view.unmount()
+  })
+  it('removes idle gaps between distant samples instead of shrinking the first stack', () => {
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 1100,
+        segments: [
+          { frameId: 0, name: 'run', start: 0.2, end: 15.8, depth: 0 },
+          { frameId: 1, name: 'work', start: 0.2, end: 15.8, depth: 1 },
+          { name: 'Unsampled', start: 15.8, end: 1008.4, depth: 0 },
+          { frameId: 0, name: 'run', start: 1008.4, end: 1024, depth: 0 },
+          { frameId: 1, name: 'work', start: 1008.4, end: 1024, depth: 1 },
+        ],
+      },
+    })
+    expect(view.get('[data-time-range]').text()).toContain('31.20')
+    expect(view.get('[data-time-range]').text()).not.toContain('1024.00')
+    view.unmount()
+  })
+  it('selects the packed branch rather than using the original timestamp', async () => {
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 1100,
+        segments: [
+          { frameId: 0, name: 'run', start: 0, end: 20, depth: 0 },
+          { frameId: 1, name: 'render', start: 0, end: 8, depth: 1 },
+          { frameId: 2, name: 'request', resource: '/api.ts', start: 8, end: 20, depth: 1 },
+          { frameId: 0, name: 'run', start: 1000, end: 1020, depth: 0 },
+          { frameId: 2, name: 'request', resource: '/api.ts', start: 1000, end: 1020, depth: 1 },
+        ],
+      },
+    })
+    const canvas = view.get('canvas')
+    Object.defineProperty(canvas.element, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, width: 100, height: 80 }),
+    })
+    const range = view.get('[data-time-range]').text()
+    await canvas.trigger('click', { clientX: 10, clientY: 40 })
+    expect(view.get('aside').text()).toContain('request')
+    expect(view.get('aside').text()).toContain('32.00')
+    expect(view.get('[data-time-range]').text()).toBe(range)
     view.unmount()
   })
   it('handles entirely unsampled recordings without inventing function calls', () => {
