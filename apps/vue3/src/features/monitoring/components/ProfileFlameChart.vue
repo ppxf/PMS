@@ -36,73 +36,53 @@ const visible = computed(() =>
       Number((Math.min(props.durationMs, s.end) - Math.max(0, s.start)).toFixed(2)) > 0,
   ),
 )
-const start = computed(() =>
-  visible.value.length
-    ? Math.max(
-        0,
-        visible.value.reduce((min, s) => Math.min(min, s.start), props.durationMs),
-      )
-    : 0,
-)
-const end = computed(() =>
-  Math.min(
-    props.durationMs,
-    visible.value.reduce((max, s) => Math.max(max, s.end), 0),
-  ),
-)
 const flame = computed(() => profileFlamegraph(visible.value, props.durationMs))
-// One row per named function. Union recursive intervals before averaging.
-const functionRows = computed(() => {
-  const groups = new Map<
-    string,
-    { name: string; segment: ProfileSegment; intervals: { start: number; end: number }[] }
-  >()
-  for (const segment of visible.value) {
-    const name = segment.name.trim()
-    if (segment.frameId == null || !name) continue
-    let group = groups.get(name)
-    if (!group) {
-      group = { name, segment, intervals: [] }
-      groups.set(name, group)
-    }
-    if (segment.end - segment.start > group.segment.end - group.segment.start)
-      group.segment = segment
-    group.intervals.push({
-      start: Math.max(start.value, segment.start),
-      end: Math.min(end.value, segment.end),
-    })
-  }
-  return [...groups.values()]
-    .map((group) => {
-      const intervals: { start: number; end: number }[] = []
-      for (const interval of group.intervals.sort((a, b) => a.start - b.start || b.end - a.end)) {
-        const last = intervals[intervals.length - 1]
-        if (last && interval.start <= last.end) last.end = Math.max(last.end, interval.end)
-        else intervals.push({ ...interval })
-      }
-      const totalMs = intervals.reduce(
-        (total, interval) => total + interval.end - interval.start,
-        0,
-      )
-      return {
-        name: group.name,
-        segment: group.segment,
-        count: intervals.length,
-        totalMs,
-        averageMs: totalMs / intervals.length,
-      }
-    })
-    .sort((a, b) => b.totalMs - a.totalMs || a.name.localeCompare(b.name))
+const collapsed = ref(new Set<number>())
+const callRows = computed(() => {
+  const parents: number[] = []
+  const rows = flame.value.frames.map((frame, index) => {
+    while (parents.length && flame.value.frames[parents[parents.length - 1]!]!.depth >= frame.depth)
+      parents.pop()
+    const parent = parents[parents.length - 1]
+    parents.push(index)
+    return { ...frame, index, parent, children: false }
+  })
+  for (const row of rows) if (row.parent != null) rows[row.parent]!.children = true
+  return rows
 })
-const tree = computed(() =>
-  functionRows.value.filter((row) =>
-    row.name.toLowerCase().includes(search.value.trim().toLowerCase()),
-  ),
+const treeWidth = computed(() =>
+  Math.max(600, ...callRows.value.map((row) => row.depth * 16 + 500)),
 )
+const tree = computed(() => {
+  const query = search.value.trim().toLowerCase()
+  const matches = new Set<number>()
+  if (query)
+    for (const row of callRows.value) {
+      if (!row.name.toLowerCase().includes(query)) continue
+      let index: number | undefined = row.index
+      while (index != null && !matches.has(index)) {
+        matches.add(index)
+        index = callRows.value[index]!.parent
+      }
+    }
+  const hidden = new Set<number>()
+  return callRows.value.filter((row) => {
+    if (query) return matches.has(row.index)
+    if (row.parent != null && (hidden.has(row.parent) || collapsed.value.has(row.parent))) {
+      hidden.add(row.index)
+      return false
+    }
+    return true
+  })
+})
+function toggle(index: number) {
+  const next = new Set(collapsed.value)
+  if (next.has(index)) next.delete(index)
+  else next.add(index)
+  collapsed.value = next
+}
 const selectedSummary = computed(() =>
-  mode.value === 'tree' && selected.value
-    ? functionRows.value.find((row) => row.name === selected.value!.name.trim())
-    : flame.value.frames.find((frame) => selected.value && frame.segments.includes(selected.value)),
+  flame.value.frames.find((frame) => selected.value && frame.segments.includes(selected.value)),
 )
 const chartWidth = ref(800)
 let measuringContext: CanvasRenderingContext2D | null | undefined
@@ -143,6 +123,7 @@ watch(
   () => {
     hover.value = ''
     selected.value = null
+    collapsed.value = new Set()
     rowLimit.value = 200
   },
 )
@@ -231,7 +212,7 @@ onBeforeUnmount(() => observer?.disconnect())
       {{
         translate(
           mode === 'tree'
-            ? 'Named functions are merged across stack levels. Counts represent sampled intervals, not exact invocation counts.'
+            ? 'Only named calls are shown in their parent-child hierarchy. Expand branches to follow the stack.'
             : 'Calls are aggregated by stack path with idle gaps removed. Width shows accumulated sampled time. Click a function to inspect details.',
         )
       }}
@@ -253,7 +234,7 @@ onBeforeUnmount(() => observer?.disconnect())
     <EmptyState v-if="!segments.length" class="py-8" :title="translate('No samples recorded')" />
     <div v-else class="grid overflow-hidden rounded border lg:grid-cols-[minmax(0,1fr)_240px]">
       <div v-if="mode === 'tree'" class="max-h-[480px] min-w-0 overflow-auto">
-        <div class="min-w-[480px]">
+        <div :style="{ minWidth: `${treeWidth}px` }">
           <div
             class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_80px_110px_110px] gap-3 border-b bg-muted px-4 py-3 text-xs font-medium text-muted-foreground"
           >
@@ -262,21 +243,40 @@ onBeforeUnmount(() => observer?.disconnect())
             <span class="text-right">{{ translate('Average duration') }}</span>
             <span class="text-right">{{ translate('Sampled time') }}</span>
           </div>
-          <button
+          <div
             v-for="row in tree.slice(0, rowLimit)"
-            :key="row.name"
+            :key="row.index"
             data-call-row
-            type="button"
-            class="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_80px_110px_110px] items-center gap-3 border-b px-4 py-2 text-left text-xs last:border-0 hover:bg-muted/30 focus-visible:outline-2"
-            :class="selectedSummary?.name === row.name ? 'bg-primary/5' : ''"
-            :aria-pressed="selectedSummary?.name === row.name"
-            @click="selected = row.segment"
+            :data-depth="row.depth"
+            class="grid w-full grid-cols-[minmax(0,1fr)_80px_110px_110px] items-center gap-3 border-b px-4 py-2 text-left text-xs last:border-0 hover:bg-muted/30"
+            :class="selected && row.segments.includes(selected) ? 'bg-primary/5' : ''"
           >
-            <span
-              :data-select-call="row.segment.frameId"
-              class="min-w-0 py-1 font-mono leading-relaxed break-all"
-              >{{ row.name }}</span
+            <div
+              class="flex min-w-0 items-center gap-1"
+              :style="{ paddingLeft: `${row.depth * 16}px` }"
             >
+              <button
+                v-if="row.children"
+                data-toggle-call
+                type="button"
+                class="size-6 shrink-0 cursor-pointer rounded hover:bg-muted focus-visible:outline-2"
+                :aria-expanded="!collapsed.has(row.index) || !!search.trim()"
+                :aria-label="translate('Toggle child calls for {name}', { name: row.name })"
+                @click="toggle(row.index)"
+              >
+                {{ collapsed.has(row.index) && !search.trim() ? '▸' : '▾' }}
+              </button>
+              <span v-else class="w-6 shrink-0" aria-hidden="true" />
+              <button
+                :data-select-call="row.segment.frameId"
+                type="button"
+                class="min-w-0 cursor-pointer rounded py-1 text-left font-mono leading-relaxed break-all hover:text-primary focus-visible:outline-2"
+                :aria-pressed="!!selected && row.segments.includes(selected)"
+                @click="selected = row.segment"
+              >
+                {{ row.name }}
+              </button>
+            </div>
             <span data-interval-count class="text-right font-mono tabular-nums">{{
               row.count
             }}</span>
@@ -286,7 +286,7 @@ onBeforeUnmount(() => observer?.disconnect())
             <span data-total-duration class="text-right font-mono tabular-nums"
               >{{ row.totalMs.toFixed(2) }} ms</span
             >
-          </button>
+          </div>
           <p v-if="!tree.length" class="p-8 text-center text-sm text-muted-foreground">
             {{
               translate(search.trim() ? 'No matching function calls' : 'No sampled function calls')

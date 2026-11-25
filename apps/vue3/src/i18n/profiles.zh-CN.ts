@@ -1,4 +1,6 @@
 export const profilesZhCN: Record<string, string> = {
+  'Only named calls are shown in their parent-child hierarchy. Expand branches to follow the stack.':
+    '按父子层级展示有名称的调用，自动跳过空白栈帧。可展开或收起分支查看调用关系。',
   'Calls are aggregated by stack path with idle gaps removed. Width shows accumulated sampled time. Click a function to inspect details.':
     '按调用路径聚合同类调用，已移除空闲间隔；宽度表示累计采样时长。点击函数查看详情。',
   'Named calls fill the sampled range. Click a frame to inspect its details without changing the chart.':

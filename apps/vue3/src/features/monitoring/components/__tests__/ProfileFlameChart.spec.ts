@@ -4,6 +4,35 @@ import { setLocale } from '@/i18n'
 import ProfileFlameChart from '../ProfileFlameChart.vue'
 
 describe('readable profile calls', () => {
+  it('connects named descendants across blank frames and supports branch collapse and search', async () => {
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 10,
+        segments: [
+          { frameId: 0, name: 'root', start: 0, end: 10, depth: 0 },
+          { frameId: 1, name: '', start: 0, end: 10, depth: 1 },
+          { frameId: 2, name: 'child', start: 2, end: 8, depth: 2 },
+          { frameId: 3, name: '  ', start: 2, end: 8, depth: 3 },
+          { frameId: 4, name: 'leaf', start: 3, end: 4, depth: 4 },
+        ],
+      },
+    })
+    await view.get('[data-view="tree"]').trigger('click')
+    expect(view.findAll('[data-call-row]').map((row) => row.attributes('data-depth'))).toEqual([
+      '0',
+      '1',
+      '2',
+    ])
+    await view.findAll('[data-toggle-call]')[0]!.trigger('click')
+    expect(view.findAll('[data-call-row]')).toHaveLength(1)
+    await view.get('[aria-label="Find frames"]').setValue('leaf')
+    expect(view.findAll('[data-call-row]')).toHaveLength(3)
+    await view.get('[aria-label="Find frames"]').setValue('')
+    expect(view.findAll('[data-call-row]')).toHaveLength(1)
+    await view.get('[data-toggle-call]').trigger('click')
+    expect(view.findAll('[data-call-row]')).toHaveLength(3)
+    view.unmount()
+  })
   it('shows every full name directly, including tiny blocks and long names', async () => {
     const longName = 'veryLongFunctionName'.repeat(12)
     const view = mount(ProfileFlameChart, {
@@ -64,14 +93,14 @@ describe('readable profile calls', () => {
     { frameId: 1, stackId: 1, name: 'render', resource: '/app.ts', start: 2, end: 8, depth: 1 },
     { name: 'Unsampled', start: 10, end: 100, depth: 0 },
   ]
-  it('shows sampling coverage, searches flat functions and selects full details', async () => {
+  it('shows sampling coverage and keeps named parents when searching child calls', async () => {
     setLocale('en')
     const view = mount(ProfileFlameChart, { props: { segments, durationMs: 100 } })
     await view.get('[data-view="tree"]').trigger('click')
     expect(view.get('[data-testid="sampling-coverage"]').text()).toContain('10.0%')
     expect(view.findAll('[data-call-row]')).toHaveLength(2)
     await view.get('[aria-label="Find frames"]').setValue('render')
-    expect(view.findAll('[data-call-row]')).toHaveLength(1)
+    expect(view.findAll('[data-call-row]')).toHaveLength(2)
     expect(view.text()).toContain('render')
     await view.get('[data-select-call="1"]').trigger('click')
     expect(view.get('aside').text()).toContain('/app.ts')
@@ -151,13 +180,13 @@ describe('readable profile calls', () => {
     expect(view.text()).toContain('No sampled function calls')
     view.unmount()
   })
-  it('merges repeated function names and searches without retaining parent rows', async () => {
+  it('merges repeated call paths while retaining their named hierarchy', async () => {
     const view = mount(ProfileFlameChart, {
       props: {
         segments: [
           ...segments.slice(0, 2),
           { frameId: 0, stackId: 0, name: 'root', start: 20, end: 30, depth: 0 },
-          { frameId: 1, stackId: 1, name: 'render', start: 22, end: 28, depth: 1 },
+          { ...segments[1]!, start: 22, end: 28 },
         ],
         durationMs: 100,
       },
@@ -167,12 +196,12 @@ describe('readable profile calls', () => {
     expect(view.findAll('[data-call-row]')).toHaveLength(2)
     expect(view.findAll('[data-select-call="1"]')).toHaveLength(1)
     await view.get('[aria-label="Find frames"]').setValue('RENDER')
-    expect(view.findAll('[data-call-row]')).toHaveLength(1)
+    expect(view.findAll('[data-call-row]')).toHaveLength(2)
     await view.get('[aria-label="Find frames"]').setValue('missing')
     expect(view.findAll('[data-call-row]')).toHaveLength(0)
     view.unmount()
   })
-  it('omits blank names and merges recursive intervals without double-counting time', async () => {
+  it('omits blank rows while preserving recursion and distinct sources', async () => {
     setLocale('en')
     const view = mount(ProfileFlameChart, {
       props: {
@@ -187,15 +216,13 @@ describe('readable profile calls', () => {
       },
     })
     await view.get('[data-view="tree"]').trigger('click')
-    expect(view.findAll('[data-call-row]')).toHaveLength(1)
-    const row = view.get('[data-call-row]')
-    expect(row.get('[data-interval-count]').text()).toBe('2')
-    expect(row.get('[data-average-duration]').text()).toBe('15.00 ms')
-    expect(row.get('[data-total-duration]').text()).toBe('30.00 ms')
+    expect(view.findAll('[data-call-row]')).toHaveLength(3)
+    const row = view.get('[data-select-call="4"]').element.closest('[data-call-row]')!
+    expect(row.textContent).toContain('20.00 ms')
     expect(view.findAll('[data-frame]').map((button) => button.text())).toEqual(['render'])
-    await row.get('[data-select-call]').trigger('click')
+    await view.get('[data-select-call="4"]').trigger('click')
     expect(view.get('aside').text()).toContain('/second.ts')
-    expect(view.get('aside').text()).toContain('30.00')
+    expect(view.get('aside').text()).toContain('20.00')
     view.unmount()
   })
   it('bounds initial rows and clears stale selection when the recording changes', async () => {

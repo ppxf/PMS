@@ -3,7 +3,6 @@ import { translate } from '@/i18n'
 
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import ProfileTrendChart from './ProfileTrendChart.vue'
 import FormSelect from '@/components/ui/select/FormSelect.vue'
@@ -171,14 +170,11 @@ watch([mode, metric, scope, () => props.functions], () => {
             }}
           </button>
           <div class="min-w-0 pt-0.5">
-            <RouterLink
-              class="block truncate font-medium hover:underline"
+            <p
+              data-function-name
+              class="block truncate font-medium"
               :title="fn.name"
-              :to="{
-                name: 'project-profile-detail',
-                params: { groupSlug: group, projectSlug: project, profileId: fn.profileId },
-              }"
-              >{{ translate(fn.name || '(anonymous)') }}</RouterLink
+              >{{ translate(fn.name || '(anonymous)') }}</p
             >
             <p class="mt-1 truncate text-xs text-muted-foreground" :title="fn.resource">
               {{ translate(fn.resource ?? 'Unknown resource')

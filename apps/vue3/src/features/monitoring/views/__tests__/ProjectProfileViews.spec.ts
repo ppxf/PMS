@@ -125,7 +125,8 @@ describe('Profiles views', () => {
         failed: false,
       },
     })
-    const names = () => view.findAll('ol a').map((a) => a.text())
+    const names = () => view.findAll('[data-function-name]').map((name) => name.text())
+    expect(view.find('ol a').exists()).toBe(false)
     expect(names()).toEqual(['startProfiler', 'unknownFrame'])
     await selectValue(view, 'p95 function scope', 'all')
     expect(names()).toContain('sdkInternal')
