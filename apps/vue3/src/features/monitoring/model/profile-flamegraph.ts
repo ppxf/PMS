@@ -12,6 +12,42 @@ export interface FlameFrame {
   averageMs: number
 }
 
+export interface FlameGroup {
+  index: number
+  root: FlameFrame
+  duration: number
+  sharePercent: number
+  frames: FlameFrame[]
+}
+
+/** Group by the observed root call, with no inferred lifecycle or business labels. */
+export function profileFlameGroups(graph: {
+  frames: FlameFrame[]
+  duration: number
+}): FlameGroup[] {
+  const groups: FlameGroup[] = []
+  let group: FlameGroup | undefined
+  for (const frame of graph.frames) {
+    if (frame.depth === 0) {
+      group = {
+        index: groups.length,
+        root: frame,
+        duration: frame.totalMs,
+        sharePercent: graph.duration > 0 ? (frame.totalMs / graph.duration) * 100 : 0,
+        frames: [],
+      }
+      groups.push(group)
+    }
+    if (group)
+      group.frames.push({
+        ...frame,
+        start: frame.start - group.root.start,
+        end: frame.end - group.root.start,
+      })
+  }
+  return groups
+}
+
 interface Node {
   name: string
   segment: ProfileSegment

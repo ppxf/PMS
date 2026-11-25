@@ -1,7 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { profileFlamegraph } from '../profile-flamegraph'
+import { profileFlamegraph, profileFlameGroups } from '../profile-flamegraph'
 
 describe('aggregated profile flamegraph', () => {
+  it('uses observed root names and rebases each group without changing its duration', () => {
+    const graph = profileFlamegraph(
+      [
+        { frameId: 0, name: 'checkout', start: 0, end: 16.3, depth: 0 },
+        { frameId: 1, name: 'render', start: 0, end: 16.3, depth: 1 },
+        { frameId: 2, name: 'paint', start: 1000, end: 1000.5, depth: 0 },
+        { frameId: 3, name: 'commit', start: 1000, end: 1000.5, depth: 1 },
+      ],
+      1100,
+    )
+    const before = graph.frames.map((frame) => ({ ...frame }))
+    const groups = profileFlameGroups(graph)
+    expect(groups.map((group) => group.root.name)).toEqual(['checkout', 'paint'])
+    expect(groups[1]!.frames.map((frame) => [frame.name, frame.start, frame.end])).toEqual([
+      ['paint', 0, 0.5],
+      ['commit', 0, 0.5],
+    ])
+    expect(groups[1]!.sharePercent).toBeCloseTo(2.97619)
+    expect(graph.frames).toEqual(before)
+    expect(profileFlameGroups({ frames: [], duration: 0 })).toEqual([])
+  })
   it('folds distant identical stacks into full-width bars without idle time', () => {
     const result = profileFlamegraph(
       [

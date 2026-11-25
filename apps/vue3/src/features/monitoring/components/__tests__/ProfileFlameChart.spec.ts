@@ -4,6 +4,76 @@ import { setLocale } from '@/i18n'
 import ProfileFlameChart from '../ProfileFlameChart.vue'
 
 describe('readable profile calls', () => {
+  it('groups arbitrary root functions by name with their own scale and a global share', async () => {
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 2100,
+        segments: [
+          { frameId: 0, name: 'checkout', start: 0, end: 16.3, depth: 0 },
+          { frameId: 1, name: 'render', start: 0, end: 16.3, depth: 1 },
+          { frameId: 2, name: 'paint', start: 1000, end: 1000.5, depth: 0 },
+          { frameId: 3, name: 'commit', start: 1000, end: 1000.5, depth: 1 },
+          { frameId: 4, name: 'network', start: 2000, end: 2002, depth: 0 },
+        ],
+      },
+    })
+    const groups = view.findAll('[data-flame-group]')
+    expect(groups.map((group) => group.get('[data-flame-group-name]').text())).toEqual([
+      'checkout',
+      'network',
+      'paint',
+    ])
+    expect(groups.map((group) => group.get('[data-time-range]').text())).toEqual([
+      expect.stringContaining('16.30 ms'),
+      expect.stringContaining('2.00 ms'),
+      expect.stringContaining('0.50 ms'),
+    ])
+    expect(groups[2]!.get('[data-flame-group-share]').text()).toContain('2.7%')
+    expect(
+      groups[2]!
+        .findAll('[data-flame-label]')
+        .map((label) => label.text())
+        .join(' '),
+    ).toContain('commit')
+    await groups[2]!.findAll('[data-flame-frame]')[1]!.trigger('click')
+    expect(view.get('aside').text()).toContain('commit')
+    expect(view.get('aside').text()).toContain('0.50')
+    view.unmount()
+  })
+  it('pairs complete tree names with proportional time bars and preserves the flamegraph tab', async () => {
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 20,
+        segments: [
+          { frameId: 0, name: 'runWithContext', start: 0, end: 16.3, depth: 0 },
+          { frameId: 1, name: 'startProfiler', start: 0, end: 16.3, depth: 1 },
+          { frameId: 2, name: 'safe', start: 16.3, end: 16.8, depth: 0 },
+          { frameId: 3, name: 'stop', start: 16.3, end: 16.8, depth: 1 },
+        ],
+      },
+    })
+    await view.get('[data-view="tree"]').trigger('click')
+    expect(view.get('[data-tree-axis]').text()).toContain('16.80 ms')
+    const rows = view.findAll('[data-call-row]')
+    expect(rows.map((row) => row.get('[data-select-call]').text())).toEqual([
+      'runWithContext',
+      'startProfiler',
+      'safe',
+      'stop',
+    ])
+    const bars = view.findAll('[data-tree-duration-bar]')
+    expect(parseFloat((bars[0]!.element as HTMLElement).style.width)).toBeCloseTo(97.0238, 3)
+    expect(parseFloat((bars[2]!.element as HTMLElement).style.width)).toBeCloseTo(2.9762, 3)
+    expect(parseFloat((bars[2]!.element as HTMLElement).style.left)).toBeCloseTo(97.0238, 3)
+    await view.get('[data-collapse-roots]').trigger('click')
+    expect(view.findAll('[data-call-row]')).toHaveLength(2)
+    await view.get('[data-expand-all]').trigger('click')
+    expect(view.findAll('[data-call-row]')).toHaveLength(4)
+    await view.get('[data-view="timeline"]').trigger('click')
+    expect(view.find('[data-flame-chart]').exists()).toBe(true)
+    expect(view.findAll('[data-flame-label]')).toHaveLength(4)
+    view.unmount()
+  })
   it('connects named descendants across blank frames and supports branch collapse and search', async () => {
     const view = mount(ProfileFlameChart, {
       props: {

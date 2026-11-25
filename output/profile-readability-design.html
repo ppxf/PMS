@@ -1,0 +1,122 @@
+<div id="profile-readability">
+  <style>
+    #profile-readability { --p-bg:light-dark(#fff,#17191f); --p-text:light-dark(#202430,#e8eaf2); --p-muted:light-dark(#707687,#a5adbf); --p-line:light-dark(#e9eaf0,#303442); --p-soft:light-dark(#f7f8fb,#20232d); --p-start:light-dark(#7362ce,#ad9dfa); --p-stop:light-dark(#198a82,#66c7bb); --p-active:light-dark(#f0edff,#302a48); font:14px/1.5 system-ui,sans-serif; color:var(--p-text); }
+    #profile-readability * { box-sizing:border-box; }
+    #profile-readability .stage { min-height:650px; padding:18px; }
+    #profile-readability .product { background:var(--p-bg); border:1px solid var(--p-line); border-radius:12px; overflow:hidden; }
+    #profile-readability .toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:18px 20px 12px; }
+    #profile-readability .heading { margin:0; font-size:16px; font-weight:650; }
+    #profile-readability .meta { color:var(--p-muted); font-size:12px; }
+    #profile-readability .toolbar .meta { margin-left:auto; padding-right:80px; }
+    #profile-readability .actions { display:flex; gap:8px; padding:0 20px 14px; }
+    #profile-readability .action { background:var(--p-bg); color:var(--p-text); border:1px solid var(--p-line); border-radius:6px; padding:6px 10px; font:inherit; font-size:12px; }
+    #profile-readability .table-head, #profile-readability .tree-row { display:grid; grid-template-columns:minmax(240px,0.95fr) minmax(100px,1.25fr) 90px; gap:16px; align-items:center; padding:0 20px; }
+    #profile-readability .table-head { background:var(--p-soft); min-height:42px; color:var(--p-muted); font-size:12px; border-block:1px solid var(--p-line); }
+    #profile-readability .axis { display:flex; justify-content:space-between; font-variant-numeric:tabular-nums; }
+    #profile-readability .tree-row { min-height:var(--p-row,34px); border-bottom:1px solid var(--p-line); }
+    #profile-readability .tree-row:last-child { border:0; }
+    #profile-readability .tree-row[data-selected="true"] { background:var(--p-active); }
+    #profile-readability .tree-row.root-row { margin-top:9px; }
+    #profile-readability .fn { display:flex; align-items:center; gap:5px; min-width:0; padding-left:calc(var(--depth)*15px); position:relative; }
+    #profile-readability .toggle { width:20px; height:26px; flex:none; border:0; padding:0; background:transparent; color:var(--p-muted); }
+    #profile-readability .toggle.empty { visibility:hidden; }
+    #profile-readability .function { font:12px/1.6 ui-monospace,Consolas,monospace; background:transparent; border:0; color:var(--p-text); padding:6px 0; text-align:left; overflow-wrap:anywhere; }
+    #profile-readability .track { height:17px; position:relative; background:var(--p-soft); border-radius:3px; overflow:hidden; }
+    #profile-readability .bar { position:absolute; height:100%; border-radius:2px; background:color-mix(in srgb,var(--p-start) 42%,transparent); }
+    #profile-readability .bar.stop { background:color-mix(in srgb,var(--p-stop) 55%,transparent); }
+    #profile-readability .time { text-align:right; white-space:nowrap; font:12px ui-monospace,Consolas,monospace; font-variant-numeric:tabular-nums; }
+    #profile-readability .selection { padding:14px 20px; border-top:1px solid var(--p-line); color:var(--p-muted); font-size:12px; }
+    #profile-readability .selection strong { color:var(--p-text); font-weight:550; }
+    #profile-readability .groups { padding:0 20px 20px; }
+    #profile-readability .branch-head { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:16px 0 10px; }
+    #profile-readability .branch-head strong { font-size:13px; }
+    #profile-readability .dot { width:8px; height:8px; border-radius:50%; background:var(--p-start); }
+    #profile-readability .dot.stop { background:var(--p-stop); }
+    #profile-readability .branch-head .meta { margin-left:auto; }
+    #profile-readability .icicle { display:flex; align-items:center; justify-content:space-between; gap:10px; width:calc(100% - var(--depth)*14px); margin:3px 0 0 calc(var(--depth)*14px); padding:6px 10px; color:var(--p-text); background:color-mix(in srgb,var(--p-start) 18%,var(--p-bg)); border:0; border-radius:3px; font:12px/1.6 ui-monospace,Consolas,monospace; text-align:left; }
+    #profile-readability .icicle.stop { background:color-mix(in srgb,var(--p-stop) 18%,var(--p-bg)); }
+    #profile-readability .icicle span:first-child { overflow-wrap:anywhere; }
+    @media(max-width:580px) {
+      #profile-readability .stage { padding:8px; min-height:950px; }
+      #profile-readability .toolbar .meta { margin-left:0; padding-right:0; }
+      #profile-readability .toolbar { align-items:flex-start; flex-direction:column; }
+      #profile-readability .table-head, #profile-readability .tree-row { grid-template-columns:minmax(0,1fr) 72px; gap:5px 8px; padding:7px 12px; }
+      #profile-readability .axis { display:none; }
+      #profile-readability .track { grid-column:1/-1; grid-row:2; height:8px; margin:0 0 5px 23px; }
+      #profile-readability .time { grid-column:2; grid-row:1; }
+      #profile-readability .fn { padding-left:calc(var(--depth)*10px); }
+      #profile-readability .branch-head .meta { margin-left:0; }
+      #profile-readability .groups { padding-inline:12px; }
+    }
+  </style>
+  <div class="viz-carousel viz-dotted-background" aria-label="性能剖析布局方案" data-previous-label="上一方案" data-next-label="下一方案">
+    <section data-variant="调用树＋耗时条（推荐）" class="stage">
+      <div class="product" aria-label="调用树与耗时条">
+        <div class="toolbar"><h3 class="heading">调用关系</h3><span class="meta">示意数据 · 累计采样 16.80 ms</span></div>
+        <div class="actions"><button type="button" class="action cursor-interaction" data-expand>展开全部</button><button type="button" class="action cursor-interaction" data-collapse>收起分支</button></div>
+        <div class="table-head"><span>函数 / 调用层级</span><div class="axis"><span>0</span><span>8.40</span><span>16.80 ms</span></div><span class="time">总采样时长</span></div>
+        <div id="profile-tree-rows" role="group" aria-label="可展开的函数调用层级"></div>
+        <div class="selection" data-selection aria-live="polite"><strong>startProfiler</strong> · 启动采集分支 · 16.30 ms</div>
+      </div>
+    </section>
+    <section data-variant="按分支分组的火焰图" class="stage" hidden>
+      <div class="product" aria-label="分组火焰图">
+        <div class="toolbar"><h3 class="heading">分支火焰图</h3><span class="meta">示意数据 · 分支内独立缩放</span></div>
+        <div class="groups" id="profile-branch-groups"></div>
+        <div class="selection" data-selection aria-live="polite"><strong>startProfiler</strong> · 启动采集分支 · 16.30 ms</div>
+      </div>
+    </section>
+  </div>
+  <script>
+    (() => {
+      const root=document.getElementById('profile-readability');
+      const state={rowHeight:34,mergeWrappers:true};
+      const closed=new Set();
+      let selected='startProfiler';
+      const original=[
+        {id:'run1',parent:null,name:'runWithContext',branch:'start',depth:0},
+        {id:'run2',parent:'run1',name:'runWithContext',branch:'start',depth:1},
+        {id:'run3',parent:'run2',name:'runWithContext',branch:'start',depth:2},
+        {id:'navigation',parent:'run3',name:'startNavigation',branch:'start',depth:3},
+        {id:'inactive',parent:'navigation',name:'startInactiveSpan',branch:'start',depth:4},
+        {id:'started',parent:'inactive',name:'rootStarted',branch:'start',depth:5},
+        {id:'for-root',parent:'started',name:'startForRoot',branch:'start',depth:6},
+        {id:'profiler',parent:'for-root',name:'startProfiler',branch:'start',depth:7},
+        {id:'safe',parent:null,name:'safe',branch:'stop',depth:0},
+        {id:'end-root',parent:'safe',name:'endRoot',branch:'stop',depth:1},
+        {id:'end',parent:'end-root',name:'end',branch:'stop',depth:2},
+        {id:'ended',parent:'end',name:'rootEnded',branch:'stop',depth:3},
+        {id:'stop',parent:'ended',name:'stop',branch:'stop',depth:4}
+      ];
+      function rows(){return original.filter(r=>!state.mergeWrappers||!['run2','run3'].includes(r.id)).map(r=>({...r,name:r.id==='run1'&&state.mergeWrappers?'runWithContext ×3':r.name,parent:r.parent==='run3'&&state.mergeWrappers?'run1':r.parent,depth:r.branch==='start'&&r.depth>=3&&state.mergeWrappers?r.depth-2:r.depth}));}
+      function select(row){selected=row.name;root.querySelectorAll('[data-selection]').forEach(el=>{el.textContent=`${row.name} · ${row.branch==='start'?'启动采集分支 · 16.30 ms':'结束采集分支 · 0.50 ms'}`;});renderRows();}
+      function renderRows(){
+        const data=rows(),hidden=new Set();
+        root.style.setProperty('--p-row',state.rowHeight+'px');
+        const host=root.querySelector('#profile-tree-rows');host.replaceChildren();
+        data.forEach(row=>{
+          if(row.parent&&(closed.has(row.parent)||hidden.has(row.parent))){hidden.add(row.id);return;}
+          const hasChildren=data.some(child=>child.parent===row.id);
+          const element=document.createElement('div');element.className='tree-row'+(!row.parent?' root-row':'');element.style.setProperty('--depth',row.depth);element.dataset.selected=String(selected===row.name);
+          const fn=document.createElement('div');fn.className='fn';
+          const toggle=document.createElement('button');toggle.type='button';toggle.className='toggle cursor-interaction'+(!hasChildren?' empty':'');toggle.textContent=closed.has(row.id)?'▸':'▾';toggle.setAttribute('aria-label','展开或收起 '+row.name);toggle.setAttribute('aria-expanded',String(!closed.has(row.id)));toggle.disabled=!hasChildren;toggle.onclick=()=>{closed.has(row.id)?closed.delete(row.id):closed.add(row.id);renderRows();};
+          const name=document.createElement('button');name.type='button';name.className='function cursor-interaction';name.textContent=row.name;name.onclick=()=>select(row);fn.append(toggle,name);
+          const track=document.createElement('div');track.className='track';track.setAttribute('aria-label',row.name+' 全局采样占比 '+(row.branch==='start'?'97.0%':'3.0%'));const bar=document.createElement('span');bar.className='bar '+(row.branch==='stop'?'stop':'');bar.style.left=row.branch==='start'?'0':'97.02381%';bar.style.width=row.branch==='start'?'97.02381%':'2.97619%';track.append(bar);
+          const time=document.createElement('span');time.className='time';time.textContent=row.branch==='start'?'16.30 ms':'0.50 ms';element.append(fn,track,time);host.append(element);
+        });
+      }
+      function renderGroups(){
+        const host=root.querySelector('#profile-branch-groups');host.replaceChildren();
+        for(const branch of ['start','stop']){
+          const heading=document.createElement('div');heading.className='branch-head';heading.innerHTML=`<span class="dot ${branch==='stop'?'stop':''}" aria-hidden="true"></span><strong>${branch==='start'?'启动采集':'结束采集'}</strong><span class="meta">${branch==='start'?'16.30 ms · 全局 97.0%':'0.50 ms · 全局 3.0%'}</span>`;host.append(heading);
+          rows().filter(row=>row.branch===branch).forEach(row=>{const button=document.createElement('button');button.type='button';button.className='icicle cursor-interaction '+(branch==='stop'?'stop':'');button.style.setProperty('--depth',row.depth);const name=document.createElement('span');name.textContent=row.name;const time=document.createElement('span');time.className='time';time.textContent=branch==='start'?'16.30 ms':'0.50 ms';button.append(name,time);button.onclick=()=>select(row);host.append(button);});
+        }
+      }
+      function render(){renderRows();renderGroups();}
+      root.querySelector('[data-expand]').onclick=()=>{closed.clear();renderRows();};
+      root.querySelector('[data-collapse]').onclick=()=>{rows().filter(row=>!row.parent).forEach(row=>closed.add(row.id));renderRows();};
+      render();
+      if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addSlider(state,'rowHeight',{label:'调用树行高',min:30,max:46,step:2,unit:'px'});tweak.addToggle(state,'mergeWrappers',{label:'合并连续同名包装层'});}
+    })();
+  </script>
+</div>

@@ -1,0 +1,94 @@
+<div id="flame-style-options">
+  <style>
+    #flame-style-options { --f-bg:light-dark(#ffffff,#171a22); --f-text:light-dark(#202435,#e9ecf5); --f-muted:light-dark(#747b8d,#a3acbe); --f-line:light-dark(#e7e9f0,#333847); --f-soft:light-dark(#f7f8fb,#202531); --f-a:light-dark(#7661cb,#ae9afa); --f-b:light-dark(#16867c,#63cbb8); font:14px/1.5 system-ui,sans-serif; color:var(--f-text); }
+    #flame-style-options * { box-sizing:border-box; }
+    #flame-style-options .stage { min-height:1000px; padding:18px; }
+    #flame-style-options .product { background:var(--f-bg); border:1px solid var(--f-line); border-radius:12px; overflow:hidden; }
+    #flame-style-options .header { padding:18px 20px 12px; display:flex; align-items:center; flex-wrap:wrap; gap:8px 16px; }
+    #flame-style-options h3 { margin:0; font-size:16px; font-weight:650; }
+    #flame-style-options .meta { color:var(--f-muted); font-size:12px; }
+    #flame-style-options .header .meta { margin-left:auto; padding-right:80px; }
+    #flame-style-options .overview { padding:0 20px 18px; }
+    #flame-style-options .overview-track { height:9px; display:flex; gap:2px; overflow:hidden; border-radius:3px; background:var(--f-soft); }
+    #flame-style-options .overview-a { width:97.02381%; background:var(--f-a); }
+    #flame-style-options .overview-b { flex:1; background:var(--f-b); }
+    #flame-style-options .legend { margin-top:8px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; font-size:12px; }
+    #flame-style-options .legend span { display:inline-flex; align-items:center; gap:6px; }
+    #flame-style-options .dot { height:7px; width:7px; border-radius:50%; background:var(--f-a); display:inline-block; }
+    #flame-style-options .dot.b { background:var(--f-b); }
+    #flame-style-options .branches { padding:0 20px 20px; display:grid; gap:22px; }
+    #flame-style-options .columns { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:22px; }
+    #flame-style-options .branch { min-width:0; }
+    #flame-style-options .branch-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px 12px; padding:12px 0 10px; border-top:1px solid var(--f-line); }
+    #flame-style-options .branch-name { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; }
+    #flame-style-options .stats { font:12px/1.6 ui-monospace,Consolas,monospace; color:var(--f-muted); }
+    #flame-style-options .scale { display:flex; justify-content:space-between; margin-bottom:6px; color:var(--f-muted); font-size:11px; font-variant-numeric:tabular-nums; }
+    #flame-style-options .stack { display:flex; flex-direction:column; gap:3px; }
+    #flame-style-options .block { min-height:var(--f-height,32px); width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 11px; background:color-mix(in srgb,var(--f-a) var(--f-opacity,24%),var(--f-bg)); color:var(--f-text); border:0; border-radius:3px; font:12px/1.6 ui-monospace,Consolas,monospace; text-align:left; }
+    #flame-style-options .branch.b .block { background:color-mix(in srgb,var(--f-b) var(--f-opacity,24%),var(--f-bg)); }
+    #flame-style-options .block span:first-child { min-width:0; overflow-wrap:anywhere; }
+    #flame-style-options .block .time { white-space:nowrap; flex-shrink:0; }
+    #flame-style-options .block[data-selected="true"] { background:var(--f-a); color:var(--f-bg); }
+    #flame-style-options .branch.b .block[data-selected="true"] { background:var(--f-b); color:var(--f-bg); }
+    #flame-style-options .selection { padding:13px 20px; border-top:1px solid var(--f-line); background:var(--f-soft); font-size:12px; }
+    #flame-style-options .selection strong { font-weight:600; }
+    #flame-style-options .units { padding:0 20px 14px; color:var(--f-muted); font-size:12px; }
+    @media(max-width:640px) {
+      #flame-style-options .stage { padding:8px; min-height:1060px; }
+      #flame-style-options .columns { grid-template-columns:minmax(0,1fr); }
+      #flame-style-options .header .meta { margin-left:0; padding-right:0; }
+      #flame-style-options .header { align-items:flex-start; flex-direction:column; }
+      #flame-style-options .branch-head { align-items:flex-start; }
+      #flame-style-options .branches { padding-inline:12px; }
+    }
+  </style>
+  <div class="viz-carousel viz-dotted-background" aria-label="独立火焰图样式" data-previous-label="上一样式" data-next-label="下一样式">
+    <section class="stage" data-variant="上下分组火焰图（推荐）">
+      <div class="product" aria-label="上下分组火焰图">
+        <div class="header"><h3>火焰图</h3><span class="meta">图中示意数据 · 总采样 16.80 ms</span></div>
+        <div class="overview"><div class="overview-track" role="img" aria-label="runWithContext 分支占97%，safe 分支占3%"><span class="overview-a"></span><span class="overview-b"></span></div><div class="legend"><span><i class="dot" aria-hidden="true"></i>runWithContext · 16.30 ms · 97.0%</span><span><i class="dot b" aria-hidden="true"></i>safe · 0.50 ms · 3.0%</span></div></div>
+        <div class="branches" id="flame-stacked"></div>
+        <div class="units">各分支独立缩放 · 跨分支比较请看标题中的耗时与全局占比</div>
+        <div class="selection" data-selection aria-live="polite">选中 <strong>startProfiler</strong> · runWithContext · 总采样 16.30 ms</div>
+      </div>
+    </section>
+    <section class="stage" data-variant="双栏分支火焰图" hidden>
+      <div class="product" aria-label="双栏分支火焰图">
+        <div class="header"><h3>火焰图</h3><span class="meta">图中示意数据 · 两条独立调用链</span></div>
+        <div class="overview"><div class="overview-track" role="img" aria-label="runWithContext 分支占97%，safe 分支占3%"><span class="overview-a"></span><span class="overview-b"></span></div><div class="legend"><span><i class="dot" aria-hidden="true"></i>runWithContext · 全局 97.0%</span><span><i class="dot b" aria-hidden="true"></i>safe · 全局 3.0%</span></div></div>
+        <div class="branches columns" id="flame-columns"></div>
+        <div class="units">各分支独立缩放 · 并排展示不表示同时执行</div>
+        <div class="selection" data-selection aria-live="polite">选中 <strong>startProfiler</strong> · runWithContext · 总采样 16.30 ms</div>
+      </div>
+    </section>
+  </div>
+  <script>
+    (()=>{
+      const root=document.getElementById('flame-style-options');
+      const settings={height:32,mergeWrappers:false};
+      let selected='startProfiler';
+      const data=[{id:'a',name:'runWithContext',total:'16.30',share:'97.0',functions:['runWithContext','runWithContext','runWithContext','startNavigation','startInactiveSpan','rootStarted','startForRoot','startProfiler']},{id:'b',name:'safe',total:'0.50',share:'3.0',functions:['safe','endRoot','end','rootEnded','stop']}];
+      function render(){
+        root.style.setProperty('--f-height',settings.height+'px');
+        for(const id of ['flame-stacked','flame-columns']){
+          const host=root.querySelector('#'+id);host.replaceChildren();
+          for(const branch of data){
+            const section=document.createElement('section');section.className='branch '+branch.id;section.setAttribute('aria-label',branch.name+'调用链');
+            const heading=document.createElement('div');heading.className='branch-head';heading.innerHTML=`<span class="branch-name"><i class="dot ${branch.id==='b'?'b':''}" aria-hidden="true"></i>${branch.name}</span><span class="stats">${branch.total} ms · 全局 ${branch.share}%</span>`;
+            const scale=document.createElement('div');scale.className='scale';scale.innerHTML=`<span>0</span><span>${(Number(branch.total)/2).toFixed(2)}</span><span>${branch.total} ms</span>`;
+            const stack=document.createElement('div');stack.className='stack';
+            const functions=settings.mergeWrappers&&branch.id==='a'?['runWithContext ×3',...branch.functions.slice(3)]:branch.functions;
+            functions.forEach((name,index)=>{
+              const block=document.createElement('button');block.type='button';block.className='block cursor-interaction';block.dataset.selected=String(selected===name);block.style.setProperty('--f-opacity',(20+(index%3)*5)+'%');block.setAttribute('aria-label',name+'，总采样 '+branch.total+' 毫秒');
+              const label=document.createElement('span');label.textContent=name;const time=document.createElement('span');time.className='time';time.textContent=branch.total+' ms';block.append(label,time);
+              block.onclick=()=>{selected=name;root.querySelectorAll('[data-selection]').forEach(detail=>{detail.textContent=`选中 ${name} · ${branch.name} · 总采样 ${branch.total} ms`;});render();};stack.append(block);
+            });
+            section.append(heading,scale,stack);host.append(section);
+          }
+        }
+      }
+      render();
+      if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addSlider(settings,'height',{label:'色块行高',min:28,max:44,step:2,unit:'px'});tweak.addToggle(settings,'mergeWrappers',{label:'合并连续同名包装层'});}
+    })();
+  </script>
+</div>

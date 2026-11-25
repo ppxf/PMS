@@ -5,7 +5,7 @@ import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import type { ProfileSegment } from '../model/profiles'
-import { profileFlamegraph, type FlameFrame } from '../model/profile-flamegraph'
+import { profileFlamegraph, profileFlameGroups, type FlameFrame } from '../model/profile-flamegraph'
 import { profileFlameLabels } from '../model/profile-flame-labels'
 const props = defineProps<{ segments: ProfileSegment[]; durationMs: number }>()
 const search = ref('')
@@ -40,18 +40,20 @@ const flame = computed(() => profileFlamegraph(visible.value, props.durationMs))
 const collapsed = ref(new Set<number>())
 const callRows = computed(() => {
   const parents: number[] = []
+  let branch = -1
   const rows = flame.value.frames.map((frame, index) => {
     while (parents.length && flame.value.frames[parents[parents.length - 1]!]!.depth >= frame.depth)
       parents.pop()
     const parent = parents[parents.length - 1]
+    if (parent == null) branch++
     parents.push(index)
-    return { ...frame, index, parent, children: false }
+    return { ...frame, index, parent, branch, children: false }
   })
   for (const row of rows) if (row.parent != null) rows[row.parent]!.children = true
   return rows
 })
 const treeWidth = computed(() =>
-  Math.max(600, ...callRows.value.map((row) => row.depth * 16 + 500)),
+  Math.max(640, ...callRows.value.map((row) => row.depth * 16 + 500)),
 )
 const tree = computed(() => {
   const query = search.value.trim().toLowerCase()
@@ -85,6 +87,13 @@ const selectedSummary = computed(() =>
   flame.value.frames.find((frame) => selected.value && frame.segments.includes(selected.value)),
 )
 const chartWidth = ref(800)
+const flamePlotWidth = computed(() => Math.max(240, chartWidth.value - 32))
+const branchColors = [
+  'var(--color-violet-400, #a78bfa)',
+  'var(--color-sky-400, #38bdf8)',
+  'var(--color-teal-400, #2dd4bf)',
+  'var(--color-amber-400, #fbbf24)',
+]
 let measuringContext: CanvasRenderingContext2D | null | undefined
 function measureLabel(text: string) {
   if (typeof CanvasRenderingContext2D !== 'undefined') {
@@ -99,8 +108,11 @@ function measureLabel(text: string) {
     0,
   )
 }
-const diagram = computed(() =>
-  profileFlameLabels(flame.value.frames, flame.value.duration, chartWidth.value, measureLabel),
+const flameGroups = computed(() =>
+  profileFlameGroups(flame.value).map((group) => ({
+    ...group,
+    diagram: profileFlameLabels(group.frames, group.duration, flamePlotWidth.value, measureLabel),
+  })),
 )
 const choices = computed(() => {
   const seen = new Set<string>()
@@ -213,34 +225,38 @@ onBeforeUnmount(() => observer?.disconnect())
         translate(
           mode === 'tree'
             ? 'Only named calls are shown in their parent-child hierarchy. Expand branches to follow the stack.'
-            : 'Calls are aggregated by stack path with idle gaps removed. Width shows accumulated sampled time. Click a function to inspect details.',
+            : 'Grouped by root function. Each group uses its own scale; compare groups using sampled time and global share.',
         )
       }}
     </p>
-    <div v-if="mode === 'timeline' && visible.length" class="space-y-3">
-      <div class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span
-          ><span class="mr-1 inline-block h-2 w-2 rounded-sm bg-indigo-200" />{{
-            translate('Sampled calls')
-          }}</span
-        >
-      </div>
-      <div data-time-range class="flex justify-between text-xs tabular-nums text-muted-foreground">
-        <span v-for="tick in 5" :key="tick"
-          >{{ ((flame.duration * (tick - 1)) / 4).toFixed(2) }} ms</span
-        >
-      </div>
+    <div v-if="mode === 'tree' && visible.length" class="flex flex-wrap gap-2">
+      <Button data-expand-all variant="outline" size="sm" @click="collapsed = new Set()">{{
+        translate('Expand all calls')
+      }}</Button>
+      <Button
+        data-collapse-roots
+        variant="outline"
+        size="sm"
+        @click="
+          collapsed = new Set(
+            callRows.filter((row) => row.parent == null && row.children).map((row) => row.index),
+          )
+        "
+        >{{ translate('Collapse root branches') }}</Button
+      >
     </div>
     <EmptyState v-if="!segments.length" class="py-8" :title="translate('No samples recorded')" />
     <div v-else class="grid overflow-hidden rounded border lg:grid-cols-[minmax(0,1fr)_240px]">
       <div v-if="mode === 'tree'" class="max-h-[480px] min-w-0 overflow-auto">
         <div :style="{ minWidth: `${treeWidth}px` }">
           <div
-            class="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_80px_110px_110px] gap-3 border-b bg-muted px-4 py-3 text-xs font-medium text-muted-foreground"
+            class="sticky top-0 z-10 grid grid-cols-[minmax(240px,1fr)_minmax(160px,1.2fr)_90px] items-center gap-4 border-b bg-muted px-4 py-3 text-xs font-medium text-muted-foreground"
           >
-            <span>{{ translate('Function') }}</span
-            ><span class="text-right">{{ translate('Sampled intervals') }}</span>
-            <span class="text-right">{{ translate('Average duration') }}</span>
+            <span>{{ translate('Function / call hierarchy') }}</span>
+            <span data-tree-axis class="flex justify-between font-mono tabular-nums"
+              ><span>0</span><span>{{ (flame.duration / 2).toFixed(2) }}</span
+              ><span>{{ flame.duration.toFixed(2) }} ms</span></span
+            >
             <span class="text-right">{{ translate('Sampled time') }}</span>
           </div>
           <div
@@ -248,7 +264,7 @@ onBeforeUnmount(() => observer?.disconnect())
             :key="row.index"
             data-call-row
             :data-depth="row.depth"
-            class="grid w-full grid-cols-[minmax(0,1fr)_80px_110px_110px] items-center gap-3 border-b px-4 py-2 text-left text-xs last:border-0 hover:bg-muted/30"
+            class="grid w-full grid-cols-[minmax(240px,1fr)_minmax(160px,1.2fr)_90px] items-center gap-4 border-b px-4 py-2 text-left text-xs last:border-0 hover:bg-muted/30"
             :class="selected && row.segments.includes(selected) ? 'bg-primary/5' : ''"
           >
             <div
@@ -267,6 +283,12 @@ onBeforeUnmount(() => observer?.disconnect())
                 {{ collapsed.has(row.index) && !search.trim() ? '▸' : '▾' }}
               </button>
               <span v-else class="w-6 shrink-0" aria-hidden="true" />
+              <span
+                v-if="row.parent == null"
+                class="size-2 shrink-0 rounded-full"
+                :class="row.branch % 2 ? 'bg-teal-500' : 'bg-violet-500'"
+                aria-hidden="true"
+              />
               <button
                 :data-select-call="row.segment.frameId"
                 type="button"
@@ -277,12 +299,22 @@ onBeforeUnmount(() => observer?.disconnect())
                 {{ row.name }}
               </button>
             </div>
-            <span data-interval-count class="text-right font-mono tabular-nums">{{
-              row.count
-            }}</span>
-            <span data-average-duration class="text-right font-mono tabular-nums"
-              >{{ row.averageMs.toFixed(2) }} ms</span
+            <button
+              type="button"
+              class="relative h-4 w-full cursor-pointer overflow-hidden rounded-sm bg-muted focus-visible:outline-2"
+              :aria-label="translate('View sampled time for {name}', { name: row.name })"
+              @click="selected = row.segment"
             >
+              <span
+                data-tree-duration-bar
+                class="absolute inset-y-0 rounded-sm"
+                :class="row.branch % 2 ? 'bg-teal-400/60' : 'bg-violet-400/60'"
+                :style="{
+                  left: `${flame.duration > 0 ? (row.start / flame.duration) * 100 : 0}%`,
+                  width: `${flame.duration > 0 ? (row.totalMs / flame.duration) * 100 : 0}%`,
+                }"
+              />
+            </button>
             <span data-total-duration class="text-right font-mono tabular-nums"
               >{{ row.totalMs.toFixed(2) }} ms</span
             >
@@ -301,85 +333,147 @@ onBeforeUnmount(() => observer?.disconnect())
           >
         </div>
       </div>
-      <div v-else-if="visible.length" ref="chart" class="max-h-[480px] min-w-0 overflow-auto">
-        <svg
-          data-flame-chart
-          :width="chartWidth"
-          :height="diagram.height"
-          :viewBox="`0 0 ${chartWidth} ${diagram.height}`"
-          :aria-label="translate('Profile flame chart')"
-          class="block"
-        >
-          <g
-            v-for="item in diagram.items"
-            :key="item.index"
-            data-flame-frame
-            role="button"
-            tabindex="0"
-            :aria-label="item.frame.name"
-            :aria-pressed="!!selected && item.frame.segments.includes(selected)"
-            class="cursor-pointer focus-visible:outline-2"
-            @click="selected = item.frame.segment"
-            @keydown.enter.prevent="selected = item.frame.segment"
-            @keydown.space.prevent="selected = item.frame.segment"
-            @mouseenter="inspect(item.frame)"
-            @mouseleave="hover = ''"
-          >
-            <title>{{ item.frame.name }} · {{ item.frame.totalMs.toFixed(2) }} ms</title>
-            <rect
-              :x="item.x"
-              :y="item.y"
-              :width="Math.max(0.5, item.width - 1)"
-              :height="29"
-              :fill="
-                search.trim() &&
-                !item.frame.name.toLowerCase().includes(search.trim().toLowerCase())
-                  ? '#e4e4e7'
-                  : ['#bfdbfe', '#c7d2fe', '#ddd6fe', '#a5f3fc'][item.frame.depth % 4]
-              "
-              :stroke="
-                selected && item.frame.segments.includes(selected) ? '#7c3aed' : 'transparent'
-              "
-              stroke-width="2"
+      <div v-else-if="visible.length" ref="chart" class="max-h-[640px] min-w-0 overflow-auto">
+        <div data-flame-overview class="space-y-3 border-b p-4">
+          <div class="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>{{ translate('Named sampled time') }}</span
+            ><span class="font-mono tabular-nums">{{ flame.duration.toFixed(2) }} ms</span>
+          </div>
+          <div class="flex h-2 overflow-hidden rounded-sm bg-muted" aria-hidden="true">
+            <span
+              v-for="group in flameGroups"
+              :key="group.index"
+              :style="{
+                width: `${group.sharePercent}%`,
+                background: branchColors[group.index % branchColors.length],
+              }"
             />
-            <template v-if="item.label.outside">
-              <line
-                :x1="item.x + item.width / 2"
-                :y1="item.y + 29"
-                :x2="
-                  Math.max(
-                    item.label.x + 6,
-                    Math.min(item.label.x + item.label.width - 6, item.x + item.width / 2),
-                  )
-                "
-                :y2="item.label.y"
-                stroke="#64748b"
-              />
-              <rect
-                :x="item.label.x"
-                :y="item.label.y"
-                :width="item.label.width"
-                :height="item.label.height"
-                rx="3"
-                fill="var(--background)"
-                stroke="var(--border)"
-              />
-            </template>
-            <text
-              data-flame-label
-              class="pointer-events-none fill-foreground font-mono text-[12px]"
+          </div>
+          <div class="flex flex-wrap gap-x-5 gap-y-2 text-xs">
+            <span
+              v-for="group in flameGroups"
+              :key="group.index"
+              class="inline-flex min-w-0 items-start gap-2"
             >
-              <tspan
-                v-for="(line, index) in item.label.lines"
-                :key="index"
-                :x="item.label.x + 6"
-                :y="item.label.y + (item.label.outside ? 18 : 19) + index * 16"
+              <span
+                class="mt-1 size-2 shrink-0 rounded-full"
+                :style="{ background: branchColors[group.index % branchColors.length] }"
+                aria-hidden="true"
+              />
+              <span class="break-all font-mono">{{ group.root.name }}</span
+              ><span class="shrink-0 tabular-nums text-muted-foreground"
+                >{{ group.sharePercent.toFixed(1) }}%</span
               >
-                {{ line }}
-              </tspan>
-            </text>
-          </g>
-        </svg>
+            </span>
+          </div>
+        </div>
+        <section
+          v-for="group in flameGroups"
+          :key="group.index"
+          data-flame-group
+          class="space-y-3 border-b p-4 last:border-b-0"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <h3 data-flame-group-name class="min-w-0 break-all font-mono text-sm font-semibold">
+              {{ group.root.name }}
+            </h3>
+            <div class="flex shrink-0 items-center gap-3 text-xs tabular-nums">
+              <span class="font-mono">{{ group.duration.toFixed(2) }} ms</span>
+              <span data-flame-group-share class="text-muted-foreground"
+                >{{ translate('Global share') }} {{ group.sharePercent.toFixed(1) }}%</span
+              >
+            </div>
+          </div>
+          <p v-if="group.root.segment.resource" class="break-all text-xs text-muted-foreground">
+            {{ group.root.segment.resource }}
+          </p>
+          <div
+            data-time-range
+            class="flex justify-between text-xs font-mono tabular-nums text-muted-foreground"
+            :style="{ width: `${flamePlotWidth}px` }"
+          >
+            <span>0.00 ms</span><span>{{ (group.duration / 2).toFixed(2) }} ms</span
+            ><span>{{ group.duration.toFixed(2) }} ms</span>
+          </div>
+          <svg
+            data-flame-chart
+            :width="flamePlotWidth"
+            :height="group.diagram.height"
+            :viewBox="`0 0 ${flamePlotWidth} ${group.diagram.height}`"
+            :aria-label="translate('Profile flame chart')"
+            class="block"
+          >
+            <g
+              v-for="item in group.diagram.items"
+              :key="item.index"
+              data-flame-frame
+              role="button"
+              tabindex="0"
+              :aria-label="item.frame.name"
+              :aria-pressed="!!selected && item.frame.segments.includes(selected)"
+              class="cursor-pointer focus-visible:outline-2"
+              @click="selected = item.frame.segment"
+              @keydown.enter.prevent="selected = item.frame.segment"
+              @keydown.space.prevent="selected = item.frame.segment"
+              @mouseenter="inspect(item.frame)"
+              @mouseleave="hover = ''"
+            >
+              <title>{{ item.frame.name }} · {{ item.frame.totalMs.toFixed(2) }} ms</title>
+              <rect
+                :x="item.x"
+                :y="item.y"
+                :width="Math.max(0.5, item.width - 1)"
+                :height="29"
+                :fill="
+                  search.trim() &&
+                  !item.frame.name.toLowerCase().includes(search.trim().toLowerCase())
+                    ? '#e4e4e7'
+                    : `color-mix(in srgb, ${branchColors[group.index % branchColors.length]} ${24 + (item.frame.depth % 3) * 5}%, var(--background))`
+                "
+                :stroke="
+                  selected && item.frame.segments.includes(selected) ? '#7c3aed' : 'transparent'
+                "
+                stroke-width="2"
+              />
+              <template v-if="item.label.outside">
+                <line
+                  :x1="item.x + item.width / 2"
+                  :y1="item.y + 29"
+                  :x2="
+                    Math.max(
+                      item.label.x + 6,
+                      Math.min(item.label.x + item.label.width - 6, item.x + item.width / 2),
+                    )
+                  "
+                  :y2="item.label.y"
+                  stroke="#64748b"
+                />
+                <rect
+                  :x="item.label.x"
+                  :y="item.label.y"
+                  :width="item.label.width"
+                  :height="item.label.height"
+                  rx="3"
+                  fill="var(--background)"
+                  stroke="var(--border)"
+                />
+              </template>
+              <text
+                data-flame-label
+                class="pointer-events-none fill-foreground font-mono text-[12px]"
+              >
+                <tspan
+                  v-for="(line, index) in item.label.lines"
+                  :key="index"
+                  :x="item.label.x + 6"
+                  :y="item.label.y + (item.label.outside ? 18 : 19) + index * 16"
+                >
+                  {{ line }}
+                </tspan>
+              </text>
+            </g>
+          </svg>
+        </section>
       </div>
       <p v-else class="p-8 text-center text-sm text-muted-foreground">
         {{ translate('No sampled function calls') }}

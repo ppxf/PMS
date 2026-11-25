@@ -1,4 +1,12 @@
 export const profilesZhCN: Record<string, string> = {
+  'Grouped by root function. Each group uses its own scale; compare groups using sampled time and global share.':
+    '按根函数分组展示，各组使用独立刻度；跨组请比较采样时长和全局占比。',
+  'Global share': '全局占比',
+  'Named sampled time': '有函数名的采样总时长',
+  'Expand all calls': '展开全部',
+  'Collapse root branches': '收起分支',
+  'Function / call hierarchy': '函数 / 调用层级',
+  'View sampled time for {name}': '查看 {name} 的采样耗时',
   'Only named calls are shown in their parent-child hierarchy. Expand branches to follow the stack.':
     '按父子层级展示有名称的调用，自动跳过空白栈帧。可展开或收起分支查看调用关系。',
   'Calls are aggregated by stack path with idle gaps removed. Width shows accumulated sampled time. Click a function to inspect details.':
