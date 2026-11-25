@@ -74,7 +74,7 @@ export function createBrowserPerformance(client: Client, w: Window, excluded: (u
           if (consumed.has(signature) || !finite(from) || !finite(to) || from < start || to > end || to < from || (!event && to === from) || ((event || stage === 'tls' || stage === 'request' || stage === 'response') && from === 0)) continue
           consumed.set(signature, from)
           if (!claim(root)) continue
-          const span = client.startInactiveSpan({ name: stage.replaceAll('_', ' '), op: `browser.${stage}`, parent: root, startTime: from })
+          const span = client.startInactiveSpan({ name: stage.replaceAll('_', ' '), op: `browser.${stage}`, parent: root, startTime: from, pageRoute: root.span.pageRoute })
           span.end('ok', 'completed', to)
         }
       }
@@ -98,7 +98,7 @@ export function createBrowserPerformance(client: Client, w: Window, excluded: (u
             : /\.css$/.test(pathname) || initiator === 'css' ? 'css' : 'other'
       const visible = url.sameOrigin || entry.requestStart > 0
       const span = client.startInactiveSpan({
-        name: url.name, op: `resource.${type}`, parent: root, startTime: from,
+        name: url.name, op: `resource.${type}`, parent: root, startTime: from, pageRoute: root.span.pageRoute,
         attributes: { 'resource.url': url.name.slice(0, 256), 'resource.origin': url.origin, 'resource.path': url.path, 'resource.initiator_type': initiator.slice(0, 64), 'resource.timing_available': visible },
       })
       if (visible) {

@@ -510,50 +510,112 @@ export class TracesService {
     projectSlug: string,
     traceId: string,
     cursor?: string,
+    anchorSpanId?: string,
   ) {
     if (!validId(traceId, 32)) throw new BadRequestException('Invalid traceId');
+    if (anchorSpanId !== undefined && !validId(anchorSpanId, 16))
+      throw new BadRequestException('Invalid spanId');
     const project = await this.projects.findReadableBySlug(
       userId,
       groupSlug,
       projectSlug,
       'project:traces:read',
     );
-    const parameters: unknown[] = [project.id, traceId];
-    let continuation = '';
+    let continuation:
+      | { time: string; spanId: string; traceId: string; scopeSpanId?: string }
+      | undefined;
     if (cursor !== undefined) {
       try {
-        if (cursor.length > 256 || !/^[A-Za-z0-9_-]+$/.test(cursor))
+        if (cursor.length > 384 || !/^[A-Za-z0-9_-]+$/.test(cursor))
           throw new Error();
         const decoded = JSON.parse(
           Buffer.from(cursor, 'base64url').toString('utf8'),
-        ) as { time: string; spanId: string; traceId: string };
+        ) as NonNullable<typeof continuation>;
         if (
           typeof decoded.time !== 'string' ||
           !Number.isFinite(Date.parse(decoded.time)) ||
           !validId(decoded.spanId, 16) ||
-          decoded.traceId !== traceId
+          decoded.traceId !== traceId ||
+          (decoded.scopeSpanId !== undefined &&
+            !validId(decoded.scopeSpanId, 16))
         )
           throw new Error();
-        // Include the retained row's raw PostgreSQL timestamp, preserving microseconds.
-        parameters.push(decoded.time, decoded.spanId);
-        continuation = 'AND (start_time, span_id) > ($3::timestamptz, $4)';
+        continuation = decoded;
       } catch {
         throw new BadRequestException('Invalid trace cursor');
       }
     }
-    const rows = await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
-      return manager.query<Record<string, unknown>[]>(
-        `SELECT *, start_time::text AS cursor_time FROM monitoring_spans WHERE project_id = $1 AND trace_id = $2 ${continuation} ORDER BY start_time, span_id LIMIT 1001`,
+      const base = [project.id, traceId];
+      const navigations = await manager.query<Record<string, unknown>[]>(
+        `SELECT * FROM monitoring_spans WHERE project_id = $1 AND trace_id = $2
+         AND is_transaction AND op IN ('pageload', 'navigation') ORDER BY start_time, span_id`,
+        base,
+      );
+      let scopeSpanId: string | undefined;
+      if (anchorSpanId) {
+        const ancestors = await manager.query<{ span_id: string }[]>(
+          `WITH RECURSIVE ancestors AS (
+             SELECT span_id, parent_span_id, op, is_transaction, ARRAY[span_id::text] AS path FROM monitoring_spans
+             WHERE project_id = $1 AND trace_id = $2 AND span_id = $3
+             UNION ALL
+             SELECT p.span_id, p.parent_span_id, p.op, p.is_transaction, a.path || p.span_id::text
+             FROM monitoring_spans p JOIN ancestors a ON p.span_id = a.parent_span_id
+             WHERE p.project_id = $1 AND p.trace_id = $2 AND NOT p.span_id = ANY(a.path) AND cardinality(a.path) < 256
+           ) SELECT span_id FROM ancestors WHERE is_transaction AND op IN ('pageload', 'navigation')
+             ORDER BY cardinality(path) LIMIT 1`,
+          [...base, anchorSpanId],
+        );
+        scopeSpanId =
+          ancestors[0]?.span_id ??
+          (navigations.length ? anchorSpanId : undefined);
+      } else scopeSpanId = navigations[0]?.span_id as string | undefined;
+      if (
+        (continuation?.scopeSpanId ?? undefined) !== scopeSpanId &&
+        continuation
+      )
+        throw new BadRequestException(
+          'Trace cursor belongs to another page navigation',
+        );
+      const parameters: unknown[] = [...base];
+      let scope = '';
+      if (scopeSpanId) {
+        parameters.push(scopeSpanId);
+        scope = `WITH RECURSIVE page_spans AS (
+          SELECT span_id, ARRAY[span_id::text] AS path FROM monitoring_spans WHERE project_id = $1 AND trace_id = $2 AND span_id = $3
+          UNION ALL
+          SELECT child.span_id, parent.path || child.span_id::text FROM monitoring_spans child
+          JOIN page_spans parent ON child.parent_span_id = parent.span_id
+          WHERE child.project_id = $1 AND child.trace_id = $2
+            AND NOT (child.is_transaction AND child.op IN ('pageload', 'navigation'))
+            AND NOT child.span_id = ANY(parent.path) AND cardinality(parent.path) < 256
+        )`;
+      }
+      let after = '';
+      if (continuation) {
+        const time = parameters.push(continuation.time);
+        const span = parameters.push(continuation.spanId);
+        after = `AND (start_time, span_id) > ($${time}::timestamptz, $${span})`;
+      }
+      const rows = await manager.query<Record<string, unknown>[]>(
+        `${scope} SELECT *, start_time::text AS cursor_time FROM monitoring_spans
+         WHERE project_id = $1 AND trace_id = $2 ${scopeSpanId ? 'AND span_id IN (SELECT span_id FROM page_spans)' : ''}
+         ${after} ORDER BY start_time, span_id LIMIT 1001`,
         parameters,
       );
+      return { rows, navigations, scopeSpanId };
     });
-    const hasMore = rows.length > 1000;
-    const visible = rows.slice(0, 1000);
-    const last = visible.at(-1);
+    const hasMore = result.rows.length > 1000;
+    const items = result.rows.slice(0, 1000);
+    const last = items.at(-1);
     return {
-      items: visible.map((row) => this.toSpan(row)),
+      items: items.map((row) => this.toSpan(row)),
       hasMore,
+      navigations: result.navigations.map((row) => this.toSpan(row)),
+      ...(result.navigations.some((row) => row.span_id === result.scopeSpanId)
+        ? { navigationSpanId: result.scopeSpanId }
+        : {}),
       ...(hasMore && last
         ? {
             nextCursor: Buffer.from(
@@ -561,6 +623,9 @@ export class TracesService {
                 time: last.cursor_time,
                 spanId: last.span_id,
                 traceId,
+                ...(result.scopeSpanId
+                  ? { scopeSpanId: result.scopeSpanId }
+                  : {}),
               }),
             ).toString('base64url'),
           }

@@ -7,6 +7,7 @@ import type {
   TraceSeries,
   TraceAggregates,
   TraceField,
+  TraceDetailResult,
 } from '../model/traces'
 const base = (group: string, project: string) =>
   `/groups/${encodeURIComponent(group)}/projects/${encodeURIComponent(project)}`
@@ -20,8 +21,7 @@ export const traceAggregates = (g: string, p: string, q: TraceQuery) =>
   http.post<TraceAggregates, TraceQuery>(`${base(g, p)}/spans/aggregates`, q)
 export const traceFields = (g: string, p: string) =>
   http.get<TraceField[]>(`${base(g, p)}/spans/fields`)
-export const traceDetail = (g: string, p: string, id: string, cursor?: string) =>
-  http.get<{ items: Span[]; hasMore: boolean; nextCursor?: string }>(
-    `${base(g, p)}/traces/${encodeURIComponent(id)}`,
-    { params: cursor ? { cursor } : {} },
-  )
+export const traceDetail = (g: string, p: string, id: string, cursor?: string, spanId?: string) =>
+  http.get<TraceDetailResult>(`${base(g, p)}/traces/${encodeURIComponent(id)}`, {
+    params: { ...(cursor ? { cursor } : {}), ...(spanId ? { spanId } : {}) },
+  })

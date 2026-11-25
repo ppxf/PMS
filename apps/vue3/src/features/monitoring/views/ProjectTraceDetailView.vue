@@ -25,7 +25,13 @@ const route = useRoute(),
   cursor = ref<string>(),
   loading = ref(false),
   error = ref('')
-const rows = computed(() => waterfallRows(spans.value))
+const navigationSpanId = ref('')
+const navigations = ref<Span[]>([])
+const requestAnchor = ref('')
+const activeNavigation = computed(() =>
+  navigations.value.find((span) => span.spanId === navigationSpanId.value),
+)
+const rows = computed(() => waterfallRows(spans.value, navigationSpanId.value))
 const search = ref('')
 const category = ref('all')
 const collapsed = ref(new Set<string>())
@@ -78,9 +84,24 @@ function vitalsLoaded(samples: VitalSample[]) {
   for (const sample of samples) merged.set(sample.pageViewId, sample)
   vitalSamples.value = [...merged.values()]
 }
-const markers = computed(() =>
-  projectAccess.canRoute('project-web-vitals') ? traceVitalMarkers(vitalSamples.value) : [],
-)
+const markers = computed(() => {
+  if (!projectAccess.canRoute('project-web-vitals')) return []
+  const page = activeNavigation.value
+  if (!page) return traceVitalMarkers(vitalSamples.value)
+  if (page.op !== 'pageload') return []
+  const index = navigations.value.indexOf(page)
+  const nextStart = navigations.value[index + 1]?.startTime
+  return traceVitalMarkers(
+    vitalSamples.value.filter((sample) =>
+      sample.spanId
+        ? sample.spanId === page.spanId
+        : sample.route === (page.pageRoute ?? page.name),
+    ),
+  ).filter(
+    (marker) =>
+      marker.at >= Date.parse(page.startTime) && (!nextStart || marker.at < Date.parse(nextStart)),
+  )
+})
 const tab = ref<'waterfall' | 'metrics'>(route.query?.tab === 'metrics' ? 'metrics' : 'waterfall')
 let preferMetrics = route.query?.tab === 'metrics'
 function selectTab(value: string) {
@@ -124,7 +145,15 @@ function selectMetricSpan(spanId: string) {
   targetSpanId.value = spanId
   tab.value = 'waterfall'
   void selectTarget()
-  if (targetMissing.value && hasMore.value && !loading.value) void load(true)
+  if (targetMissing.value && navigations.value.length) void load()
+  else if (targetMissing.value && hasMore.value && !loading.value) void load(true)
+}
+function changeNavigation(event: Event) {
+  targetSpanId.value = (event.target as HTMLSelectElement).value
+  tab.value = 'waterfall'
+  search.value = ''
+  category.value = 'all'
+  void load()
 }
 const highlights = computed<TraceFilter[]>(() => {
   try {
@@ -192,16 +221,30 @@ function propertyValue(value: unknown, key: string) {
 let generation = 0
 async function load(append = false) {
   const current = ++generation
+  const anchor = (append ? requestAnchor.value : targetSpanId.value) || undefined
+  if (!append) {
+    spans.value = []
+    selected.value = null
+    hasMore.value = false
+    cursor.value = undefined
+    collapsed.value = new Set()
+    vitalSamples.value = []
+    requestAnchor.value = anchor ?? ''
+  }
   loading.value = true
   error.value = ''
   try {
-    const result = await traceDetail(
+    const args = [
       String(route.params.groupSlug),
       String(route.params.projectSlug),
       String(route.params.traceId),
       append ? cursor.value : undefined,
-    )
+    ] as const
+    const result = anchor ? await traceDetail(...args, anchor) : await traceDetail(...args)
     if (current !== generation) return
+    navigations.value = result.navigations ?? []
+    navigationSpanId.value = result.navigationSpanId ?? ''
+    if (result.navigationSpanId) requestAnchor.value = result.navigationSpanId
     spans.value = append
       ? [
           ...spans.value,
@@ -231,6 +274,9 @@ watch(
   [() => route.params.groupSlug, () => route.params.projectSlug, () => route.params.traceId],
   () => {
     spans.value = []
+    navigationSpanId.value = ''
+    navigations.value = []
+    requestAnchor.value = ''
     vitalSamples.value = []
     search.value = ''
     category.value = 'all'
@@ -272,6 +318,32 @@ onBeforeUnmount(() => {
           {{ translate(spans.length ? formatDuration(spanExtent) : '—') }}</span
         >
       </div>
+    </div>
+    <div
+      v-if="navigations.length"
+      class="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-3"
+    >
+      <label for="trace-page-navigation" class="text-sm font-medium">{{
+        translate('Page navigation')
+      }}</label>
+      <select
+        id="trace-page-navigation"
+        :value="navigationSpanId"
+        :aria-label="translate('Page navigation')"
+        class="min-w-52 max-w-full rounded-md border bg-background px-3 py-2 text-sm"
+        @change="changeNavigation"
+      >
+        <option v-if="!navigationSpanId" value="" disabled>
+          {{ translate('Select a page navigation') }}
+        </option>
+        <option v-for="page in navigations" :key="page.spanId" :value="page.spanId">
+          {{ page.pageRoute ?? page.name }} ·
+          {{ formatDateTime(page.startTime, { milliseconds: true }) }}
+        </option>
+      </select>
+      <span class="text-xs text-muted-foreground">{{
+        translate('Only performance and resources owned by this page navigation are shown.')
+      }}</span>
     </div>
     <nav class="flex gap-4 border-b" :aria-label="translate('Trace detail views')">
       <button
@@ -338,7 +410,10 @@ onBeforeUnmount(() => {
       }}
     </p>
     <TraceWebVitalsPanel
-      v-if="projectAccess.canRoute('project-web-vitals')"
+      v-if="
+        projectAccess.canRoute('project-web-vitals') &&
+        (!activeNavigation || activeNavigation.op === 'pageload')
+      "
       :group="String(route.params.groupSlug)"
       :project="String(route.params.projectSlug)"
       :trace-id="String(route.params.traceId)"

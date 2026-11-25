@@ -86,7 +86,15 @@ export class TracesController {
     @Param('projectSlug') project: string,
     @Param('traceId') traceId: string,
     @Query('cursor') cursor?: string,
+    @Query('spanId') spanId?: string,
   ) {
-    return this.traces.detail(request.user.id, group, project, traceId, cursor);
+    return this.traces.detail(
+      request.user.id,
+      group,
+      project,
+      traceId,
+      cursor,
+      spanId,
+    );
   }
 }

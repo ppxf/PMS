@@ -59,6 +59,16 @@ describe('Traces presentation', () => {
   it('terminates on malformed cycles without dropping records', () => {
     expect(waterfallRows([span('a', 'b'), span('b', 'a')])).toHaveLength(2)
   })
+  it('treats the selected navigation as a local root even when its trace parent is outside this page', () => {
+    const rows = waterfallRows(
+      [span('navigation', 'document'), span('resource', 'navigation')],
+      'navigation',
+    )
+    expect(rows.map((row) => [row.span.spanId, row.depth, row.missingParent])).toEqual([
+      ['navigation', 0, false],
+      ['resource', 1, false],
+    ])
+  })
   it('uses unified spans and explicit fetch scope for HTTP comparisons', () => {
     expect(presetQuery('all').filters).toEqual([])
     expect(presetQuery('all').groupBy).toEqual(['is_transaction'])

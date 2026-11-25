@@ -38,6 +38,17 @@ function setup(entries: PerformanceResourceTiming[] = [], navigation?: Partial<P
 }
 
 describe('browser performance collector', () => {
+  it('assigns only resources started in the current navigation window to that page', () => {
+    const entries=[resource(),resource({name:'https://app.test/orders.js',startTime:1010,responseEnd:1090,duration:80})]
+    const home=setup(entries)
+    home.root.span.pageRoute='/home'
+    createBrowserPerformance(home.client,home.w,()=>false).collect(home.root,0,100,true)
+    expect(home.spans.map(span=>span.options.name)).toEqual(['https://app.test/assets/app.js'])
+    const orders=setup(entries)
+    orders.root.span.pageRoute='/orders'
+    createBrowserPerformance(orders.client,orders.w,()=>false).collect(orders.root,1000,1100,false)
+    expect(orders.spans.map(span=>[span.options.name,span.options.pageRoute])).toEqual([['https://app.test/orders.js','/orders']])
+  })
   it('records historical timing, sanitizes resource URLs and retains size/phase measurements', () => {
     const { client, w, root, spans } = setup([resource()])
     const collector = createBrowserPerformance(client, w, () => false)

@@ -1,4 +1,8 @@
 export const monitoringZhCN: Record<string, string> = {
+  'Page navigation': '页面导航',
+  'Select a page navigation': '选择页面导航',
+  'Only performance and resources owned by this page navigation are shown.':
+    '仅显示本次页面导航所属的性能和资源耗时。',
   'Trace Root': '链路根操作',
   'Root span not retained': '根 Span 未保留',
   'Trace and manual are mutually exclusive lifecycle modes. In trace mode, spans control collection and manual start/stop calls are safely ignored. For explicit collection, configure manual mode, await startProfiler, and stop the returned handle. getStartStatus() reports ignored_trace_mode when manual start is ignored.':

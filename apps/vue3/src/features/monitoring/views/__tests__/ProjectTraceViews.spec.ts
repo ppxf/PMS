@@ -65,6 +65,101 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
+  it('does not stretch a page waterfall with paint markers from after the next navigation', async () => {
+    const page = { ...root, pageRoute: '/' }
+    const next = {
+      ...root,
+      spanId: 'next',
+      parentSpanId: 'root',
+      op: 'navigation',
+      name: '/orders',
+      pageRoute: '/orders',
+      startTime: '2026-10-01T00:00:10Z',
+      endTime: '2026-10-01T00:00:11Z',
+    }
+    api.traceDetail.mockResolvedValue({
+      items: [page],
+      hasMore: false,
+      navigationSpanId: 'root',
+      navigations: [page, next],
+    })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    view.getComponent(TraceWebVitalsPanel).vm.$emit('loaded', [
+      {
+        pageViewId: 'page',
+        spanId: 'root',
+        startedAt: root.startTime,
+        route: '/',
+        traceAvailable: true,
+        measurements: [
+          { name: 'FCP', value: 200 },
+          { name: 'LCP', value: 800000 },
+        ],
+      },
+    ])
+    await flushPromises()
+    expect(view.findAll('.vital-marker').map((marker) => marker.text())).toEqual(['FCP'])
+    expect(view.get('.axis-ticks').text()).not.toContain('800')
+    view.unmount()
+  })
+  it('requests the linked page scope and switches route waterfalls without changing Trace ID', async () => {
+    state.query.spanId = 'orders'
+    const orders = {
+      ...root,
+      spanId: 'orders',
+      parentSpanId: 'root',
+      op: 'navigation',
+      name: '/orders',
+      pageRoute: '/orders',
+      startTime: '2026-10-01T00:10:00Z',
+      endTime: '2026-10-01T00:10:01Z',
+    }
+    const pages = [root, orders]
+    api.traceDetail.mockResolvedValueOnce({
+      items: [
+        orders,
+        {
+          ...orders,
+          spanId: 'asset',
+          parentSpanId: 'orders',
+          isTransaction: false,
+          op: 'resource.script',
+          name: 'orders.js',
+        },
+      ],
+      hasMore: false,
+      navigationSpanId: 'orders',
+      navigations: pages,
+    })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(api.traceDetail).toHaveBeenCalledWith('team', 'web', 'trace', undefined, 'orders')
+    expect(
+      view
+        .findAll('.span-row')
+        .map((row) => row.text())
+        .join(' '),
+    ).not.toContain('Home')
+    expect(view.text()).not.toContain('Missing parent')
+    expect(view.findComponent(TraceWebVitalsPanel).exists()).toBe(false)
+    api.traceDetail.mockResolvedValueOnce({
+      items: [root],
+      hasMore: false,
+      navigationSpanId: 'root',
+      navigations: pages,
+    })
+    await view.get('[aria-label="Page navigation"]').setValue('root')
+    await flushPromises()
+    expect(api.traceDetail).toHaveBeenLastCalledWith('team', 'web', 'trace', undefined, 'root')
+    expect(
+      view
+        .findAll('.span-row')
+        .map((row) => row.text())
+        .join(' '),
+    ).not.toContain('orders.js')
+    view.unmount()
+  })
   it('links Span IDs directly to the selected waterfall row without a completeness column', async () => {
     api.spanSamples.mockResolvedValue({
       items: [

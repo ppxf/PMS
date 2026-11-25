@@ -66,6 +66,13 @@ export interface TracePage<T> {
   page: number
   pageSize: number
 }
+export interface TraceDetailResult {
+  items: Span[]
+  hasMore: boolean
+  nextCursor?: string
+  navigationSpanId?: string
+  navigations?: Span[]
+}
 export interface TraceSeries {
   intervalMs: number
   groups: { key: string; values: unknown[] }[]
@@ -179,6 +186,7 @@ export function formatMetric(value: number | null | undefined, metric: TraceMetr
 }
 export function waterfallRows(
   spans: Span[],
+  scopeRootId?: string,
 ): { span: Span; depth: number; missingParent: boolean }[] {
   const ids = new Set(spans.map((s) => s.spanId))
   const visited = new Set<string>()
@@ -192,7 +200,9 @@ export function waterfallRows(
     rows.push({
       span,
       depth,
-      missingParent: Boolean(span.parentSpanId && !ids.has(span.parentSpanId)),
+      missingParent: Boolean(
+        span.spanId !== scopeRootId && span.parentSpanId && !ids.has(span.parentSpanId),
+      ),
     })
     for (const child of sorted.filter((s) => s.parentSpanId === span.spanId))
       visit(child, depth + 1)

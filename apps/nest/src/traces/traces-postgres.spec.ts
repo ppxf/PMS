@@ -184,4 +184,84 @@ postgres('PostgreSQL traces integration', () => {
     expect(detail.items).toHaveLength(2);
     expect(detail.hasMore).toBe(false);
   });
+  it('isolates navigation descendants within a shared SPA trace and resolves child anchors', async () => {
+    const input = transactionFixture();
+    input.transaction.eventId = randomUUID();
+    const first = {
+      ...input.transaction.spans[0],
+      traceId: 'a'.repeat(32),
+      spanId: 'a'.repeat(16),
+      name: '/home',
+      startTime: '2026-11-25T00:00:00.000Z',
+      endTime: '2026-11-25T00:00:01.000Z',
+      durationMs: 1000,
+    };
+    const next = {
+      ...first,
+      spanId: 'b'.repeat(16),
+      parentSpanId: first.spanId,
+      op: 'navigation',
+      name: '/orders',
+      startTime: '2026-11-25T00:10:00.000Z',
+      endTime: '2026-11-25T00:10:01.000Z',
+    };
+    const oldResource = {
+      ...first,
+      spanId: 'c'.repeat(16),
+      parentSpanId: first.spanId,
+      isTransaction: false,
+      op: 'resource.script',
+      name: 'home.js',
+    };
+    const newResource = {
+      ...next,
+      spanId: 'd'.repeat(16),
+      parentSpanId: next.spanId,
+      isTransaction: false,
+      op: 'resource.script',
+      name: 'orders.js',
+    };
+    input.transaction.spans = [first, next, oldResource, newResource];
+    await service.ingest(projectId, 'key', input as never);
+    const initial = await service.detail(
+      'user',
+      'group',
+      'project',
+      first.traceId,
+    );
+    expect(initial.items.map((span) => span.spanId).sort()).toEqual(
+      [first.spanId, oldResource.spanId].sort(),
+    );
+    expect(initial.navigationSpanId).toBe(first.spanId);
+    const linked = await service.detail(
+      'user',
+      'group',
+      'project',
+      first.traceId,
+      undefined,
+      newResource.spanId,
+    );
+    expect(linked.items.map((span) => span.spanId).sort()).toEqual(
+      [next.spanId, newResource.spanId].sort(),
+    );
+    expect(linked.navigationSpanId).toBe(next.spanId);
+    expect(linked.navigations).toHaveLength(2);
+    await expect(
+      service.detail(
+        'user',
+        'group',
+        'project',
+        first.traceId,
+        Buffer.from(
+          JSON.stringify({
+            time: first.startTime,
+            spanId: first.spanId,
+            traceId: first.traceId,
+            scopeSpanId: first.spanId,
+          }),
+        ).toString('base64url'),
+        newResource.spanId,
+      ),
+    ).rejects.toThrow('another page');
+  });
 });
