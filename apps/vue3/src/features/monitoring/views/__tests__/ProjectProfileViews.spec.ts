@@ -363,10 +363,9 @@ describe('Profiles views', () => {
       .findAll('button[data-frame]')
       .find((b) => b.text().includes('child'))!
       .trigger('click')
-    expect(chart.text()).toContain('Focused: child')
+    expect(chart.get('aside').text()).toContain('child')
     expect(chart.findAll('button[data-frame]').some((b) => b.text().includes('root'))).toBe(true)
-    await chart.get('button[aria-label="Reset flame chart"]').trigger('click')
-    expect(chart.findAll('button[data-frame]').some((b) => b.text().includes('root'))).toBe(true)
+    expect(chart.find('button[aria-label="Reset flame chart"]').exists()).toBe(false)
     expect(view.find('img').exists()).toBe(false)
   })
   it('handles detail errors and empty samples', async () => {

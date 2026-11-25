@@ -4,7 +4,7 @@ import { setLocale } from '@/i18n'
 import ProfileFlameChart from '../ProfileFlameChart.vue'
 
 describe('readable profile calls', () => {
-  it('hides calls that round to zero without hiding a timed child', () => {
+  it('hides calls that round to zero without hiding a timed child', async () => {
     const view = mount(ProfileFlameChart, {
       props: {
         durationMs: 10,
@@ -15,19 +15,27 @@ describe('readable profile calls', () => {
         ],
       },
     })
+    await view.get('[data-view="tree"]').trigger('click')
     expect(view.findAll('[data-call-row]')).toHaveLength(1)
     expect(view.findAll('[data-frame]').map((button) => button.text())).toEqual(['timed'])
     view.unmount()
   })
-  it('keeps ancestors available and returns to the previous focus', async () => {
+  it('fits sampled calls immediately and keeps the range when selecting functions', async () => {
     setLocale('en')
     const view = mount(ProfileFlameChart, { props: { segments, durationMs: 100 } })
+    expect(view.get('[data-view="timeline"]').attributes('aria-pressed')).toBe('true')
     await view.get('[data-view="timeline"]').trigger('click')
+    const range = view.get('[data-time-range]').text()
+    expect(range).toContain('10.00')
+    expect(range).not.toContain('100.00')
     await view.findAll('[data-frame]')[0]!.trigger('click')
     await view.findAll('[data-frame]')[1]!.trigger('click')
     expect(view.findAll('[data-frame]').map((button) => button.text())).toContain('root')
-    await view.get('[data-focus-back]').trigger('click')
-    expect(view.get('[data-time-range]').text()).toContain('10.00')
+    expect(view.get('[data-time-range]').text()).toBe(range)
+    expect(view.get('aside').text()).toContain('render')
+    expect(view.find('[data-focus-back]').exists()).toBe(false)
+    expect(view.find('[aria-label="Reset flame chart"]').exists()).toBe(false)
+    expect(view.find('[data-focus-sampled]').exists()).toBe(false)
     view.unmount()
   })
   const segments = [
@@ -35,21 +43,42 @@ describe('readable profile calls', () => {
     { frameId: 1, stackId: 1, name: 'render', resource: '/app.ts', start: 2, end: 8, depth: 1 },
     { name: 'Unsampled', start: 10, end: 100, depth: 0 },
   ]
-  it('shows sampling coverage, expands calls and selects full function details', async () => {
+  it('shows sampling coverage, searches flat functions and selects full details', async () => {
     setLocale('en')
     const view = mount(ProfileFlameChart, { props: { segments, durationMs: 100 } })
+    await view.get('[data-view="tree"]').trigger('click')
     expect(view.get('[data-testid="sampling-coverage"]').text()).toContain('10.0%')
     expect(view.findAll('[data-call-row]')).toHaveLength(2)
-    await view.get('[data-toggle-call]').trigger('click')
-    expect(view.findAll('[data-call-row]')).toHaveLength(1)
     await view.get('[aria-label="Find frames"]').setValue('render')
+    expect(view.findAll('[data-call-row]')).toHaveLength(1)
     expect(view.text()).toContain('render')
     await view.get('[data-select-call="1"]').trigger('click')
     expect(view.get('aside').text()).toContain('/app.ts')
     expect(view.get('aside').text()).toContain('6.00')
     await view.get('[data-view="timeline"]').trigger('click')
-    await view.get('[data-focus-sampled]').trigger('click')
     expect(view.get('[data-time-range]').text()).toContain('10.00')
+    view.unmount()
+  })
+  it('removes nameless flame levels and opens with the full named sample interval', async () => {
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 1000,
+        segments: [
+          { frameId: 0, name: '', start: 0, end: 20, depth: 0 },
+          { frameId: 1, name: 'run', start: 0.2, end: 15.8, depth: 1 },
+          { frameId: 2, name: '  ', start: 0.2, end: 15.8, depth: 2 },
+          { frameId: 3, name: 'work', start: 0.2, end: 15.8, depth: 3 },
+          { name: 'Unsampled', start: 20, end: 1000, depth: 0 },
+        ],
+      },
+    })
+    await view.get('[data-view="timeline"]').trigger('click')
+    expect(view.get('[data-time-range]').text()).toContain('0.20')
+    expect(view.get('[data-time-range]').text()).toContain('15.80')
+    expect(view.get('canvas').attributes('style')).toContain('80px')
+    await view.setProps({ segments: [{ name: 'Unsampled', start: 0, end: 1000, depth: 0 }] })
+    expect(view.find('canvas').exists()).toBe(false)
+    expect(view.text()).toContain('No sampled function calls')
     view.unmount()
   })
   it('handles entirely unsampled recordings without inventing function calls', () => {
@@ -61,7 +90,7 @@ describe('readable profile calls', () => {
     expect(view.text()).toContain('No sampled function calls')
     view.unmount()
   })
-  it('keeps repeated calls separate and only collapses the selected parent interval', async () => {
+  it('merges repeated function names and searches without retaining parent rows', async () => {
     const view = mount(ProfileFlameChart, {
       props: {
         segments: [
@@ -73,13 +102,39 @@ describe('readable profile calls', () => {
       },
     })
     expect(view.get('[data-testid="sampling-coverage"]').text()).toContain('20.0%')
-    expect(view.findAll('[data-call-row]')).toHaveLength(4)
-    await view.findAll('[data-toggle-call]')[0]!.trigger('click')
+    await view.get('[data-view="tree"]').trigger('click')
+    expect(view.findAll('[data-call-row]')).toHaveLength(2)
     expect(view.findAll('[data-select-call="1"]')).toHaveLength(1)
     await view.get('[aria-label="Find frames"]').setValue('RENDER')
-    expect(view.findAll('[data-call-row]')).toHaveLength(4)
+    expect(view.findAll('[data-call-row]')).toHaveLength(1)
     await view.get('[aria-label="Find frames"]').setValue('missing')
     expect(view.findAll('[data-call-row]')).toHaveLength(0)
+    view.unmount()
+  })
+  it('omits blank names and merges recursive intervals without double-counting time', async () => {
+    setLocale('en')
+    const view = mount(ProfileFlameChart, {
+      props: {
+        durationMs: 100,
+        segments: [
+          { frameId: 0, name: '', start: 0, end: 50, depth: 0 },
+          { frameId: 1, name: '  ', start: 0, end: 50, depth: 1 },
+          { frameId: 2, name: 'render', start: 0, end: 10, depth: 2 },
+          { frameId: 3, name: 'render', start: 2, end: 8, depth: 3 },
+          { frameId: 4, name: ' render ', resource: '/second.ts', start: 20, end: 40, depth: 1 },
+        ],
+      },
+    })
+    await view.get('[data-view="tree"]').trigger('click')
+    expect(view.findAll('[data-call-row]')).toHaveLength(1)
+    const row = view.get('[data-call-row]')
+    expect(row.get('[data-interval-count]').text()).toBe('2')
+    expect(row.get('[data-average-duration]').text()).toBe('15.00 ms')
+    expect(row.get('[data-total-duration]').text()).toBe('30.00 ms')
+    expect(view.findAll('[data-frame]').map((button) => button.text())).toEqual(['render'])
+    await row.get('[data-select-call]').trigger('click')
+    expect(view.get('aside').text()).toContain('/second.ts')
+    expect(view.get('aside').text()).toContain('30.00')
     view.unmount()
   })
   it('bounds initial rows and clears stale selection when the recording changes', async () => {
@@ -95,6 +150,7 @@ describe('readable profile calls', () => {
         durationMs: 250,
       },
     })
+    await view.get('[data-view="tree"]').trigger('click')
     expect(view.findAll('[data-call-row]')).toHaveLength(200)
     await view.get('[data-select-call="0"]').trigger('click')
     expect(view.get('aside').text()).toContain('call-0')

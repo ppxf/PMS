@@ -1,4 +1,15 @@
 export const profilesZhCN: Record<string, string> = {
+  'Named calls fill the sampled range. Click a frame to inspect its details without changing the chart.':
+    '默认铺满有效采样区间，仅显示有名称的调用。点击函数查看详情，图表范围保持不变。',
+  'Named sampled call stacks. Select a function below for keyboard navigation.':
+    '有名称的采样调用栈。可使用下方函数按钮通过键盘选择。',
+  'Select function (keyboard accessible)': '选择函数（支持键盘）',
+  'Sampled intervals': '采样区间数',
+  'Average duration': '平均时长',
+  'Representative source': '代表区间来源',
+  'Focus longest interval': '聚焦最长区间',
+  'Named functions are merged across stack levels. Counts represent sampled intervals, not exact invocation counts.':
+    '仅显示有名称的函数，同名函数合并展示；数量为采样区间数，并非真实调用次数。',
   'Back to previous focus': '返回上一级焦点',
   'Profile view': '剖析视图',
   'Call tree': '调用树',
