@@ -35,7 +35,7 @@ export function createMonitoringClient() {
   let activeDebug = false
   let activeOnTransportError: MonitoringInitOptions['onTransportError']
 
-  const defaultSdk = { name: '@pmspulse/monitoring-core', version: '0.1.5' } as const
+  const defaultSdk = { name: '@pmspulse/monitoring-core', version: '0.1.6' } as const
 
   function reportCallbackFailure(): void {
     if (activeDebug) {
