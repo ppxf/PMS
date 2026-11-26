@@ -14,7 +14,7 @@ function freeze<T>(value: T): T {
   return value
 }
 
-interface Recording { spans: SpanHandle[]; root: SpanHandle; sealed: boolean; timer?: ReturnType<typeof setTimeout> }
+interface Recording { spans: SpanHandle[]; root: SpanHandle; sealed: boolean; graceDeadline?: number; timer?: ReturnType<typeof setTimeout> }
 interface Pending { envelope: TransactionEnvelope; attempts: number; created: number; timer?: ReturnType<typeof setTimeout>; sending?: Promise<void> }
 
 export function createTracing() {
@@ -34,11 +34,12 @@ export function createTracing() {
     return span && !span.ended ? span : undefined
   }
   function getActiveTraceContext(): TraceContext | undefined {
-    // A completed page trace remains the correlation context until navigation or hide.
+    // A completed page trace remains the correlation context until navigation or page leave.
     // Keep currentSpan() strict so new spans never attach to an ended recording.
     const span = currentSpan() ?? pageSpan
     return span?.context.sampled && parents.get(span)?.spans.includes(span) ? span.context : undefined
   }
+  function getLogTraceContext(): TraceContext | undefined { return (currentSpan() ?? pageSpan)?.context }
   function setPageSpan(span: SpanHandle | undefined): void { pageSpan = span }
 
   function configure(options: MonitoringInitOptions, sender: Transport): void {
@@ -75,7 +76,7 @@ export function createTracing() {
     if (recording.timer) clearTimeout(recording.timer)
     const reason = recording.root.span.endReason
     for (const handle of recording.spans) {
-      if (!handle.ended) handle.end(reason === 'deadline_exceeded' ? 'deadline_exceeded' : 'unknown', reason === 'completed' ? 'parent_ended' : reason)
+      if (!handle.ended) handle.end(reason === 'deadline_exceeded' ? 'deadline_exceeded' : 'cancelled', reason === 'completed' ? 'parent_ended' : reason)
     }
     recordings.delete(recording)
     const spans = JSON.parse(JSON.stringify(recording.spans.map((h) => h.span))) as MonitoringSpan[]
@@ -83,10 +84,28 @@ export function createTracing() {
     while (new TextEncoder().encode(JSON.stringify(envelope)).length > 262_144 && spans.length > 1) {
       spans.pop(); spans[0].droppedSpanCount++; spans[0].truncated = true
     }
-    if (queue.size >= 100 || new TextEncoder().encode(JSON.stringify(envelope)).length > 262_144) { droppedBatches++; return }
-    const item: Pending = { envelope: freeze(envelope), attempts: 0, created: Date.now() }
-    queue.add(item)
-    void send(item)
+    // Repeat the identical root in each chunk: ingestion deduplicates by Span ID and content.
+    // This preserves ancestry and the existing transaction-root contract without dropping more spans.
+    const chunks: TransactionEnvelope[] = []
+    const makeChunk = (): TransactionEnvelope => ({ version: 1, type: 'transaction', sentAt: envelope.sentAt,
+      transaction: { eventId: crypto.randomUUID(), spans: [spans[0]] } })
+    let chunk = makeChunk()
+    for (const span of spans.slice(1)) {
+      chunk.transaction.spans.push(span)
+      if (new TextEncoder().encode(JSON.stringify(chunk)).length > 55_000) {
+        chunk.transaction.spans.pop()
+        chunks.push(chunk)
+        chunk = makeChunk()
+        chunk.transaction.spans.push(span)
+      }
+    }
+    chunks.push(chunk)
+    if (queue.size + chunks.length > 100 || chunks.some(part => new TextEncoder().encode(JSON.stringify(part)).length > 60_000)) { droppedBatches++; return }
+    for (const part of chunks) {
+      const item: Pending = { envelope: freeze(part), attempts: 0, created: Date.now() }
+      queue.add(item)
+      void send(item)
+    }
   }
 
   function startInactiveSpan(options: SpanOptions): SpanHandle {
@@ -105,7 +124,7 @@ export function createTracing() {
       ...(config?.environment ? { environment: safeText(config.environment, 128) } : {}),
       ...(config?.release ? { release: safeText(config.release, 128) } : {}),
       ...(options.pageRoute ? { pageRoute: safeText(options.pageRoute, 512) } : {}),
-      truncated: false, endReason: 'completed', droppedSpanCount: 0, attributes: {},
+      truncated: false, endReason: 'completed', droppedSpanCount: 0, attributes: { 'pms.measurement.status': 'recording' },
     }
     let ended = false
     let owner: Recording | undefined = recording
@@ -119,14 +138,22 @@ export function createTracing() {
         span.durationMs = Math.max(0, finished - started)
         span.endTime = new Date(timeOrigin + finished).toISOString()
         span.status = status; span.endReason = safeText(reason, 64)
-        span.truncated ||= status === 'deadline_exceeded' || (status === 'unknown' && reason !== 'completed')
+        const lifecycle = ['navigation', 'page_hidden', 'page_left'].includes(reason) && ['pageload', 'navigation'].includes(span.op)
+        span.attributes['pms.measurement.status'] = status === 'deadline_exceeded' ? 'timeout'
+          : lifecycle ? 'lifecycle'
+          : status === 'cancelled' && reason !== 'abort' || status === 'unknown' && reason !== 'completed' ? 'interrupted' : 'complete'
         if (owner?.root === handle && !owner.sealed) {
           rootObserver?.rootEnded(handle)
-          owner.timer = setTimeout(() => seal(owner!), 1000)
+          const waiting = owner.spans.some(child => !child.ended)
+          owner.graceDeadline = Date.now() + (waiting && status !== 'deadline_exceeded' ? 5000 : 1000)
+          owner.timer = setTimeout(() => seal(owner!), waiting && status !== 'deadline_exceeded' ? 5000 : 1000)
+        } else if (owner && owner.root.ended && !owner.sealed && owner.spans.every(child => child.ended)) {
+          if (owner.timer) clearTimeout(owner.timer)
+          owner.timer = setTimeout(() => seal(owner!), Math.max(0, Math.min(1000, (owner.graceDeadline ?? Date.now()) - Date.now())))
         }
       },
       setAttribute(key, value) {
-        if (owner?.sealed || /authorization|cookie|token|password|secret|credential/i.test(key) || ['__proto__', 'constructor', 'prototype'].includes(key)) return
+        if (key === 'pms.measurement.status' || owner?.sealed || /authorization|cookie|token|password|secret|credential/i.test(key) || ['__proto__', 'constructor', 'prototype'].includes(key)) return
         if (Object.keys(span.attributes).length >= 50 && !(key in span.attributes)) return
         if (typeof value === 'number' && !Number.isFinite(value)) return
         span.attributes[safeText(key, 64)] = typeof value === 'string' ? safeText(value) : value
@@ -172,8 +199,15 @@ export function createTracing() {
     return value
   }
 
-  async function flush(): Promise<void> {
-    for (const recording of recordings) if (recording.root.ended) seal(recording)
+  function endPageSession(): void {
+    for (const recording of [...recordings]) {
+      if (!recording.root.ended) recording.root.end('cancelled', 'page_left')
+      seal(recording)
+    }
+    pageSpan = undefined
+  }
+  async function flush(endPendingSpans = true): Promise<void> {
+    for (const recording of recordings) if (recording.root.ended && (endPendingSpans || recording.spans.every(child => child.ended))) seal(recording)
     await Promise.all([...queue].map((item) => item.sending ?? send(item)))
   }
   function reset(): void {
@@ -183,5 +217,5 @@ export function createTracing() {
     for (const item of queue) if (item.timer) clearTimeout(item.timer)
     queue.clear(); recordings.clear(); config = undefined; transport = undefined; droppedBatches = 0
   }
-  return { configure, setRootSpanObserver: (observer: typeof rootObserver) => { rootObserver = observer }, startInactiveSpan, startSpan, getActiveTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
+  return { configure, setRootSpanObserver: (observer: typeof rootObserver) => { rootObserver = observer }, startInactiveSpan, startSpan, endPageSession, getActiveTraceContext, getLogTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
 }

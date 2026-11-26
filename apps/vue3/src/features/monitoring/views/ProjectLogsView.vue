@@ -270,10 +270,14 @@ watch(autoRefresh, (enabled) => {
     : undefined
 })
 watch(
-  () => [route.params.groupSlug, route.params.projectSlug],
+  () => [route.params.groupSlug, route.params.projectSlug, route.query?.traceId],
   () => {
     fields.value = null
-    conditions.value = []
+    if (typeof route.query?.traceId === 'string') range.value = 168
+    conditions.value =
+      typeof route.query?.traceId === 'string'
+        ? [{ key: 'trace', operator: 'eq', value: route.query.traceId }]
+        : []
     visualizations.value = [{ aggregate: 'count', field: 'logs', groupBy: [], conditions: [] }]
     activeTab.value = 'logs'
     void load()
@@ -672,6 +676,7 @@ onBeforeUnmount(() => {
                           projectSlug: route.params.projectSlug,
                           traceId: log.traceId,
                         },
+                        query: { tab: 'logs' },
                       }"
                       class="break-all font-mono text-cyan-700 underline"
                       >{{ log.traceId }}</RouterLink
@@ -707,7 +712,23 @@ onBeforeUnmount(() => {
                               entry.key === 'severity' ? { color: colors[log.level] } : undefined
                             "
                           >
-                            {{ entry.value }}
+                            <RouterLink
+                              v-if="
+                                entry.key === 'trace' && projectAccess.canRoute('project-traces')
+                              "
+                              class="text-cyan-700 underline"
+                              :to="{
+                                name: 'project-trace-detail',
+                                params: {
+                                  groupSlug: route.params.groupSlug,
+                                  projectSlug: route.params.projectSlug,
+                                  traceId: log.traceId,
+                                },
+                                query: { tab: 'logs' },
+                              }"
+                              >{{ entry.value }}</RouterLink
+                            >
+                            <template v-else>{{ entry.value }}</template>
                           </dd>
                           <div class="flex shrink-0 gap-1">
                             <button

@@ -12,8 +12,17 @@ import { RouterLink, useRoute } from 'vue-router'
 import { ArrowLeft, GitBranch, Clock3, Layers, ChevronRight } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { traceDetail } from '../api/traces.api'
-import { waterfallRows, matchesSpanFilters } from '../model/traces'
+import { traceMetrics } from '../api/metrics.api'
+import {
+  waterfallRows,
+  matchesSpanFilters,
+  spanMeasurementLabel,
+  spanEndReasonLabel,
+  traceMeasurementSummary,
+} from '../model/traces'
 import type { Span, TraceFilter } from '../model/traces'
+import TraceLogsPanel from '../components/TraceLogsPanel.vue'
+import { traceLogs } from '../api/logs.api'
 import TraceMetricsPanel from '../components/TraceMetricsPanel.vue'
 import TraceWebVitalsPanel from '../components/TraceWebVitalsPanel.vue'
 import { traceVitalMarkers, resourceDetails, spanCategory } from '../model/trace-performance'
@@ -32,6 +41,7 @@ const activeNavigation = computed(() =>
   navigations.value.find((span) => span.spanId === navigationSpanId.value),
 )
 const rows = computed(() => waterfallRows(spans.value, navigationSpanId.value))
+const measurementSummary = computed(() => traceMeasurementSummary(spans.value))
 const search = ref('')
 const category = ref('all')
 const collapsed = ref(new Set<string>())
@@ -102,18 +112,77 @@ const markers = computed(() => {
       marker.at >= Date.parse(page.startTime) && (!nextStart || marker.at < Date.parse(nextStart)),
   )
 })
-const tab = ref<'waterfall' | 'metrics'>(route.query?.tab === 'metrics' ? 'metrics' : 'waterfall')
-let preferMetrics = route.query?.tab === 'metrics'
+const tab = ref<'waterfall' | 'metrics' | 'logs'>(
+  route.query?.tab === 'metrics' ? 'metrics' : 'waterfall',
+)
+const hasMetrics = ref(false)
+let metricsGeneration = 0
 function selectTab(value: string) {
-  preferMetrics = false
-  tab.value = value === 'metrics' ? 'metrics' : 'waterfall'
+  tab.value =
+    value === 'metrics' && hasMetrics.value
+      ? 'metrics'
+      : value === 'logs' && hasLogs.value
+        ? 'logs'
+        : 'waterfall'
 }
-function metricsLoaded(total: number) {
-  if (preferMetrics) {
-    preferMetrics = false
-    if (!total && tab.value === 'metrics') tab.value = 'waterfall'
-  }
-}
+watch(
+  [
+    () => route.params.groupSlug,
+    () => route.params.projectSlug,
+    () => route.params.traceId,
+    () => projectAccess.canRoute('project-metrics'),
+  ],
+  async ([group, project, traceId, allowed]) => {
+    const current = ++metricsGeneration
+    hasMetrics.value = false
+    tab.value = 'waterfall'
+    if (!allowed) return
+    try {
+      const result = await traceMetrics(String(group), String(project), String(traceId), {
+        page: 1,
+        pageSize: 1,
+      })
+      if (current !== metricsGeneration) return
+      hasMetrics.value = result.total > 0
+      if (hasMetrics.value && route.query?.tab === 'metrics') tab.value = 'metrics'
+    } catch {
+      // Keep the waterfall available when metric availability cannot be confirmed.
+    }
+  },
+  { immediate: true },
+)
+const hasLogs = ref(false)
+let logsGeneration = 0
+watch(
+  [
+    () => route.params.groupSlug,
+    () => route.params.projectSlug,
+    () => route.params.traceId,
+    () => projectAccess.canRoute('project-logs'),
+  ],
+  async ([group, project, traceId, allowed]) => {
+    const current = ++logsGeneration
+    hasLogs.value = false
+    if (tab.value === 'logs') tab.value = 'waterfall'
+    if (!allowed) return
+    try {
+      const result = await traceLogs(String(group), String(project), String(traceId), {
+        page: 1,
+        pageSize: 1,
+      })
+      if (current !== logsGeneration) return
+      hasLogs.value = result.total > 0
+      if (hasLogs.value && route.query?.tab === 'logs') tab.value = 'logs'
+    } catch {
+      /* Keep the waterfall available if log availability cannot be confirmed. */
+    }
+  },
+  { immediate: true },
+)
+watch(
+  () => route.query?.tab,
+  (value) => selectTab(typeof value === 'string' ? value : 'waterfall'),
+)
 const targetSpanId = ref(typeof route.query?.spanId === 'string' ? route.query.spanId : '')
 const targetMissing = computed(
   () => targetSpanId.value && !spans.value.some((s) => s.spanId === targetSpanId.value),
@@ -284,8 +353,7 @@ watch(
     selected.value = null
     hasMore.value = false
     cursor.value = undefined
-    preferMetrics = route.query?.tab === 'metrics'
-    tab.value = preferMetrics ? 'metrics' : 'waterfall'
+    tab.value = 'waterfall'
     targetSpanId.value = typeof route.query?.spanId === 'string' ? route.query.spanId : ''
     void load()
   },
@@ -293,6 +361,8 @@ watch(
 onMounted(() => load())
 onBeforeUnmount(() => {
   generation++
+  metricsGeneration++
+  logsGeneration++
 })
 </script>
 <template>
@@ -349,7 +419,8 @@ onBeforeUnmount(() => {
       <button
         v-for="item in [
           { id: 'waterfall', label: 'Waterfall' },
-          { id: 'metrics', label: 'Application Metrics' },
+          ...(hasMetrics ? [{ id: 'metrics', label: 'Application Metrics' }] : []),
+          ...(hasLogs ? [{ id: 'logs', label: 'Related logs' }] : []),
         ]"
         :key="item.id"
         class="border-b-2 px-1 py-2 text-sm"
@@ -373,23 +444,52 @@ onBeforeUnmount(() => {
         translate('Retry')
       }}</Button>
     </div>
-    <p v-if="hasMore" role="status" class="trace-notice">
+    <p v-if="tab === 'waterfall' && hasMore" role="status" class="trace-notice">
       {{ translate('This trace is not fully loaded. Parent spans may appear on later pages.') }}
     </p>
-    <p v-if="rows.some((r) => r.missingParent)" class="trace-notice">
+    <p v-if="tab === 'waterfall' && rows.some((r) => r.missingParent)" class="trace-notice">
       {{
         translate(
           'Some parent spans are remote, uncollected, or not yet loaded. Orphan spans are shown separately.',
         )
       }}
     </p>
-    <p v-if="spans.some((s) => s.truncated || s.droppedSpanCount > 0)" class="trace-notice">
-      {{
-        translate(
-          'This trace contains truncated records or dropped child spans and may be incomplete.',
-        )
-      }}
-    </p>
+    <div
+      v-if="
+        tab === 'waterfall' &&
+        (measurementSummary.interrupted ||
+          measurementSummary.timeout ||
+          measurementSummary.dropped ||
+          measurementSummary.legacy)
+      "
+      data-testid="measurement-notices"
+      class="space-y-2"
+    >
+      <p v-if="measurementSummary.interrupted" role="status" class="trace-notice">
+        {{ translate('Unfinished measurements:') }} {{ measurementSummary.interrupted }}.
+        {{
+          translate(
+            'Durations only cover the observed measurement window; completion was not observed.',
+          )
+        }}
+      </p>
+      <p v-if="measurementSummary.timeout" role="status" class="trace-notice">
+        {{ translate('Timed out measurements:') }} {{ measurementSummary.timeout }}.
+        {{ translate('The collection deadline was reached.') }}
+      </p>
+      <p v-if="measurementSummary.dropped" role="status" class="trace-notice">
+        {{ translate('Dropped spans:') }} {{ measurementSummary.dropped }}.
+        {{ translate('Records were discarded because collection capacity was exceeded.') }}
+      </p>
+      <p v-if="measurementSummary.legacy" role="status" class="trace-notice">
+        {{ translate('Legacy truncation flags:') }} {{ measurementSummary.legacy }}.
+        {{
+          translate(
+            'The older SDK did not distinguish lifecycle endings from incomplete measurements.',
+          )
+        }}
+      </p>
+    </div>
     <EmptyState
       v-if="!loading && !error && !spans.length"
       class="rounded-lg border bg-background p-8"
@@ -400,7 +500,7 @@ onBeforeUnmount(() => {
         )
       "
     />
-    <p v-if="targetMissing" role="status" class="trace-notice">
+    <p v-if="tab === 'waterfall' && targetMissing" role="status" class="trace-notice">
       {{
         translate(
           hasMore
@@ -419,14 +519,17 @@ onBeforeUnmount(() => {
       :trace-id="String(route.params.traceId)"
       @loaded="vitalsLoaded"
     />
+    <TraceLogsPanel
+      v-if="tab === 'logs' && projectAccess.canRoute('project-logs')"
+      :group="String(route.params.groupSlug)"
+      :project="String(route.params.projectSlug)"
+      :trace-id="String(route.params.traceId)"
+    />
     <TraceMetricsPanel
       v-if="tab === 'metrics' && projectAccess.canRoute('project-metrics')"
       :group="String(route.params.groupSlug)"
       :project="String(route.params.projectSlug)"
       :trace-id="String(route.params.traceId)"
-      :selected-span-id="selected?.spanId"
-      @select-span="selectMetricSpan"
-      @loaded="metricsLoaded"
     />
     <div v-show="tab === 'waterfall'" ref="waterfall" class="detail-grid">
       <div class="waterfall-panel">
@@ -539,7 +642,7 @@ onBeforeUnmount(() => {
                   }}</span>
                   <span class="span-op"
                     >{{ row.span.op }} {{ translate(row.missingParent ? 'Missing parent' : '') }}
-                    {{ translate(row.span.truncated ? 'Truncated' : '') }}</span
+                    {{ translate(spanMeasurementLabel(row.span)) }}</span
                   >
                 </span>
               </span>
@@ -588,6 +691,16 @@ onBeforeUnmount(() => {
           >
         </div>
         <p class="selected-name">{{ selected.name }}</p>
+        <dl class="properties">
+          <div class="property">
+            <dt>{{ translate('Measurement status') }}</dt>
+            <dd>{{ translate(spanMeasurementLabel(selected) || 'Completed') }}</dd>
+          </div>
+          <div class="property">
+            <dt>{{ translate('Measurement end reason') }}</dt>
+            <dd>{{ translate(spanEndReasonLabel(selected.endReason)) }}</dd>
+          </div>
+        </dl>
         <section
           v-if="selected.op.startsWith('resource.')"
           class="mt-4"

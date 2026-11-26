@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createMonitoringClient } from "./client.js";
+import type { MonitoringEnvelope } from "./types.js";
 import { createLogs } from "./logs.js";
 import { LOG_LEVELS } from "./logs-types.js";
 import { TransportError } from "./http-transport.js";
@@ -22,6 +24,26 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("structured logs", () => {
+  it.each([1, 0])('captures the current trace at log time, including unsampled traces (%i)', async (rate) => {
+    const envelopes: MonitoringEnvelope[] = [];
+    const client = createMonitoringClient();
+    client.init({ dsn: 'https://key@example.com/api/sdk/project', enableLogs: true, tracesSampleRate: rate,
+      transport: { send: e => { envelopes.push(e); return Promise.resolve() } } });
+    let expectedTrace = '';
+    client.startSpan({ name: 'action' }, span => {
+      expectedTrace = span.context.traceId;
+      client.logger.info('automatic');
+      client.logger.info('explicit', {}, { traceContext: { traceId: 'a'.repeat(32), spanId: 'b'.repeat(16), sampled: true } });
+    });
+    client.logger.info('outside context');
+    await client.flush();
+    const logs = envelopes.filter(e => e.type === 'logs').flatMap(e => e.logs);
+    expect(logs[0]?.traceId).toBe(expectedTrace);
+    expect(logs[1]?.traceId).toBe('a'.repeat(32));
+    expect(logs[2]?.traceId).toBeUndefined();
+    client.resetClientForTests();
+  });
+
   it("records all levels, snapshots attributes and preserves explicit trace context", async () => {
     const { logs, send } = setup({ environment: "prod" }),
       attributes = { count: 2 };

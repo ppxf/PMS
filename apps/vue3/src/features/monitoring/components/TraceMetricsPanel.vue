@@ -16,15 +16,12 @@ const props = defineProps<{
   group: string
   project: string
   traceId: string
-  selectedSpanId?: string
 }>()
-const emit = defineEmits<{ selectSpan: [spanId: string]; loaded: [total: number] }>()
 const result = ref<TraceMetricsResult>(),
   loading = ref(false),
   error = ref('')
 const search = ref(''),
   appliedSearch = ref(''),
-  onlySpan = ref(false),
   page = ref(1)
 let generation = 0
 async function load() {
@@ -37,11 +34,9 @@ async function load() {
       page: page.value,
       pageSize: 20,
       ...(appliedSearch.value ? { search: appliedSearch.value } : {}),
-      ...(onlySpan.value && props.selectedSpanId ? { spanId: props.selectedSpanId } : {}),
     })
     if (current === generation) {
       result.value = response
-      emit('loaded', response.total)
     }
   } catch {
     if (current === generation) error.value = 'Unable to load related metrics'
@@ -63,16 +58,11 @@ watch(
   () => {
     search.value = ''
     appliedSearch.value = ''
-    onlySpan.value = false
     page.value = 1
     void load()
   },
   { immediate: true },
 )
-watch([onlySpan, () => props.selectedSpanId], () => {
-  page.value = 1
-  void load()
-})
 onBeforeUnmount(() => {
   generation++
 })
@@ -89,15 +79,6 @@ onBeforeUnmount(() => {
         class="min-w-60 flex-1"
       />
       <Button type="submit" variant="outline" :disabled="loading">{{ translate('Search') }}</Button>
-      <label class="flex items-center gap-2 text-sm">
-        <input
-          v-model="onlySpan"
-          type="checkbox"
-          :aria-label="translate('Metrics for selected span only')"
-          :disabled="!selectedSpanId"
-        />
-        {{ translate('Selected span only') }}
-      </label>
     </form>
     <p v-if="loading" role="status" class="text-sm text-muted-foreground">
       {{ translate('Loading metrics…') }}
@@ -114,7 +95,6 @@ onBeforeUnmount(() => {
             <th class="p-3">{{ translate('Type') }}</th>
             <th class="p-3">{{ translate('Value') }}</th>
             <th class="p-3">{{ translate('Timestamp') }}</th>
-            <th class="p-3">{{ translate('Span') }}</th>
             <th class="p-3">{{ translate('Attributes') }}</th>
           </tr>
         </thead>
@@ -128,18 +108,6 @@ onBeforeUnmount(() => {
             </td>
             <td class="whitespace-nowrap p-3">
               {{ formatDateTime(sample.timestamp) }}
-            </td>
-            <td class="p-3">
-              <button
-                v-if="sample.spanId"
-                type="button"
-                :aria-label="translate(`View span ${sample.spanId}`)"
-                class="font-mono text-cyan-700 underline"
-                @click="emit('selectSpan', sample.spanId)"
-              >
-                {{ sample.spanId }}
-              </button>
-              <span v-else>—</span>
             </td>
             <td class="w-96 max-w-96 align-top">
               <details v-if="Object.keys(sample.attributes).length" class="min-w-56">

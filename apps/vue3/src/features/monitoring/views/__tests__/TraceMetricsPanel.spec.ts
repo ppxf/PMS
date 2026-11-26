@@ -32,19 +32,20 @@ const samples = [
     spanId: 'root',
   },
 ]
-const props = { group: 'team', project: 'web', traceId: 'trace', selectedSpanId: 'child' }
+const props = { group: 'team', project: 'web', traceId: 'trace' }
 describe('Trace application metrics', () => {
   beforeEach(() => {
     api.traceMetrics.mockReset().mockResolvedValue({ total: 21, page: 1, pageSize: 20, samples })
   })
-  it('renders heterogeneous metric samples and navigates back to the associated span', async () => {
+  it('renders trace metric samples without span navigation', async () => {
     const view = mount(TraceMetricsPanel, { props })
     await flushPromises()
     expect(view.text()).toContain('orders')
     expect(view.text()).toContain('distribution')
     expect(view.text()).toContain('200 millisecond')
-    await view.get('button[aria-label="View span child"]').trigger('click')
-    expect(view.emitted('selectSpan')).toEqual([['child']])
+    expect(view.find('button[aria-label="View span child"]').exists()).toBe(false)
+    expect(view.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(view.findAll('th').map((cell) => cell.text())).not.toContain('Span')
     await view.get('button[aria-label="Next metrics page"]').trigger('click')
     await flushPromises()
     expect(api.traceMetrics.mock.lastCall).toEqual([
@@ -65,19 +66,17 @@ describe('Trace application metrics', () => {
     expect(rows[0]!.get('details ul').text()).toContain('/')
     expect(rows[1]!.find('details').exists()).toBe(false)
   })
-  it('searches metric names and restricts to the selected span while resetting pagination', async () => {
+  it('searches trace metric names without a span filter', async () => {
     const view = mount(TraceMetricsPanel, { props })
     await flushPromises()
     await view.get('input[aria-label="Search related metrics"]').setValue('orders')
     await view.get('form').trigger('submit')
     await flushPromises()
-    await view.get('input[aria-label="Metrics for selected span only"]').setValue(true)
-    await flushPromises()
     expect(api.traceMetrics.mock.lastCall).toEqual([
       'team',
       'web',
       'trace',
-      { page: 1, pageSize: 20, search: 'orders', spanId: 'child' },
+      { page: 1, pageSize: 20, search: 'orders' },
     ])
   })
   it('ignores stale project responses and retries failed queries', async () => {

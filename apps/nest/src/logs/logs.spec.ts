@@ -6,7 +6,11 @@ import {
 import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { LogBatchEntity } from './log.entity';
-import { LogQueryPipe, LogsEnvelopePipe } from './logs-validation';
+import {
+  LogQueryPipe,
+  LogsEnvelopePipe,
+  TraceLogsQueryPipe,
+} from './logs-validation';
 import { LogsService } from './logs.service';
 const envelope = () => ({
   version: 1,
@@ -31,6 +35,23 @@ const queryInput = () => {
   };
 };
 describe('logs validation', () => {
+  it('validates trace-log filters without accepting a span or a time range', () => {
+    const pipe = new TraceLogsQueryPipe();
+    expect(
+      pipe.transform({ search: 'hello', levels: ['error'], page: 2 }),
+    ).toEqual({ search: 'hello', levels: ['error'], page: 2, pageSize: 20 });
+    for (const input of [
+      { spanId: 'a'.repeat(16) },
+      { traceId: 'a'.repeat(32) },
+      { start: '2026-01-01' },
+      { page: 0 },
+      { pageSize: 101 },
+      { levels: ['sql'] },
+      { search: 'x'.repeat(257) },
+    ])
+      expect(() => pipe.transform(input)).toThrow(BadRequestException);
+  });
+
   it.each(['p50', 'p75', 'p90', 'p95'])(
     'accepts percentile %s',
     (aggregate) => {
@@ -38,7 +59,7 @@ describe('logs validation', () => {
         new LogQueryPipe().transform({
           ...queryInput(),
           visualizations: [{ aggregate, field: 'payload_size' }],
-        }).visualizations![0]!.aggregate,
+        }).visualizations?.[0]?.aggregate,
       ).toBe(aggregate);
     },
   );
@@ -186,6 +207,49 @@ describe('logs storage', () => {
       receipts,
     };
   }
+  it('queries related logs using project and trace scope with stable pagination and bound filters', async () => {
+    const f = fixture();
+    f.manager.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ total: 21 }])
+      .mockResolvedValueOnce([{ logId: 'second-page' }]);
+    const result = await f.service.forTrace(
+      'user',
+      'team',
+      'web',
+      'a'.repeat(32),
+      { search: "test'", levels: ['error'], page: 2 },
+    );
+    expect(f.projects.findReadableBySlug).toHaveBeenCalledWith(
+      'user',
+      'team',
+      'web',
+      'project:logs:read',
+    );
+    expect(result).toEqual({
+      total: 21,
+      page: 2,
+      pageSize: 20,
+      items: [{ logId: 'second-page' }],
+    });
+    expect(f.manager.query.mock.calls[2][0]).toContain(
+      'project_id = $1 AND trace_id = $2',
+    );
+    expect(f.manager.query.mock.calls[2][0]).toContain(
+      'ORDER BY timestamp DESC, log_id DESC',
+    );
+    expect(f.manager.query.mock.calls[2][1]).toEqual([
+      'project',
+      'a'.repeat(32),
+      "test'",
+      ['error'],
+      20,
+      20,
+    ]);
+    await expect(
+      f.service.forTrace('user', 'team', 'web', 'bad', {}),
+    ).rejects.toThrow(BadRequestException);
+  });
   it('deduplicates batches and individual logs across batches and rejects conflicts', async () => {
     const f = fixture(),
       input = envelope();

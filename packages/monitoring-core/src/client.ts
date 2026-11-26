@@ -21,7 +21,7 @@ export function createMonitoringClient() {
       unit: name === 'CLS' ? 'none' : 'ms', attributes: { 'page.route': route }, traceContext: context,
     })
   })
-  const logs = createLogs()
+  const logs = createLogs(tracing.getLogTraceContext)
   let activeLogs = false
   let activeBeforeSendLog: MonitoringInitOptions['beforeSendLog']
   let activeMetrics = false
@@ -179,11 +179,12 @@ export function createMonitoringClient() {
   return { init, captureException, getClientState, getTransport, getPropagationTargets, resetClientForTests,
     enableProfiling: profiling.enable, uiProfiler: profiling.uiProfiler,
     setPageSpan: tracing.setPageSpan,
+    endPageSession: tracing.endPageSession,
     setWebVitalsRouteResolver: webVitals.setRouteResolver,
     metrics: metricRecorder.metrics, getMetricStats: metricRecorder.getMetricStats,
     logger: logs.logger, getLogStats: logs.getLogStats, captureConsoleLogs: logs.captureConsoleLogs,
     startSpan: tracing.startSpan, startInactiveSpan: tracing.startInactiveSpan,
-    flush: async () => { await Promise.all([tracing.flush(), metricRecorder.flush(), logs.flush(), profiling.flush(), webVitals.flush()]) }, getTraceStats: tracing.getTraceStats }
+    flush: async (options?: { endPendingSpans?: boolean }) => { await Promise.all([tracing.flush(options?.endPendingSpans), metricRecorder.flush(), logs.flush(), profiling.flush(), webVitals.flush()]) }, getTraceStats: tracing.getTraceStats }
 }
 
 const defaultClient = createMonitoringClient()

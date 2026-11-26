@@ -5,7 +5,8 @@ import { createBrowserPerformance } from './browser-performance.js'
 interface Client {
   startInactiveSpan(options: SpanOptions): SpanHandle
   getClientState(): { endpoint: string } | undefined
-  flush(): Promise<void>
+  flush(options?: { endPendingSpans?: boolean }): Promise<void>
+  endPageSession?(): void
   getPropagationTargets?(): readonly string[]
   setPageSpan?(span: SpanHandle | undefined): void
 }
@@ -35,10 +36,10 @@ export function createBrowserTracing(client: Client) {
   function endRoot(reason = 'completed', retainMetricContext = false) {
     if (idle) clearTimeout(idle)
     if (deadline) clearTimeout(deadline)
-    if (root && !root.ended) root.end(reason === 'completed' ? 'ok' : reason === 'deadline_exceeded' ? 'deadline_exceeded' : 'unknown', reason)
+    if (root && !root.ended) root.end(['completed', 'navigation', 'page_hidden', 'page_left'].includes(reason) ? 'ok' : reason === 'deadline_exceeded' ? 'deadline_exceeded' : 'unknown', reason)
     root = undefined
     if (!retainMetricContext) client.setPageSpan?.(undefined)
-    if (reason !== 'completed') void client.flush()
+    if (reason === 'page_hidden') void client.flush({ endPendingSpans: false })
   }
   function scheduleIdle() {
     if (idle) clearTimeout(idle)
@@ -72,7 +73,7 @@ export function createBrowserTracing(client: Client) {
     initialNavigationPending = false
     pending = 0
     if (op === 'navigation') pending++
-    deadline = later(() => endRoot('deadline_exceeded'), 30_000)
+    deadline = later(() => endRoot('deadline_exceeded', true), 30_000)
     scheduleIdle()
     return root
   }
@@ -151,8 +152,18 @@ export function createBrowserTracing(client: Client) {
       pending++
       w.addEventListener('load', () => { pending = Math.max(0, pending - 1); scheduleIdle() }, { once: true })
     }
-    w.addEventListener('pagehide', () => endRoot('page_hidden'))
-    w.document.addEventListener('visibilitychange', () => { if (w.document.visibilityState === 'hidden') endRoot('page_hidden') })
+    w.addEventListener('pagehide', () => {
+      endRoot('page_left')
+      client.endPageSession?.()
+      void client.flush()
+    })
+    w.addEventListener('pageshow', event => {
+      if (event.persisted) {
+        startNavigation(pageRoute ?? w.location.pathname)
+        navigationReady()
+      }
+    })
+    w.document.addEventListener('visibilitychange', () => { if (w.document.visibilityState === 'hidden') endRoot('page_hidden', true) })
 
     // Retain the original method; the wrapper explicitly restores its call receiver.
     // eslint-disable-next-line @typescript-eslint/unbound-method

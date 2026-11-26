@@ -10,6 +10,7 @@ import { MonitoringProjectsService } from '../monitoring-projects/monitoring-pro
 import { MonitoringSpanEntity } from './entities/monitoring-span.entity';
 import { TraceIngestBatch } from './entities/trace-ingest-batch.entity';
 import {
+  MEASUREMENT_COMPLETE_SQL,
   HTTP_FAILED_SQL,
   HTTP_SUCCEEDED_SQL,
   MonitoringSpan,
@@ -270,7 +271,7 @@ export class TracesService {
           expression = `(count(*) FILTER (WHERE ${HTTP_FAILED_SQL}))::double precision / NULLIF(${denominator}, 0)`;
           count = denominator;
         } else {
-          const eligibility = `${field.sql} IS NOT NULL AND truncated = false AND (op <> 'http.client' OR status IN ('ok', 'error'))`;
+          const eligibility = `${field.sql} IS NOT NULL AND truncated = false AND ${MEASUREMENT_COMPLETE_SQL} AND (op <> 'http.client' OR status IN ('ok', 'error'))`;
           expression =
             metric.function === 'avg'
               ? `avg(${field.sql}) FILTER (WHERE ${eligibility})`

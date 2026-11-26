@@ -13,8 +13,9 @@ import { logsCsv, LOG_AGGREGATES } from '../../model/logs'
 enableAutoUnmount(afterEach)
 const api = vi.hoisted(() => ({ logFields: vi.fn(), logQuery: vi.fn() }))
 vi.mock('../../api/logs.api', () => api)
+const routeQuery = vi.hoisted((): Record<string, string> => ({}))
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { groupSlug: 'team', projectSlug: 'web' } }),
+  useRoute: () => ({ params: { groupSlug: 'team', projectSlug: 'web' }, query: routeQuery }),
 }))
 vi.mock('vue-echarts', () => ({
   default: { props: ['option'], template: '<div class="chart" />' },
@@ -40,6 +41,7 @@ const result = {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  for (const key of Object.keys(routeQuery)) delete routeQuery[key]
   api.logFields.mockResolvedValue({
     attributes: ['count'],
     enabled: true,
@@ -228,4 +230,46 @@ describe('Logs explorer', () => {
     expect(logsCsv(result.items)).toContain('"\'=formula"')
     expect(logsCsv(result.items)).toContain('"{""count"":2}"')
   })
+})
+
+it('opens trace-scoped logs with a visible editable trace filter', async () => {
+  routeQuery.traceId = 'a'.repeat(32)
+  const view = mount(ProjectLogsView, { global: { stubs: { RouterLink: true } } })
+  await flushPromises()
+  expect(api.logQuery.mock.lastCall?.[2].conditions).toContainEqual({
+    key: 'trace',
+    operator: 'eq',
+    value: 'a'.repeat(32),
+  })
+  expect(view.text()).toContain('a'.repeat(32))
+})
+it('links the trace in expanded log details to related logs', async () => {
+  api.logQuery.mockResolvedValue({
+    ...result,
+    items: [{ ...result.items[0], traceId: 'a'.repeat(32), spanId: 'b'.repeat(16) }],
+  })
+  const view = mount(ProjectLogsView, {
+    global: {
+      stubs: {
+        RouterLink: {
+          props: ['to'],
+          template: '<a :data-target="JSON.stringify(to)"><slot /></a>',
+        },
+      },
+    },
+  })
+  await flushPromises()
+  await view
+    .findAll('tbody button')
+    .find((button) => button.text().includes('=formula'))!
+    .trigger('click')
+  expect(
+    view
+      .findAll('a')
+      .some(
+        (link) =>
+          link.text() === 'a'.repeat(32) &&
+          link.attributes('data-target')?.includes('"tab":"logs"'),
+      ),
+  ).toBe(true)
 })

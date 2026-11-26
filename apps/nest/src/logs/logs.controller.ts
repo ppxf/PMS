@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
-import type { LogQuery } from './logs-contract';
+import type { LogQuery, TraceLogsQuery } from './logs-contract';
 import { LogQueryPipe } from './logs-validation';
 import { LogsService } from './logs.service';
 @ApiTags('logs')
@@ -17,6 +17,16 @@ export class LogsController {
     @Param('projectSlug') project: string,
   ) {
     return this.logs.fields(req.user.id, group, project);
+  }
+  @Post('traces/:traceId')
+  forTrace(
+    @Req() req: Request & { user: AuthUser },
+    @Param('groupSlug') group: string,
+    @Param('projectSlug') project: string,
+    @Param('traceId') traceId: string,
+    @Body() query: TraceLogsQuery,
+  ) {
+    return this.logs.forTrace(req.user.id, group, project, traceId, query);
   }
   @Post('query')
   query(

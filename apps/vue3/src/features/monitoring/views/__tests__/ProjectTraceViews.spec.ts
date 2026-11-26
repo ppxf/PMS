@@ -22,6 +22,8 @@ const api = vi.hoisted(() => ({
 vi.mock('../../api/traces.api', () => api)
 const metricApi = vi.hoisted(() => ({ traceMetrics: vi.fn() }))
 vi.mock('../../api/metrics.api', () => metricApi)
+const logsApi = vi.hoisted(() => ({ traceLogs: vi.fn() }))
+vi.mock('../../api/logs.api', () => logsApi)
 vi.mock('vue-echarts', () => ({
   default: { props: ['option'], template: '<div class="chart-stub" />' },
 }))
@@ -48,7 +50,6 @@ import VChart from 'vue-echarts'
 import ProjectTracesView from '../ProjectTracesView.vue'
 import ProjectTraceDetailView from '../ProjectTraceDetailView.vue'
 import TraceWebVitalsPanel from '../../components/TraceWebVitalsPanel.vue'
-import TraceMetricsPanel from '../../components/TraceMetricsPanel.vue'
 const root = {
   traceId: 'trace',
   spanId: 'root',
@@ -65,6 +66,130 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
+  it('shows associated logs for the trace independently of the selected span', async () => {
+    logsApi.traceLogs.mockResolvedValue({
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      items: [
+        {
+          logId: 'log',
+          timestamp: root.startTime,
+          message: 'community initialized',
+          level: 'info',
+          traceId: 'trace',
+          attributes: {},
+        },
+      ],
+    })
+    api.traceDetail.mockResolvedValue({ items: [root], hasMore: false })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    await view
+      .findAll('nav button')
+      .find((button) => button.text() === 'Related logs')!
+      .trigger('click')
+    await flushPromises()
+    expect(view.text()).toContain('community initialized')
+    expect(logsApi.traceLogs.mock.lastCall?.slice(0, 3)).toEqual(['team', 'web', 'trace'])
+    expect(logsApi.traceLogs.mock.lastCall?.[3]).not.toHaveProperty('spanId')
+  })
+  it('does not show the related logs tab without log read permission', async () => {
+    useProjectAccessStore().access = {
+      projectId: 'project',
+      role: 'member',
+      permissions: ['project:traces:read'],
+    }
+    logsApi.traceLogs.mockResolvedValue({ total: 1, items: [] })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(view.findAll('nav button').some((button) => button.text() === 'Related logs')).toBe(
+      false,
+    )
+    expect(logsApi.traceLogs).not.toHaveBeenCalled()
+  })
+
+  it('separates unfinished measurements, timeout, data loss and legacy flags, only in waterfall', async () => {
+    api.traceDetail.mockResolvedValue({
+      items: [
+        { ...root, endReason: 'navigation', attributes: { 'pms.measurement.status': 'lifecycle' } },
+        {
+          ...root,
+          spanId: 'pending',
+          parentSpanId: 'root',
+          op: 'http.client',
+          status: 'cancelled',
+          attributes: { 'pms.measurement.status': 'interrupted' },
+        },
+        {
+          ...root,
+          spanId: 'timeout',
+          parentSpanId: 'root',
+          status: 'deadline_exceeded',
+          attributes: { 'pms.measurement.status': 'timeout' },
+        },
+        {
+          ...root,
+          spanId: 'loss',
+          parentSpanId: 'root',
+          truncated: true,
+          droppedSpanCount: 3,
+          attributes: { 'pms.measurement.status': 'complete' },
+        },
+        { ...root, spanId: 'legacy', parentSpanId: 'root', truncated: true },
+      ],
+      hasMore: false,
+    })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(view.text()).toContain('Unfinished measurements: 1')
+    expect(view.text()).toContain('Timed out measurements: 1')
+    expect(view.text()).toContain('Dropped spans: 3')
+    expect(view.text()).toContain('Legacy truncation flags: 1')
+    expect(view.get('.span-panel').text()).toContain('Route changed')
+    await view.get('nav button[aria-pressed="false"]').trigger('click')
+    await flushPromises()
+    expect(view.find('[data-testid="measurement-notices"]').exists()).toBe(false)
+  })
+
+  it('ignores metrics availability from a previous project with the same trace ID', async () => {
+    let resolveOld!: (value: unknown) => void
+    metricApi.traceMetrics.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveOld = resolve
+      }),
+    )
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    metricApi.traceMetrics.mockResolvedValue({ total: 0, page: 1, pageSize: 20, samples: [] })
+    state.route!.params = { groupSlug: 'other', projectSlug: 'other', traceId: 'trace' }
+    await flushPromises()
+    resolveOld({ total: 1, page: 1, pageSize: 1, samples: [] })
+    await flushPromises()
+    expect(
+      view.findAll('nav button').some((button) => button.text() === 'Application Metrics'),
+    ).toBe(false)
+  })
+  it('keeps the metrics tab when a name search has no results', async () => {
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    await view.get('nav button[aria-pressed="false"]').trigger('click')
+    await flushPromises()
+    metricApi.traceMetrics.mockResolvedValue({ total: 0, page: 1, pageSize: 20, samples: [] })
+    await view.get('[aria-label="Search related metrics"]').setValue('missing')
+    await view.get('form').trigger('submit')
+    await flushPromises()
+    expect(view.text()).toContain('No matching related metrics')
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Application Metrics')
+  })
+  it('hides the application metrics tab without associated records', async () => {
+    metricApi.traceMetrics.mockResolvedValue({ total: 0, page: 1, pageSize: 20, samples: [] })
+    const view = mount(ProjectTraceDetailView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(
+      view.findAll('nav button').some((button) => button.text() === 'Application Metrics'),
+    ).toBe(false)
+  })
+
   it('does not stretch a page waterfall with paint markers from after the next navigation', async () => {
     const page = { ...root, pageRoute: '/' }
     const next = {
@@ -282,7 +407,14 @@ describe('Traces views', () => {
       .find((button) => button.text() === 'Application Metrics')!
     await metricsTab.trigger('click')
     await flushPromises()
-    view.getComponent(TraceMetricsPanel).vm.$emit('select-span', 'dns')
+    await view
+      .findAll('nav button')
+      .find((button) => button.text() === 'Waterfall')!
+      .trigger('click')
+    await view.get('[aria-label="Search in trace"]').setValue('')
+    await view.get('[aria-label="Span type"]').setValue('all')
+    await view.get('[aria-label="Expand Home"]').trigger('click')
+    await view.get('[aria-label="View span DNS"]').trigger('click')
     await flushPromises()
     expect(view.get('[aria-label="Search in trace"]').element).toHaveProperty('value', '')
     expect(view.get('[aria-label="Span type"]').element).toHaveProperty('value', 'all')
@@ -585,6 +717,7 @@ describe('Traces views', () => {
     for (const key of Object.keys(state.query)) delete state.query[key]
     state.route!.params = { groupSlug: 'team', projectSlug: 'web', traceId: 'trace' }
     vi.resetAllMocks()
+    logsApi.traceLogs.mockResolvedValue({ total: 0, page: 1, pageSize: 20, items: [] })
     metricApi.traceMetrics.mockResolvedValue({
       total: 1,
       page: 1,
@@ -640,8 +773,7 @@ describe('Traces views', () => {
     )
     if (!total) return
     expect(view.text()).toContain('orders')
-    await view.get('button[aria-label="View span child"]').trigger('click')
-    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Waterfall')
+    expect(view.find('button[aria-label="View span child"]').exists()).toBe(false)
   })
   it('locates the linked span across cursor pages and changes selection when the query changes', async () => {
     state.query.spanId = 'child'
@@ -671,7 +803,7 @@ describe('Traces views', () => {
     await flushPromises()
     expect(view.text()).toContain('orders')
   })
-  it('switches between the trace metric list and its linked waterfall span', async () => {
+  it('keeps trace metrics independent of waterfall span selection', async () => {
     api.traceDetail.mockResolvedValue({
       items: [root, { ...root, spanId: 'child', parentSpanId: 'root', name: 'Checkout' }],
       hasMore: false,
@@ -681,10 +813,13 @@ describe('Traces views', () => {
     await view.get('nav button[aria-pressed="false"]').trigger('click')
     await flushPromises()
     expect(view.text()).toContain('orders')
-    await view.get('button[aria-label="View span child"]').trigger('click')
+    expect(view.find('button[aria-label="View span child"]').exists()).toBe(false)
+    await view.get('nav button[aria-pressed="false"]').trigger('click')
+    await view.get('[aria-label="View span Checkout"]').trigger('click')
+    await view.get('nav button[aria-pressed="false"]').trigger('click')
     await flushPromises()
-    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Waterfall')
-    expect(view.get('.span-row.is-selected').text()).toContain('Checkout')
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Application Metrics')
+    expect(view.text()).toContain('orders')
   })
   it('reloads same trace ID across project scope and discards previous cursor', async () => {
     api.traceDetail
@@ -782,7 +917,7 @@ describe('Traces views', () => {
     expect(api.traceDetail).toHaveBeenCalledWith('team', 'web', 'trace', undefined)
     expect(view.text()).toContain('not fully loaded')
     expect(view.text()).toContain('Missing parent')
-    expect(view.text()).toContain('truncated records')
+    expect(view.text()).toContain('Dropped spans: 2')
     await view
       .findAll('button')
       .find((b) => b.text() === 'Load more spans')!

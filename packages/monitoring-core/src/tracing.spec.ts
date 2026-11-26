@@ -40,7 +40,11 @@ describe('instance tracing', () => {
     root.end()
     await client.flush()
     const batch = envelopes.find((e) => e.type === 'transaction')!
-    expect(batch.transaction.spans).toHaveLength(200)
+    const batches = envelopes.filter(e => e.type === 'transaction')
+    const unique = new Map(batches.flatMap(e => e.transaction.spans).map(span => [span.spanId, span]))
+    expect(unique.size).toBe(200)
+    expect(batches.every(e => new TextEncoder().encode(JSON.stringify(e)).byteLength <= 60000)).toBe(true)
+    expect(batches.every(e => e.transaction.spans[0].spanId === root.context.spanId)).toBe(true)
     expect(batch.transaction.spans[0]).toMatchObject({ name: 'limited', truncated: true, droppedSpanCount: 6 })
   })
   it('preserves sync values and business exceptions while recording root and children', async () => {
@@ -86,7 +90,7 @@ describe('instance tracing', () => {
     expect(off.envelopes.some((e) => e.type === 'transaction')).toBe(false)
   })
 
-  it('seals truncated children without cancelling business work and rejects late changes', async () => {
+  it('marks unfinished measurements without claiming data loss and rejects late changes', async () => {
     const { client, envelopes } = fixture()
     const root = client.startInactiveSpan({ name: 'page' })
     const child = client.startInactiveSpan({ name: 'pending', parent: root })
@@ -94,7 +98,7 @@ describe('instance tracing', () => {
     await client.flush()
     child.end('ok')
     const batch = envelopes.find((e) => e.type === 'transaction')!
-    expect(batch.transaction.spans[1]).toMatchObject({ truncated: true, status: 'unknown', endReason: 'page_hidden' })
+    expect(batch.transaction.spans[1]).toMatchObject({ truncated: false, status: 'cancelled', endReason: 'page_hidden', attributes: { 'pms.measurement.status': 'interrupted' } })
     expect(Object.isFrozen(batch.transaction.spans[1])).toBe(true)
   })
 

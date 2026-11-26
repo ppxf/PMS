@@ -257,3 +257,43 @@ export function presetQuery(name: string): Pick<TraceQuery, 'filters' | 'metrics
     groupBy: name === 'statuses' ? ['http.status_class'] : ['http.method', 'http.route'],
   }
 }
+
+// Missing state is deliberately not inferred from legacy truncation flags.
+export function spanMeasurementLabel(span: Span): string {
+  if (span.droppedSpanCount > 0) return 'Data loss'
+  const state = span.attributes['pms.measurement.status']
+  if (state === 'interrupted') return 'Measurement ended early'
+  if (state === 'timeout') return 'Measurement timed out'
+  if (state === 'lifecycle') return spanEndReasonLabel(span.endReason)
+  if (span.truncated && !state) return 'Legacy truncation flag'
+  return ''
+}
+export function spanEndReasonLabel(reason: string): string {
+  return (
+    (
+      {
+        completed: 'Completed',
+        navigation: 'Route changed',
+        page_hidden: 'Page hidden',
+        page_left: 'Page left',
+        parent_ended: 'Parent measurement ended',
+        deadline_exceeded: 'Collection deadline reached',
+      } as Record<string, string>
+    )[reason] ?? reason
+  )
+}
+export function traceMeasurementSummary(spans: Span[]) {
+  const unique = [...new Map(spans.map((span) => [span.spanId, span])).values()]
+  return {
+    dropped: unique.reduce((sum, span) => sum + span.droppedSpanCount, 0),
+    interrupted: unique.filter(
+      (span) => span.attributes['pms.measurement.status'] === 'interrupted',
+    ).length,
+    timeout: unique.filter((span) => span.attributes['pms.measurement.status'] === 'timeout')
+      .length,
+    legacy: unique.filter(
+      (span) =>
+        span.truncated && !span.droppedSpanCount && !span.attributes['pms.measurement.status'],
+    ).length,
+  }
+}

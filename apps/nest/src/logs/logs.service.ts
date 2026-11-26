@@ -8,10 +8,15 @@ import { DataSource } from 'typeorm';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
 import { contentHash } from '../traces/traces.service';
 import { LogBatchEntity, LogEntity } from './log.entity';
+import { validId } from '../traces/traces-validation';
 import { aggregateSql, conditionsSql, logField } from './logs-query';
 import { LOG_LEVELS } from './logs-contract';
 import type { LogQuery, LogsEnvelope } from './logs-contract';
-import { LogQueryPipe, LogsEnvelopePipe } from './logs-validation';
+import {
+  LogQueryPipe,
+  LogsEnvelopePipe,
+  TraceLogsQueryPipe,
+} from './logs-validation';
 @Injectable()
 export class LogsService {
   constructor(
@@ -75,7 +80,12 @@ export class LogsService {
     });
   }
   async fields(user: string, group: string, slug: string) {
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:logs:read');
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:logs:read',
+    );
     return this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL statement_timeout = '5000ms'");
       const rows = await manager.query<{ key: string }[]>(
@@ -114,13 +124,60 @@ export class LogsService {
         truncated: rows.length > 100,
         levels: LOG_LEVELS,
         enabled: project.loggingEnabled,
-
+      };
+    });
+  }
+  async forTrace(
+    user: string,
+    group: string,
+    slug: string,
+    traceId: string,
+    input: unknown,
+  ) {
+    if (!validId(traceId, 32)) throw new BadRequestException('Invalid traceId');
+    const q = new TraceLogsQueryPipe().transform(input);
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:logs:read',
+    );
+    const params: unknown[] = [project.id, traceId];
+    let where = 'project_id = $1 AND trace_id = $2';
+    if (q.search) {
+      params.push(q.search);
+      where += ` AND strpos(lower(message), lower($${params.length}::text)) > 0`;
+    }
+    if (q.levels.length) {
+      params.push(q.levels);
+      where += ` AND level = ANY($${params.length}::text[])`;
+    }
+    return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
+      await manager.query("SET LOCAL statement_timeout = '5000ms'");
+      const counts = await manager.query<{ total: number }[]>(
+        `SELECT count(*)::int AS total FROM monitoring_logs WHERE ${where}`,
+        params,
+      );
+      const items = await manager.query(
+        `SELECT log_id AS "logId", timestamp, level, message, attributes, environment, release, trace_id AS "traceId", span_id AS "spanId" FROM monitoring_logs WHERE ${where} ORDER BY timestamp DESC, log_id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, q.pageSize, (q.page - 1) * q.pageSize],
+      );
+      return {
+        total: counts[0].total,
+        page: q.page,
+        pageSize: q.pageSize,
+        items,
       };
     });
   }
   async query(user: string, group: string, slug: string, input: LogQuery) {
     const q = new LogQueryPipe().transform(input);
-    const project = await this.projects.findReadableBySlug(user, group, slug, 'project:logs:read');
+    const project = await this.projects.findReadableBySlug(
+      user,
+      group,
+      slug,
+      'project:logs:read',
+    );
     const params: unknown[] = [project.id, q.start, q.end];
     const bind = (value: unknown) => {
       params.push(value);
@@ -247,5 +304,3 @@ export class LogsService {
     });
   }
 }
-
-

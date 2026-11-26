@@ -7,6 +7,23 @@ import {
 import { SPAN_FIELD_MAP } from './traces-contract';
 
 describe('tracing ingestion boundary', () => {
+  it('accepts explicit measurement states but rejects unknown states instead of silently treating them as complete', () => {
+    const pipe = new TransactionEnvelopePipe();
+    for (const state of ['complete', 'lifecycle', 'interrupted', 'timeout']) {
+      const input = transactionFixture();
+      input.transaction.spans[0].attributes['pms.measurement.status'] = state;
+      expect(
+        pipe.transform(input).transaction.spans[0].attributes[
+          'pms.measurement.status'
+        ],
+      ).toBe(state);
+    }
+    const invalid = transactionFixture();
+    invalid.transaction.spans[0].attributes['pms.measurement.status'] =
+      'recording';
+    expect(() => pipe.transform(invalid)).toThrow();
+  });
+
   const pipe = new TransactionEnvelopePipe();
   it('preserves historical resource timings, measurements and zero-duration browser events', () => {
     const input = browserTransactionFixture();

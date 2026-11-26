@@ -1,3 +1,4 @@
+import type { TraceContext } from "./tracing-types.js";
 import { LOG_LEVELS } from "./logs-types.js";
 import type {
   ConsoleLogMethod,
@@ -67,7 +68,7 @@ function validEntry(entry: LogEntry): boolean {
     bytes(entry) <= 8192
   );
 }
-export function createLogs() {
+export function createLogs(getTraceContext: () => TraceContext | undefined = () => undefined) {
   let config: MonitoringInitOptions | undefined,
     transport: Transport | undefined;
   let buffer: LogEntry[] = [],
@@ -171,6 +172,7 @@ export function createLogs() {
         droppedLogs++;
         return;
       }
+      const traceContext = context.traceContext ?? getTraceContext();
       let entry: LogEntry = {
         logId: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
@@ -181,10 +183,10 @@ export function createLogs() {
           ? { environment: config.environment.slice(0, 128) }
           : {}),
         ...(config.release ? { release: config.release.slice(0, 128) } : {}),
-        ...(context.traceContext
+        ...(traceContext
           ? {
-              traceId: context.traceContext.traceId,
-              spanId: context.traceContext.spanId,
+              traceId: traceContext.traceId,
+              spanId: traceContext.spanId,
             }
           : {}),
       };

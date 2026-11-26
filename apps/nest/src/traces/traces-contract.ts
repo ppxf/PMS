@@ -214,7 +214,9 @@ export const SPAN_FIELD_MAP = new Map(
   fields.map((field) => [field.name, field]),
 );
 
-export const HTTP_COMPLETED_SQL =
-  "op = 'http.client' AND truncated = false AND status IN ('ok', 'error')";
+// New SDKs distinguish observed completion from measurement cutoff; legacy rows retain their existing rules.
+export const MEASUREMENT_COMPLETE_SQL =
+  "COALESCE(attributes->>'pms.measurement.status', 'complete') NOT IN ('interrupted', 'timeout')";
+export const HTTP_COMPLETED_SQL = `op = 'http.client' AND truncated = false AND status IN ('ok', 'error') AND ${MEASUREMENT_COMPLETE_SQL}`;
 export const HTTP_FAILED_SQL = `(${HTTP_COMPLETED_SQL}) AND (status = 'error' OR http_status_code >= 400)`;
 export const HTTP_SUCCEEDED_SQL = `(${HTTP_COMPLETED_SQL}) AND status = 'ok' AND http_status_code BETWEEN 100 AND 399`;

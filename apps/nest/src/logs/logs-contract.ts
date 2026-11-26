@@ -75,3 +75,10 @@ export interface LogQuery {
   pageSize: number;
   sortDirection: 'asc' | 'desc';
 }
+
+export interface TraceLogsQuery {
+  search?: string;
+  levels?: LogLevel[];
+  page?: number;
+  pageSize?: number;
+}

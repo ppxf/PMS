@@ -277,3 +277,38 @@ function queryField(value: unknown): asserts value is string {
   if (['__proto__', 'prototype', 'constructor'].includes(key))
     reject('Reserved field');
 }
+
+@Injectable()
+export class TraceLogsQueryPipe implements PipeTransform {
+  transform(value: unknown) {
+    const q = jsonObject(value, ['search', 'levels', 'page', 'pageSize']);
+    if (q.search !== undefined) text(q.search, 256);
+    const levels = q.levels ?? [];
+    if (
+      !Array.isArray(levels) ||
+      levels.length > 6 ||
+      new Set(levels).size !== levels.length ||
+      levels.some(
+        (level) => !(LOG_LEVELS as readonly unknown[]).includes(level),
+      )
+    )
+      reject('Invalid log levels');
+    const page = q.page ?? 1,
+      pageSize = q.pageSize ?? 20;
+    if (
+      !Number.isInteger(page) ||
+      Number(page) < 1 ||
+      Number(page) > 5000 ||
+      !Number.isInteger(pageSize) ||
+      Number(pageSize) < 1 ||
+      Number(pageSize) > 100
+    )
+      reject('Invalid log pagination');
+    return {
+      search: q.search,
+      levels: levels as import('./logs-contract').LogLevel[],
+      page: page as number,
+      pageSize: pageSize as number,
+    };
+  }
+}

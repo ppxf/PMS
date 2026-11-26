@@ -5,10 +5,10 @@ import type { MonitoringEnvelope } from './types.js'
 
 afterEach(() => vi.useRealTimers())
 
-function setup(navigationStart?: number) {
+function setup(navigationStart?: number, fetcher?: () => Promise<Response>) {
   const envelopes: MonitoringEnvelope[] = []
   const client = createMonitoringClient()
-  client.init({ dsn: 'https://key@monitor.test/api/sdk/project', tracesSampleRate: 1, transport: { send: (e) => { envelopes.push(e); return Promise.resolve() } } })
+  client.init({ dsn: 'https://key@monitor.test/api/sdk/project', tracesSampleRate: 1, enableLogs: true, transport: { send: (e) => { envelopes.push(e); return Promise.resolve() } } })
   const w = new EventTarget() as Window
   const doc = new EventTarget()
   Object.assign(doc, { readyState: 'complete', visibilityState: 'visible' })
@@ -16,7 +16,7 @@ function setup(navigationStart?: number) {
   Object.assign(w, {
     document: doc, location: new URL('https://app.test/page'),
     performance: { now: () => performance.now(), getEntriesByType: (type: string) => type === 'navigation' && navigationStart !== undefined ? [{ startTime: navigationStart }] : [] },
-    fetch: () => { const response = Promise.resolve(new Response('', { status: 200 })); requests.push(response); return response },
+    fetch: fetcher ?? (() => { const response = Promise.resolve(new Response('', { status: 200 })); requests.push(response); return response }),
   })
   const tracing = createBrowserTracing(client)
   tracing.install(w)
@@ -24,6 +24,74 @@ function setup(navigationStart?: number) {
 }
 
 describe('browser tracing instrumentation', () => {
+  it('preserves log correlation after the page measurement deadline and page hide', async () => {
+    vi.useFakeTimers()
+    let finish!: (response: Response) => void
+    const { client, tracing, w, envelopes } = setup(undefined, () => new Promise(resolve => { finish = resolve }))
+    const page = tracing.startNavigation('/slow')
+    tracing.navigationReady()
+    const request = w.fetch('/api/slow')
+    await vi.advanceTimersByTimeAsync(31000)
+    client.logger.info('after deadline')
+    Object.assign(w.document, { visibilityState: 'hidden' })
+    w.document.dispatchEvent(new Event('visibilitychange'))
+    client.logger.info('after hide')
+    await client.flush()
+    const logs = envelopes.filter(e => e.type === 'logs').flatMap(e => e.logs)
+    expect(logs.map(log => log.traceId)).toEqual([page.context.traceId, page.context.traceId])
+    finish(new Response('', { status: 200 }))
+    await request
+    client.resetClientForTests()
+  })
+
+  it('retains a pending HTTP request on its original page while a new route starts', async () => {
+    vi.useFakeTimers()
+    let finish!: (response: Response) => void
+    const { client, tracing, w, envelopes } = setup(undefined, () => new Promise(resolve => { finish = resolve }))
+    const oldPage = tracing.startNavigation('/old')
+    tracing.navigationReady()
+    const request = w.fetch('/api/slow')
+    const newPage = tracing.startNavigation('/new')
+    tracing.navigationReady()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans).some(span => span.op === 'http.client')).toBe(false)
+    finish(new Response('', { status: 200 }))
+    await request
+    await vi.advanceTimersByTimeAsync(1000)
+    const spans = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+    expect(spans.find(span => span.op === 'http.client')).toMatchObject({ parentSpanId: oldPage.context.spanId, pageRoute: '/old', status: 'ok', truncated: false })
+    expect(spans.find(span => span.spanId === oldPage.context.spanId)).toMatchObject({ truncated: false, status: 'ok', attributes: { 'pms.measurement.status': 'lifecycle' } })
+    expect(newPage.context.traceId).toBe(oldPage.context.traceId)
+    client.resetClientForTests()
+  })
+  it('allows background requests to finish, but seals outstanding measurements on page leave and starts a new interval on restore', async () => {
+    vi.useFakeTimers()
+    let finish!: (response: Response) => void
+    const { client, tracing, w, envelopes } = setup(undefined, () => new Promise(resolve => { finish = resolve }))
+    const page = tracing.startNavigation('/old')
+    tracing.navigationReady()
+    const request = w.fetch('/api/pending')
+    Object.assign(w.document, { visibilityState: 'hidden' })
+    w.document.dispatchEvent(new Event('visibilitychange'))
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans).some(span => span.op === 'http.client')).toBe(false)
+    w.dispatchEvent(new Event('pagehide'))
+    await client.flush()
+    const spans = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+    expect(spans.find(span => span.op === 'http.client')).toMatchObject({ truncated: false, status: 'cancelled', attributes: { 'pms.measurement.status': 'interrupted' } })
+    finish(new Response('', { status: 200 }))
+    await request
+    Object.assign(w.document, { visibilityState: 'visible' })
+    const restored = new Event('pageshow')
+    Object.defineProperty(restored, 'persisted', { value: true })
+    w.dispatchEvent(restored)
+    await vi.advanceTimersByTimeAsync(2000)
+    const pages = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans).filter(span => span.op === 'navigation')
+    expect(new Set(pages.map(span => span.spanId)).size).toBe(2)
+    expect(pages.every(span => span.traceId === page.context.traceId)).toBe(true)
+    client.resetClientForTests()
+  })
+
   it('attributes post-idle HTTP to the current navigation while preserving the document trace', async () => {
     vi.useFakeTimers()
     const {client,tracing,envelopes,w}=setup()
@@ -144,7 +212,7 @@ describe('browser tracing instrumentation', () => {
     const { client, tracing, envelopes, w } = setup()
     const other: MonitoringEnvelope[] = []
     const second = createMonitoringClient()
-    second.init({ dsn: 'https://other@monitor.test/api/sdk/other', tracesSampleRate: 1, transport: { send: (e) => { other.push(e); return Promise.resolve() } } })
+    second.init({ dsn: 'https://other@monitor.test/api/sdk/other', tracesSampleRate: 1, enableLogs: true, transport: { send: (e) => { other.push(e); return Promise.resolve() } } })
     const secondTracing = createBrowserTracing(second)
     secondTracing.install(w)
     await w.fetch('/api/test')

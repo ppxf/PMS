@@ -182,6 +182,14 @@ export class TransactionEnvelopePipe implements PipeTransform<
       ])
         if (span[key] !== undefined) number(span[key]);
       const attributes = jsonObject(span.attributes);
+      if (
+        attributes['pms.measurement.status'] !== undefined &&
+        !['complete', 'lifecycle', 'interrupted', 'timeout'].includes(
+          attributes['pms.measurement.status'] as string,
+        )
+      )
+        reject('Invalid measurement status');
+
       if (Object.keys(attributes).length > 50) reject('Too many attributes');
       for (const [key, attribute] of Object.entries(attributes)) {
         text(key, 64);
@@ -254,7 +262,9 @@ export class SpanQueryPipe implements PipeTransform<unknown, SpanQuery> {
     const start = isoTime(input.start);
     const end = isoTime(input.end);
     if (end <= start || end - start > TRACE_HISTORY_DAYS * 24 * 3600000)
-      reject(`Query range must be positive and at most ${TRACE_HISTORY_DAYS} days`);
+      reject(
+        `Query range must be positive and at most ${TRACE_HISTORY_DAYS} days`,
+      );
     const filters = input.filters ?? [];
     const metrics = input.metrics ?? [{ function: 'count', field: 'spans' }];
     const groupBy = input.groupBy ?? [];
