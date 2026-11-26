@@ -23,7 +23,7 @@ function report(name: string, value: number, attribution: object = {}) {
 beforeEach(() => { observers.clear() })
 afterEach(() => { for (const c of clients.splice(0)) c.resetClientForTests(); vi.unstubAllGlobals() })
 describe('automatic document Web Vitals', () => {
-  it('correlates metric samples with the original page after context is cleared or replaced', async () => {
+  it('keeps dedicated Web Vitals correlated to the original page without creating custom metrics', async () => {
     browser()
     const sent: MonitoringEnvelope[] = []
     const client = createMonitoringClient(); clients.push(client)
@@ -35,11 +35,10 @@ describe('automatic document Web Vitals', () => {
     const next = client.startInactiveSpan({name: 'next'}); client.setPageSpan(next)
     report('LCP', 1000)
     await client.flush()
-    const samples = sent.filter(e => e.type === 'metrics').flatMap(e => e.samples)
-    expect(samples).toHaveLength(2)
-    expect(samples.map(s => [s.traceId, s.spanId])).toEqual([
-      [page.context.traceId, page.context.spanId], [page.context.traceId, page.context.spanId],
-    ])
+    expect(sent.filter(e => e.type === 'metrics')).toEqual([])
+    const updates = sent.filter((e): e is WebVitalsEnvelope => e.type === 'web_vitals' && e.measurements.length > 0)
+    expect(updates.flatMap(e => e.measurements).map(m => m.name)).toEqual(['CLS', 'LCP'])
+    expect(updates.every(e => e.page.traceId === page.context.traceId && e.page.spanId === page.context.spanId)).toBe(true)
   })
   it('collects without custom metrics or traces and preserves missing INP and zero CLS', async () => {
     browser(); const {client, vitals} = setup(); await client.flush()
@@ -109,15 +108,16 @@ describe('automatic document Web Vitals', () => {
   })
 })
 
-it.each([false,true])('exports Web Vitals to Metrics only with enableMetrics=%s', async (enableMetrics) => {
+it.each([false,true])('keeps automatic Web Vitals separate from explicit Metrics with enableMetrics=%s', async (enableMetrics) => {
   browser()
   const sent: MonitoringEnvelope[] = []
   const client = createMonitoringClient(); clients.push(client)
   client.init({dsn,enableMetrics,transport:{send:e=>{sent.push(e);return Promise.resolve()}}})
   await client.flush()
   report('CLS',0);report('LCP',2000);report('LCP',2000)
+  client.metrics.count('community_action',1)
   await client.flush()
   const samples=sent.filter(e=>e.type==='metrics').flatMap(e=>e.samples)
-  expect(samples.map(s=>[s.name,s.value,s.unit])).toEqual(enableMetrics ? [['browser.web_vital.cls.value',0,'none'],['browser.web_vital.lcp.value',2000,'ms']] : [])
+  expect(samples.map(s=>[s.name,s.value,s.unit])).toEqual(enableMetrics ? [['community_action',1,'none']] : [])
   expect(sent.some(e=>e.type==='web_vitals')).toBe(true)
 })

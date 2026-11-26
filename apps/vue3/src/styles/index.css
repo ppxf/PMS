@@ -5,7 +5,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Reserve scrollbar space across short pages and loading states. */
+/* Reserve scrollbar space across short pages and loading states. App.vue disables
+   duplicate Reka body compensation when the browser supports this reservation. */
 html,
 .sidebar-scroll {
   scrollbar-gutter: stable;

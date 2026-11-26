@@ -194,7 +194,10 @@ export class MetricsService {
       'project:metrics:read',
     );
     const params: unknown[] = [project.id, traceId];
-    let where = 'project_id = $1 AND trace_id = $2';
+    // Older SDKs mirrored these automatic measurements into the custom metrics table.
+    // Keep history queryable in Metrics, but never expose it as trace application metrics.
+    let where =
+      "project_id = $1 AND trace_id = $2 AND name !~ '^browser[.]web_vitals?[.](cls|fcp|inp|lcp|ttfb)[.]value$'";
     if (q.spanId !== undefined) {
       params.push(q.spanId);
       where += ` AND span_id = $${params.length}`;

@@ -16,11 +16,7 @@ export function createMonitoringClient() {
   let activeProfileRate = 0
   let activeProfileLifecycle: MonitoringInitOptions['profileLifecycle'] = 'manual'
   const metricRecorder = createMetrics(tracing.getActiveTraceContext)
-  const webVitals = createWebVitals(tracing.getActiveTraceContext, (name, value, route, context) => {
-    metricRecorder.metrics.distribution(`browser.web_vital.${name.toLowerCase()}.value`, value, {
-      unit: name === 'CLS' ? 'none' : 'ms', attributes: { 'page.route': route }, traceContext: context,
-    })
-  })
+  const webVitals = createWebVitals(tracing.getActiveTraceContext)
   const logs = createLogs(tracing.getLogTraceContext)
   let activeLogs = false
   let activeBeforeSendLog: MonitoringInitOptions['beforeSendLog']
@@ -35,7 +31,7 @@ export function createMonitoringClient() {
   let activeDebug = false
   let activeOnTransportError: MonitoringInitOptions['onTransportError']
 
-  const defaultSdk = { name: '@pmspulse/monitoring-core', version: '0.1.6' } as const
+  const defaultSdk = { name: '@pmspulse/monitoring-core', version: '0.1.7' } as const
 
   function reportCallbackFailure(): void {
     if (activeDebug) {
