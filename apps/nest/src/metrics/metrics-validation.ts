@@ -147,7 +147,11 @@ export class MetricQueryPipe implements PipeTransform<unknown, MetricQuery> {
     if (start >= end || end - start > 7 * 86400000)
       reject('Metric range must be between 0 and 7 days');
     metricIdentity(q);
-    if (q.source !== undefined && q.source !== 'custom')
+    if (
+      q.source !== undefined &&
+      q.source !== 'custom' &&
+      q.source !== 'web_vitals'
+    )
       reject('Invalid metric source');
     if (q.traceId !== undefined && !validId(q.traceId, 32))
       reject('Invalid traceId');

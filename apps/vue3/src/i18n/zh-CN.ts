@@ -343,8 +343,12 @@ export const zhCN: Record<string, string> = {
     '此项目尚未启用应用指标，请前往',
   'before reporting samples. The SDK also requires enableMetrics: true.':
     '启用后再上报样本。SDK 还需设置 enableMetrics: true。',
-  'Metrics are custom application measurements. The example names are not built-in metrics, and this setup does not add browser.web_vital metrics.':
-    '指标用于自定义应用测量。示例名称并非内置指标，此配置不会添加 browser.web_vital 指标。',
+  'Metrics includes automatically reported browser performance measurements and custom application measurements. The SDK automatically reports LCP, INP, CLS, FCP and TTFB when supported by the browser. This example adds custom metrics.':
+    '指标包含自动上报的浏览器性能数据和自定义应用测量。浏览器支持时，SDK 会自动上报 LCP、INP、CLS、FCP 和 TTFB。此示例用于添加自定义指标。',
+  'Custom metric ingestion is disabled for this project. Automatic browser performance measurements remain available.':
+    '此项目已关闭自定义指标上报，仍可查看自动上报的浏览器性能指标。',
+  'No measurements in this time range. Initialize the SDK and visit your application to collect browser performance measurements. For custom metrics, enable Metrics and configure enableMetrics: true.':
+    '此时间范围内暂无指标。初始化 SDK 并访问接入应用以采集浏览器性能数据；自定义指标需启用 Metrics 并配置 enableMetrics: true。',
   '· Vue': '· Vue',
   '· Set up browser profiling from sampled call stacks.': '· 通过采样调用栈接入浏览器性能剖析。',
 }

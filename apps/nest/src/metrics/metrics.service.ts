@@ -21,6 +21,8 @@ import {
 import { validId } from '../traces/traces-validation';
 import { isIP } from 'node:net';
 import { METRIC_GROUP_FIELDS } from './metrics-contract';
+import { WEB_VITALS_METRIC_SOURCE } from './web-vitals-source';
+import { isoTime } from '../traces/traces-validation';
 import {
   METRIC_FILTER_FIELDS,
   metricFieldOperators,
@@ -93,7 +95,21 @@ export class MetricsService {
       });
     });
   }
-  async catalog(user: string, group: string, slug: string) {
+  async catalog(
+    user: string,
+    group: string,
+    slug: string,
+    window: { start?: string; end?: string } = {},
+  ) {
+    const end = window.end === undefined ? Date.now() : isoTime(window.end);
+    const start =
+      window.start === undefined ? end - 7 * 86400000 : isoTime(window.start);
+    if (start >= end || end - start > 7 * 86400000)
+      throw new BadRequestException(
+        'Metric range must be between 0 and 7 days',
+      );
+    const catalogSource = `(SELECT project_id,name,type,unit,timestamp,attributes,'custom'::text AS source FROM monitoring_metrics
+      UNION ALL SELECT project_id,name,type,unit,timestamp,attributes,'web_vitals'::text AS source FROM ${WEB_VITALS_METRIC_SOURCE}) AS metric_catalog`;
     const project = await this.projects.findReadableBySlug(
       user,
       group,
@@ -112,14 +128,14 @@ export class MetricsService {
           source?: 'custom' | 'web_vitals';
         }[]
       >(
-        `SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen", 'custom' AS source FROM monitoring_metrics WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY name, type, unit ORDER BY name, type, unit LIMIT 201`,
-        [project.id],
+        `SELECT name, type, unit, count(*)::int AS "sampleCount", max(timestamp) AS "lastSeen", source FROM ${catalogSource} WHERE project_id = $1 AND timestamp >= $2 AND timestamp < $3 GROUP BY name, type, unit, source ORDER BY name, type, unit, source LIMIT 201`,
+        [project.id, new Date(start), new Date(end)],
       );
       const attributes = await manager.query<
         { key: string; types: string[]; identities?: string[][] }[]
       >(
-        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types, jsonb_agg(DISTINCT jsonb_build_array(name,type,unit)) AS identities FROM monitoring_metrics CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
-        [project.id],
+        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types, jsonb_agg(DISTINCT jsonb_build_array(name,type,unit,source)) AS identities FROM ${catalogSource} CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= $2 AND timestamp < $3 GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
+        [project.id, new Date(start), new Date(end)],
       );
       return {
         items: items.slice(0, 200).map((item) => ({
@@ -128,10 +144,11 @@ export class MetricsService {
             .slice(0, 100)
             .filter((attribute) =>
               attribute.identities?.some(
-                ([name, type, unit]) =>
+                ([name, type, unit, source]) =>
                   name === item.name &&
                   type === item.type &&
-                  unit === item.unit,
+                  unit === item.unit &&
+                  (!source || source === item.source),
               ),
             )
             .map((attribute) => attribute.key),
@@ -249,7 +266,10 @@ export class MetricsService {
       slug,
       'project:metrics:read',
     );
-    const source = 'monitoring_metrics';
+    const source =
+      q.source === 'web_vitals'
+        ? WEB_VITALS_METRIC_SOURCE
+        : 'monitoring_metrics';
     const params: unknown[] = [
       project.id,
       q.start,

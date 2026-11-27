@@ -8,8 +8,11 @@ import type {
 } from '../model/metrics'
 const base = (group: string, project: string) =>
   `/groups/${encodeURIComponent(group)}/projects/${encodeURIComponent(project)}/metrics`
-export const metricCatalog = (group: string, project: string) =>
-  http.get<MetricCatalog>(`${base(group, project)}/catalog`)
+export const metricCatalog = (
+  group: string,
+  project: string,
+  window?: { start: string; end: string },
+) => http.get<MetricCatalog>(`${base(group, project)}/catalog`, { params: window })
 export const metricQuery = (group: string, project: string, query: MetricQuery) =>
   http.post<MetricResult, MetricQuery>(`${base(group, project)}/query`, query)
 export const traceMetrics = (

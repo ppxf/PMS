@@ -28,7 +28,7 @@ function makeWindow() {
 }
 const window = ref(makeWindow())
 function changeRange() {
-  window.value = makeWindow()
+  void refresh()
 }
 function addMetric() {
   if (cards.value.length < 5) {
@@ -44,13 +44,15 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
+    const requestedWindow = makeWindow()
     const result = await metricCatalog(
       String(route.params.groupSlug),
       String(route.params.projectSlug),
+      requestedWindow,
     )
     if (current === generation) {
       catalog.value = result
-      window.value = makeWindow()
+      window.value = requestedWindow
     }
   } catch (e) {
     if (current === generation)
@@ -108,7 +110,11 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <p v-if="catalog && !catalog.enabled" class="text-sm text-amber-700">
-      {{ translate('Metric ingestion is disabled for this project.') }}
+      {{
+        translate(
+          'Custom metric ingestion is disabled for this project. Automatic browser performance measurements remain available.',
+        )
+      }}
       <RouterLink
         v-if="projectAccess.canRoute('project-detail')"
         :to="{ name: 'project-detail', params: route.params }"
@@ -130,7 +136,7 @@ onBeforeUnmount(() => {
       <p class="mt-2 text-sm text-muted-foreground">
         {{
           translate(
-            'Enable Metrics in project settings, configure enableMetrics: true, and report a metric sample.',
+            'No measurements in this time range. Initialize the SDK and visit your application to collect browser performance measurements. For custom metrics, enable Metrics and configure enableMetrics: true.',
           )
         }}
       </p>

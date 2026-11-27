@@ -45,7 +45,7 @@ const usage = buildMetricsUsageSnippet()
       <p class="text-sm text-muted-foreground">
         {{
           translate(
-            'Metrics are custom application measurements. The example names are not built-in metrics, and this setup does not add browser.web_vital metrics.',
+            'Metrics includes automatically reported browser performance measurements and custom application measurements. The SDK automatically reports LCP, INP, CLS, FCP and TTFB when supported by the browser. This example adds custom metrics.',
           )
         }}
       </p>

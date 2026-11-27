@@ -45,6 +45,41 @@ const result = {
   series: [],
 }
 describe('Metrics explorer', () => {
+  it('queries automatic browser measurements independently and refreshes discovery with the selected window', async () => {
+    api.metricCatalog.mockClear()
+    api.metricQuery.mockClear()
+    api.metricCatalog.mockResolvedValue({
+      items: [
+        {
+          name: 'browser.web_vital.lcp.value',
+          source: 'web_vitals',
+          type: 'distribution',
+          unit: 'ms',
+        },
+      ],
+      attributes: [],
+      enabled: false,
+    })
+    api.metricQuery.mockResolvedValue({ ...result, samples: [], total: 0 })
+    const view = mount(ProjectMetricsView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(api.metricQuery.mock.lastCall![2]).toMatchObject({
+      source: 'web_vitals',
+      name: 'browser.web_vital.lcp.value',
+      aggregation: 'p75',
+      unit: 'ms',
+    })
+    expect(api.metricCatalog.mock.lastCall![2]).toEqual({
+      start: api.metricQuery.mock.lastCall![2].start,
+      end: api.metricQuery.mock.lastCall![2].end,
+    })
+    await selectValue(view, 'Time range', 1)
+    await flushPromises()
+    const window = api.metricCatalog.mock.lastCall![2]
+    expect(Date.parse(window.end) - Date.parse(window.start)).toBe(3600000)
+    expect(api.metricQuery.mock.lastCall![2]).toMatchObject(window)
+    expect(view.find('[data-metric-panel]').exists()).toBe(true)
+  })
   it('shows isolated metric buckets and connects valid points across empty buckets', async () => {
     api.metricCatalog.mockResolvedValue({
       items: [{ name: 'orders', type: 'count', unit: 'none' }],

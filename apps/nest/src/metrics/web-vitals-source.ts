@@ -4,7 +4,7 @@ export const WEB_VITALS_METRIC_SOURCE = `(SELECT
   CASE v.name WHEN 'LCP' THEN 0 WHEN 'INP' THEN 1 WHEN 'CLS' THEN 2 WHEN 'FCP' THEN 3 ELSE 4 END AS sample_index,
   'browser.web_vital.' || lower(v.name) || '.value' AS name,
   'distribution'::text AS type, CASE v.name WHEN 'CLS' THEN 'none' ELSE 'ms' END AS unit,
-  v.value, p.started_at AS timestamp,
+  v.value, v.observed_at AS timestamp,
   v.attribution || jsonb_build_object('page.route', p.dimensions->>'route', 'browser.name', p.dimensions->>'browser', 'device', p.dimensions->>'device', 'navigation.type', p.dimensions->>'navigationType') AS attributes,
   p.dimensions->>'environment' AS environment, p.dimensions->>'release' AS release,
   p.dimensions->>'traceId' AS trace_id, p.dimensions->>'spanId' AS span_id

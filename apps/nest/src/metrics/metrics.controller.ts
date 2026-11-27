@@ -26,8 +26,9 @@ export class MetricsController {
     @Req() req: Request & { user: AuthUser },
     @Param('groupSlug') group: string,
     @Param('projectSlug') project: string,
+    @Query() window: { start?: string; end?: string },
   ) {
-    return this.metrics.catalog(req.user.id, group, project);
+    return this.metrics.catalog(req.user.id, group, project, window);
   }
   @Post('query')
   query(

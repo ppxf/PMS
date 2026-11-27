@@ -26,7 +26,7 @@ const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
         key === 'key'
           ? Promise.resolve({ id: projectId })
           : Promise.reject(new Error('denied')),
-      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      getAccess: () => Promise.resolve({ role: 'owner', permissions: [] }),
       findReadableBySlug: (user: string) =>
         user === 'owner'
           ? Promise.resolve({ id: projectId, slug: 'web' })
@@ -70,7 +70,7 @@ const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
     });
     const envelope = (
       pageId: string,
-      name: 'LCP' | 'INP' | 'CLS',
+      name: 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB',
       value: number,
       revision = 1,
     ): WebVitalsEnvelope => ({
@@ -96,6 +96,79 @@ const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
           attribution: {},
         },
       ],
+    });
+    it('exposes all automatic metrics across routes by measurement time, independently of Web Vitals navigation windows', async () => {
+      const window = {
+        start: '2026-11-08T00:00:00Z',
+        end: '2026-11-09T00:00:00Z',
+      };
+      for (const route of ['/catalog', '/cart']) {
+        const pageId = randomUUID();
+        for (const name of ['LCP', 'INP', 'CLS', 'FCP', 'TTFB'] as const) {
+          const e = envelope(pageId, name, name === 'CLS' ? 0 : 1000);
+          e.page.route = route;
+          e.page.startedAt = '2026-11-07T00:00:00Z';
+          e.measurements[0].observedAt = window.start;
+          await service.ingest(projectId, 'key', e);
+        }
+      }
+      const catalog = await metrics.catalog('owner', 'team', 'web', window);
+      expect(catalog.items).toHaveLength(5);
+      expect(
+        catalog.items.every(
+          (item) => item.source === 'web_vitals' && item.sampleCount === 2,
+        ),
+      ).toBe(true);
+      const q = {
+        ...window,
+        source: 'web_vitals' as const,
+        name: 'browser.web_vital.lcp.value',
+        type: 'distribution' as const,
+        unit: 'ms',
+        aggregation: 'p75' as const,
+        filters: [],
+        groupBy: ['attributes.page.route'],
+        intervalSeconds: 3600,
+        page: 1,
+        pageSize: 1,
+      };
+      const result = await metrics.query('owner', 'team', 'web', q);
+      expect(result.total).toBe(2);
+      expect(result.samples).toHaveLength(1);
+      expect(result.aggregates).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            groupValue: '/catalog',
+            sampleCount: 1,
+            value: 1000,
+          }),
+          expect.objectContaining({
+            groupValue: '/cart',
+            sampleCount: 1,
+            value: 1000,
+          }),
+        ]),
+      );
+      const nextPage = await metrics.query('owner', 'team', 'web', {
+        ...q,
+        page: 2,
+      });
+      expect(nextPage.samples[0].eventId).not.toBe(result.samples[0].eventId);
+      const filtered = await metrics.query('owner', 'team', 'web', {
+        ...q,
+        filters: [
+          { field: 'attributes.page.route', operator: 'eq', value: '/cart' },
+        ],
+      });
+      expect(filtered.total).toBe(1);
+      const overview = (await controller.query(
+        req,
+        'team',
+        'web',
+        'overview',
+        window,
+      )) as { pageViews: number };
+      expect(overview.pageViews).toBe(0);
     });
     it('deduplicates retry and stale revisions; aggregates canonical p75 and page counts', async () => {
       const pageId = randomUUID();
@@ -129,8 +202,50 @@ const url = process.env.MIGRATIONS_TEST_DATABASE_URL;
         count: 1,
         p75: 0,
       });
-      const catalog = await metrics.catalog('owner', 'team', 'web');
-      expect(catalog.items).toEqual([]);
+      const catalog = await metrics.catalog('owner', 'team', 'web', {
+        start,
+        end,
+      });
+      expect(catalog.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'browser.web_vital.lcp.value',
+            source: 'web_vitals',
+            sampleCount: 2,
+          }),
+          expect.objectContaining({
+            name: 'browser.web_vital.cls.value',
+            source: 'web_vitals',
+            sampleCount: 1,
+          }),
+        ]),
+      );
+      const metricResult = await metrics.query('owner', 'team', 'web', {
+        source: 'web_vitals',
+        name: 'browser.web_vital.lcp.value',
+        type: 'distribution',
+        unit: 'ms',
+        aggregation: 'p75',
+        start,
+        end,
+        filters: [],
+        intervalSeconds: 3600,
+        page: 1,
+        pageSize: 20,
+      });
+      expect(metricResult.total).toBe(2);
+      expect(metricResult.aggregates[0]).toMatchObject({
+        value: 4000,
+        sampleCount: 2,
+      });
+      expect(metricResult.samples).toHaveLength(2);
+      expect(
+        (
+          await db.query(
+            'SELECT count(*)::int AS count FROM monitoring_metrics',
+          )
+        )[0].count,
+      ).toBe(0);
       const samples = (await controller.query(req, 'team', 'web', 'samples', {
         start,
         end,
