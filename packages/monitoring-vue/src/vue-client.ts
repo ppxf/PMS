@@ -76,7 +76,7 @@ export function init(options: VueMonitoringInitOptions): ClientState {
   const state = initCore({
     ...coreOptions,
     tracesSampleRate: integrations.length ? options.tracesSampleRate : 0,
-    sdk: { name: '@pmspulse/monitoring-vue', version: '0.1.8' },
+    sdk: { name: '@pmspulse/monitoring-vue', version: '0.1.9' },
   })
   configuredIntegrations = [...integrations]
   if (options.router) client.setWebVitalsRouteResolver(() => options.router?.currentRoute?.value.matched.at(-1)?.path)

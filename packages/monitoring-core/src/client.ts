@@ -32,7 +32,7 @@ export function createMonitoringClient() {
   let activeOnTransportError: MonitoringInitOptions['onTransportError']
   let automaticErrors = new WeakSet<object>()
 
-  const defaultSdk = { name: '@pmspulse/monitoring-core', version: '0.1.8' } as const
+  const defaultSdk = { name: '@pmspulse/monitoring-core', version: '0.1.9' } as const
 
   function reportCallbackFailure(): void {
     if (activeDebug) {
