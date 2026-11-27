@@ -289,9 +289,9 @@ export class MonitoringErrorEventDto {
   @Equals('error')
   level!: 'error';
 
-  @IsIn(['vue', 'window', 'unhandledrejection', 'manual'])
+  @IsIn(['vue', 'window', 'unhandledrejection', 'manual', 'http'])
   @MaxLength(128)
-  source!: 'vue' | 'window' | 'unhandledrejection' | 'manual';
+  source!: 'vue' | 'window' | 'unhandledrejection' | 'manual' | 'http';
 
   @IsString()
   @MaxLength(2000)

@@ -1,6 +1,9 @@
 import type { SpanHandle, SpanOptions } from './tracing-types.js'
+import type { CaptureExceptionContext } from './types.js'
 
 export interface MonitoringIntegrationClient {
+  captureException?(error: unknown, context?: CaptureExceptionContext): Promise<void>
+  bindExceptionToSpan?(error: unknown, span: SpanHandle): void
   enableProfiling?(): void
   startInactiveSpan(options: SpanOptions): SpanHandle
   getClientState(): { endpoint: string } | undefined

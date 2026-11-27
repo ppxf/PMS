@@ -41,6 +41,9 @@ describe('browser tracing integration', () => {
     expect(transport.events.map(e => e.event.message)).toEqual(['script failed'])
     const spans = transport.envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
     expect(spans.find(span => span.op === 'http.client')).toMatchObject({ name: 'GET /api/orders', httpStatusCode: 200 })
+    const errorSpan = spans.find(span => span.spanId === transport.events[0].event.contexts?.trace?.spanId)
+    expect(errorSpan).toMatchObject({ op: 'error', status: 'error', isTransaction: false })
+    expect(errorSpan?.parentSpanId).toBe(spans.find(span => span.op === 'pageload')?.spanId)
   })
   it('sets up a plugin on the host client without initializing this package client', async () => {
     const { createMonitoringClient } = await import('@pmspulse/monitoring-core')
@@ -70,6 +73,38 @@ describe('browser tracing integration', () => {
     expect(transport.envelopes.some(e => e.type === 'transaction')).toBe(true)
     expect(transport.events).toHaveLength(0)
   })
+})
+
+it('correlates HTTP and concurrent Vue errors with their own spans through the Vue integration', async () => {
+  const { createApp } = await import('vue')
+  const sdk = await import('./index.js')
+  const failure = new TypeError('offline')
+  const target = new EventTarget() as Window
+  Object.assign(target, {
+    document: Object.assign(new EventTarget(), { readyState: 'complete', visibilityState: 'visible' }),
+    location: new URL('https://app.test/orders'),
+    performance: { now: () => performance.now(), getEntriesByType: () => [] },
+    fetch: () => Promise.reject(failure),
+  })
+  vi.stubGlobal('window', target)
+  const transport = new RecordingTransport()
+  const app = createApp({})
+  sdk.init({ app, dsn, transport, tracesSampleRate: 1, integrations: [sdk.browserTracingIntegration()] })
+  await expect(target.fetch('/api/orders')).rejects.toBe(failure)
+  target.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason: failure }))
+  app.config.errorHandler?.(new Error('first component'), null, 'render')
+  app.config.errorHandler?.(new Error('second component'), null, 'render')
+  target.dispatchEvent(new Event('pagehide'))
+  await sdk.flush()
+  expect(transport.events).toHaveLength(3)
+  const spans = transport.envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+  const httpSpan = spans.find(span => span.op === 'http.client')!
+  expect(transport.events[0].event.contexts?.trace?.spanId).toBe(httpSpan.spanId)
+  const componentEvents = transport.events.filter(e => e.event.source === 'vue')
+  expect(new Set(componentEvents.map(e => e.event.contexts?.trace?.spanId)).size).toBe(2)
+  for (const event of componentEvents) {
+    expect(spans.find(span => span.spanId === event.event.contexts?.trace?.spanId)).toMatchObject({ op: 'error', status: 'error' })
+  }
 })
 
 

@@ -24,6 +24,105 @@ function setup(navigationStart?: number, fetcher?: () => Promise<Response>) {
 }
 
 describe('browser tracing instrumentation', () => {
+  it('binds HTTP status errors to the request span without changing the response', async () => {
+    const response = new Response('private response', { status: 500 })
+    const { client, tracing, w, envelopes } = setup(undefined, () => Promise.resolve(response))
+    expect(await w.fetch('/api/failure?token=private')).toBe(response)
+    tracing.endNavigation()
+    await client.flush()
+    const request = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans).find(span => span.op === 'http.client')!
+    const events = envelopes.filter(e => e.type === 'event')
+    expect(events).toHaveLength(1)
+    expect(events[0].event).toMatchObject({ source: 'http', contexts: { trace: { traceId: request.traceId, spanId: request.spanId } } })
+    expect(request.status).toBe('error')
+    expect(JSON.stringify(events)).not.toContain('private')
+    client.resetClientForTests()
+  })
+
+  it('keeps concurrent network exceptions on their own requests after unwinding', async () => {
+    const failures = [new TypeError('first offline'), new TypeError('second offline')]
+    const promises = failures.map(error => Promise.reject(error))
+    let index = 0
+    const { client, tracing, w, envelopes } = setup(undefined, () => promises[index++])
+    const first = w.fetch('/api/first')
+    const second = w.fetch('/api/second')
+    expect(first).toBe(promises[0])
+    expect(second).toBe(promises[1])
+    await Promise.allSettled([first, second])
+    // Browser global handlers see the same objects after the requests settle.
+    for (const failure of failures) await client.captureException(failure, { source: 'unhandledrejection' })
+    tracing.endNavigation()
+    await client.flush()
+    const events = envelopes.filter(e => e.type === 'event')
+    expect(events).toHaveLength(2)
+    const spans = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+    for (const [i, event] of events.entries()) {
+      expect(event.event.contexts?.trace?.spanId).toBe(spans.find(span => span.name === `GET /api/${i === 0 ? 'first' : 'second'}`)?.spanId)
+    }
+    client.resetClientForTests()
+  })
+
+  it('captures XHR status, network and timeout errors once on their respective request spans', async () => {
+    const { client, tracing, w, envelopes } = setup()
+    class FakeXhr extends EventTarget {
+      status = 0
+      open(method: string, url: string) { void method; void url }
+      send() { /* Native boundary stub. */ }
+    }
+    Object.assign(w, { XMLHttpRequest: FakeXhr })
+    const xhrTracing = createBrowserTracing(client)
+    xhrTracing.install(w)
+    for (const kind of ['status', 'network', 'timeout', 'abort', 'success']) {
+      const xhr = new FakeXhr()
+      xhr.open('GET', `/api/${kind}?token=private`)
+      xhr.send()
+      xhr.status = kind === 'status' ? 404 : kind === 'success' ? 200 : 0
+      const event = kind === 'network' ? 'error' : kind === 'status' || kind === 'success' ? 'load' : kind
+      xhr.dispatchEvent(new Event(event))
+      // A second terminal signal must not create another event.
+      xhr.dispatchEvent(new Event('load'))
+      xhr.dispatchEvent(new Event('loadend'))
+    }
+    tracing.endNavigation()
+    xhrTracing.endNavigation()
+    await client.flush()
+    const events = envelopes.filter(e => e.type === 'event')
+    expect(events).toHaveLength(3)
+    const spans = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans)
+    for (const [index, kind] of ['status', 'network', 'timeout'].entries()) {
+      expect(events[index].event).toMatchObject({ source: 'http', contexts: { trace: { spanId: spans.find(span => span.name === `GET /api/${kind}`)?.spanId } } })
+    }
+    expect(JSON.stringify(events)).not.toContain('private')
+    client.resetClientForTests()
+  })
+
+  it('preserves synchronous fetch exceptions and binds them to the request', async () => {
+    const failure = new TypeError('bad request')
+    const { client, tracing, w, envelopes } = setup(undefined, () => { throw failure })
+    expect(() => w.fetch('/api/sync')).toThrow(failure)
+    await client.captureException(failure, { source: 'window' })
+    tracing.endNavigation()
+    await client.flush()
+    const request = envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans).find(span => span.op === 'http.client')!
+    expect(envelopes.filter(e => e.type === 'event')).toHaveLength(1)
+    expect(envelopes.find(e => e.type === 'event')?.event.contexts?.trace?.spanId).toBe(request.spanId)
+    client.resetClientForTests()
+  })
+
+  it('does not report caller cancellation with a custom abort reason as a network error', async () => {
+    const controller = new AbortController()
+    const reason = new Error('user cancelled')
+    const { client, tracing, w, envelopes } = setup(undefined, () => {
+      controller.abort(reason)
+      return Promise.reject(reason)
+    })
+    await expect(w.fetch('/api/cancel', { signal: controller.signal })).rejects.toBe(reason)
+    tracing.endNavigation()
+    await client.flush()
+    expect(envelopes.filter(e => e.type === 'event')).toHaveLength(0)
+    expect(envelopes.filter(e => e.type === 'transaction').flatMap(e => e.transaction.spans).find(span => span.op === 'http.client')).toMatchObject({ status: 'cancelled', endReason: 'abort' })
+    client.resetClientForTests()
+  })
   it('preserves log correlation after the page measurement deadline and page hide', async () => {
     vi.useFakeTimers()
     let finish!: (response: Response) => void

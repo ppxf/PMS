@@ -30,6 +30,7 @@ export function createMonitoringClient() {
   let activeSdk: MonitoringInitOptions['sdk'] | undefined
   let activeDebug = false
   let activeOnTransportError: MonitoringInitOptions['onTransportError']
+  let automaticErrors = new WeakSet<object>()
 
   const defaultSdk = { name: '@pmspulse/monitoring-core', version: '0.1.8' } as const
 
@@ -136,8 +137,12 @@ export function createMonitoringClient() {
     context: CaptureExceptionContext = {},
   ): Promise<void> {
     if (!state) return Promise.resolve()
+    if (context.source && context.source !== 'manual' && ((typeof error === 'object' && error !== null) || typeof error === 'function')) {
+      if (automaticErrors.has(error)) return Promise.resolve()
+      automaticErrors.add(error)
+    }
     const event = createEvent(error, context, state)
-    const trace = tracing.getErrorTraceContext(error)
+    const trace = tracing.getErrorTraceContext(error, event.exception)
     if (trace) event.contexts = { ...event.contexts, trace: { ...trace } }
     return sendEnvelope({ version: 1, type: 'event', sentAt: new Date().toISOString(), event })
   }
@@ -154,6 +159,7 @@ export function createMonitoringClient() {
   /** @internal Test isolation; not exported from the package public entrypoint. */
   function resetClientForTests(): void {
     tracing.reset()
+    automaticErrors = new WeakSet()
     webVitals.reset()
     profiling.reset()
     activeProfileRate = 0
@@ -177,6 +183,7 @@ export function createMonitoringClient() {
   return { init, captureException, getClientState, getTransport, getPropagationTargets, resetClientForTests,
     enableProfiling: profiling.enable, uiProfiler: profiling.uiProfiler,
     setPageSpan: tracing.setPageSpan,
+    bindExceptionToSpan: tracing.bindExceptionToSpan,
     endPageSession: tracing.endPageSession,
     setWebVitalsRouteResolver: webVitals.setRouteResolver,
     metrics: metricRecorder.metrics, getMetricStats: metricRecorder.getMetricStats,

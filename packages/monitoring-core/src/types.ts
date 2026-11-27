@@ -5,7 +5,7 @@ import type { WebVitalsEnvelope } from './web-vitals-types.js'
 import type { ProfileEnvelope, ProfileDiagnosticEnvelope } from './profiling-types.js'
 export type MonitoringEventType = 'error'
 export type MonitoringLevel = 'error'
-export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual'
+export type MonitoringEventSource = 'vue' | 'window' | 'unhandledrejection' | 'manual' | 'http'
 
 export interface MonitoringException {
   type: string

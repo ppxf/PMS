@@ -57,7 +57,7 @@ export interface MonitoringIssueSummary {
   eventCount: number
   firstSeenAt: string
   lastSeenAt: string
-  source: 'vue' | 'window' | 'unhandledrejection' | 'manual' | null
+  source: 'vue' | 'window' | 'unhandledrejection' | 'manual' | 'http' | null
   visibility: MonitoringIssueVisibility
   archiveThreshold: 10 | 100 | 1000 | null
   archivedAt: string | null
@@ -99,7 +99,7 @@ export interface MonitoringEventDetail {
   id: string
   timestamp: string
   receivedAt: string
-  source: 'vue' | 'window' | 'unhandledrejection' | 'manual'
+  source: 'vue' | 'window' | 'unhandledrejection' | 'manual' | 'http'
   level: 'error'
   message: string
   exceptionType: string

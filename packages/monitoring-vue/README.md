@@ -86,6 +86,16 @@ DSN/key 用于向项目写入监控数据，不提供管理权限。项目来源
 
 ## 4. 验证与排障
 
+### 错误事件与 Span 关联
+
+启用 `browserTracingIntegration()` 后，fetch/XHR 返回 HTTP 4xx/5xx、网络失败或超时时，会自动上报 `source: 'http'` 的错误事件，并关联对应的 `http.client` 请求 Span。fetch 网络异常保留原始异常对象与 Promise；XHR 网络错误、超时和 HTTP 状态错误使用 SDK 生成的异常。HTTP 错误响应仍正常返回，SDK 不读取响应体、不改变业务的 reject/throw 行为。主动取消请求仅标记 `cancelled`，不自动生成错误事件。
+
+Vue、window.error、unhandledrejection 和手动捕获的普通异常，如果没有明确的请求或业务子 Span，会创建独立的 `error` Span。多个同时发生的异常使用不同的 Span ID，不再直接关联页面根 Span。同一个异常对象已经关联请求或抛错的业务子 Span 时，继续保留该关联；自动 HTTP 上报后被全局监听再次捕获的同一异常对象不会重复上报。独立 SDK 客户端之间的关联与去重状态互不影响。
+
+页面加载 Span 已结束时，新错误仍沿用当前页面的 Trace ID 和父 Span ID，作为单独的链路片段上报；离开页面后不再沿用旧页面上下文。Span 记录遵循 `tracesSampleRate`，未采样时错误事件仍会上报，但不会强制补采整条链路。
+
+此能力需要升级 Core/Vue SDK，并先部署支持 `http` 错误来源的后端；旧 SDK 不会补充历史错误的 Span 关联。
+
 1. 开发 tracesSampleRate 设为 1，刷新页面并发起请求。
 2. 检查 PMS 上报的跨域预检与 transaction 请求成功，业务 API 不应因 SDK 新增追踪头。
 3. 检查 PMS /sdk/{projectId}/envelope transaction 上报，Traces 页面选择同环境和时间。

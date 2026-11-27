@@ -178,7 +178,7 @@ describe('IngestEnvelopeDto', () => {
   // Catches missing nested validation and accidentally optional required fields.
   it('transforms both protocol variants and accepts all supported sources', async () => {
     expect(await validate(clientReport())).toBeInstanceOf(IngestEnvelopeDto);
-    for (const source of ['vue', 'window', 'unhandledrejection', 'manual']) {
+    for (const source of ['vue', 'window', 'unhandledrejection', 'manual', 'http']) {
       const input = eventEnvelope();
       input.event.source = source;
       expect(await validate(input)).toMatchObject(input);

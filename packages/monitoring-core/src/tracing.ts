@@ -26,20 +26,38 @@ export function createTracing() {
   let pageSpan: SpanHandle | undefined
   const recordings = new Set<Recording>()
   const parents = new WeakMap<SpanHandle, Recording>()
+  const retainForError = new WeakMap<SpanHandle, () => void>()
   const queue = new Set<Pending>()
   const clockTimers = new Set<ReturnType<typeof setTimeout>>()
-  let errorContexts = new WeakMap<object, TraceContext>()
+  let errorContexts = new WeakMap<object, SpanHandle>()
 
   function rememberError(error: unknown, span: SpanHandle): void {
     if ((typeof error === 'object' && error !== null) || typeof error === 'function') {
       // Preserve the innermost throwing span when the same error unwinds through parents.
-      if (!errorContexts.has(error)) errorContexts.set(error, span.context)
+      if (!errorContexts.has(error)) errorContexts.set(error, span)
     }
   }
-  function getErrorTraceContext(error: unknown): TraceContext | undefined {
+  function getErrorTraceContext(error: unknown, description: { type: string; value: string }): TraceContext | undefined {
     const recorded = ((typeof error === 'object' && error !== null) || typeof error === 'function')
       ? errorContexts.get(error) : undefined
-    return recorded ?? getLogTraceContext()
+    const parent = recorded ?? currentSpan() ?? pageSpan
+    // A request or an explicit business child already identifies the failing operation.
+    if (parent && (['http.client', 'error'].includes(parent.span.op) ||
+      (!parent.span.isTransaction && !['pageload', 'navigation'].includes(parent.span.op)))) {
+      retainForError.get(parent)?.()
+      rememberError(error, parent)
+      return parent.context
+    }
+    if (!parent && !config?.tracesSampleRate) return undefined
+    const owner = parent && parents.get(parent)
+    // A sealed/full recording cannot accept a child. Record a separate segment with
+    // the same trace and parent ID so late errors still have a persisted span.
+    const attach = parent && !parent.ended && owner && !owner.sealed && owner.spans.length < 200 ? parent : parent?.context
+    const span = startInactiveSpan({ name: `${description.type}: ${description.value}`, op: 'error',
+      parent: attach, pageRoute: parent?.span.pageRoute, attributes: { 'error.type': description.type } })
+    span.end('error')
+    if ((typeof error === 'object' && error !== null) || typeof error === 'function') errorContexts.set(error, span)
+    return span.context
   }
 
   function currentSpan(): SpanHandle | undefined {
@@ -190,6 +208,20 @@ export function createTracing() {
       else { owner.root.span.droppedSpanCount++; owner.root.span.truncated = true }
       parents.set(handle, owner)
       if (owner.root === handle) rootObserver?.rootStarted(handle)
+      retainForError.set(handle, () => {
+        if (owner?.spans.includes(handle)) return
+        // Preserve a failing operation dropped by the per-recording span limit.
+        // Its ID and ancestry stay unchanged in a bounded standalone segment.
+        span.isTransaction = true
+        owner = { spans: [handle], root: handle, sealed: false }
+        parents.set(handle, owner)
+        recordings.add(owner)
+        if (ended) seal(owner)
+        else {
+          const timer = setTimeout(() => { clockTimers.delete(timer); handle.end('deadline_exceeded', 'deadline_exceeded') }, 30_000)
+          clockTimers.add(timer)
+        }
+      })
     }
     Object.entries(options.attributes ?? {}).forEach(([key, value]) => handle.setAttribute(key, value))
     return handle
@@ -231,5 +263,5 @@ export function createTracing() {
     for (const item of queue) if (item.timer) clearTimeout(item.timer)
     queue.clear(); recordings.clear(); config = undefined; transport = undefined; droppedBatches = 0
   }
-  return { configure, setRootSpanObserver: (observer: typeof rootObserver) => { rootObserver = observer }, startInactiveSpan, startSpan, endPageSession, getActiveTraceContext, getLogTraceContext, getErrorTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
+  return { configure, setRootSpanObserver: (observer: typeof rootObserver) => { rootObserver = observer }, startInactiveSpan, startSpan, endPageSession, getActiveTraceContext, getLogTraceContext, getErrorTraceContext, bindExceptionToSpan: rememberError, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
 }

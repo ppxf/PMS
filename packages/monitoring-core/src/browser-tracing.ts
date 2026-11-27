@@ -1,8 +1,11 @@
 import type { SpanHandle, SpanOptions, TraceContext } from './tracing-types.js'
 import { matchesPropagationTarget, traceparent } from './propagation.js'
 import { createBrowserPerformance } from './browser-performance.js'
+import type { CaptureExceptionContext } from './types.js'
 
 interface Client {
+  captureException?(error: unknown, context?: CaptureExceptionContext): Promise<void>
+  bindExceptionToSpan?(error: unknown, span: SpanHandle): void
   startInactiveSpan(options: SpanOptions): SpanHandle
   getClientState(): { endpoint: string } | undefined
   flush(options?: { endPendingSpans?: boolean }): Promise<void>
@@ -125,12 +128,23 @@ export function createBrowserTracing(client: Client) {
     let finished = false
     return {
       context: span.context,
-      finish(status: 'ok' | 'error' | 'cancelled' | 'unknown', code?: number, reason = 'completed') {
+      finish(status: 'ok' | 'error' | 'cancelled' | 'unknown', code?: number, reason = 'completed', exception?: unknown) {
         if (finished) return
         finished = true
         safe(() => {
           if (code && code >= 100 && code <= 599) span.setMeasurements({ httpStatusCode: code })
           span.end(status, reason)
+          if (exception !== undefined) client.bindExceptionToSpan?.(exception, span)
+          if (status === 'error') {
+            const synthetic = new Error(`${code ? `HTTP ${code}` : reason === 'request_timeout' ? 'Request timeout' : 'Network request failed'}: ${method} ${route}`)
+            synthetic.name = code ? 'HTTPError' : reason === 'request_timeout' ? 'TimeoutError' : 'NetworkError'
+            const error = exception ?? synthetic
+            client.bindExceptionToSpan?.(error, span)
+            void client.captureException?.(error, { source: 'http', tags: {
+              'http.method': method, 'http.route': route, 'http.instrumentation': instrumentation,
+              ...(code ? { 'http.status_code': String(code) } : {}),
+            } }).catch(() => undefined)
+          }
           if (parent === root) pending = Math.max(0, pending - 1)
           const tryMeasure = (remaining: number) => {
             if (!measurements(span, raw, started, w) && remaining > 0) later(() => tryMeasure(remaining - 1), 100)
@@ -172,10 +186,13 @@ export function createBrowserTracing(client: Client) {
       w.fetch = function (input, init) {
         let operation: ReturnType<typeof http>
         let requestInit = init
+        let signal: AbortSignal | null | undefined
         safe(() => {
           const request = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
           const method = init?.method ?? (typeof input === 'object' && 'method' in input ? input.method : 'GET')
           operation = http(request, method.toUpperCase(), 'fetch', w)
+          const providedSignal = init?.signal
+          signal = providedSignal === undefined && typeof input === 'object' && 'signal' in input ? input.signal : providedSignal
           const mode = init?.mode ?? (typeof input === 'object' && 'mode' in input ? input.mode : undefined)
           if (operation && mode !== 'no-cors' && matchesPropagationTarget(request, w.location.href, client.getPropagationTargets?.() ?? [])) {
             const headers = new Headers(init?.headers ?? (typeof input === 'object' && 'headers' in input ? input.headers : undefined))
@@ -185,14 +202,19 @@ export function createBrowserTracing(client: Client) {
             }
           }
         })
+        const fail = (error: unknown) => safe(() => {
+          const name = typeof error === 'object' && error !== null && 'name' in error ? error.name : undefined
+          const timeout = name === 'TimeoutError'
+          const abort = !timeout && (signal?.aborted || name === 'AbortError')
+          operation?.finish(abort ? 'cancelled' : 'error', undefined, timeout ? 'request_timeout' : abort ? 'abort' : 'network_error', error)
+        })
         let promise: Promise<Response>
         try { promise = originalFetch.call(this, input, requestInit) }
-        catch (error) { operation?.finish('error'); throw error }
+        catch (error) { fail(error); throw error }
         void promise.then((response) => {
           safe(() => operation?.finish(response.status >= 400 ? 'error' : response.status === 0 ? 'unknown' : 'ok', response.status))
         }, (error: unknown) => {
-          const abort = typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
-          safe(() => operation?.finish(abort ? 'cancelled' : 'error', undefined, abort ? 'abort' : 'network_error'))
+          fail(error)
         }).catch(() => undefined)
         return promise
       }
@@ -242,7 +264,7 @@ export function createBrowserTracing(client: Client) {
         const remove = () => { listeners.forEach(([event, listener]) => this.removeEventListener(event, listener)); this.removeEventListener('loadend', remove) }
         listeners.forEach(([event, listener]) => this.addEventListener(event, listener))
         this.addEventListener('loadend', remove, { once: true })
-        try { return send.call(this, body) } catch (error) { safe(() => operation?.finish('error')); remove(); throw error }
+        try { return send.call(this, body) } catch (error) { safe(() => operation?.finish('error', undefined, 'network_error', error)); remove(); throw error }
       }
     }
   }
