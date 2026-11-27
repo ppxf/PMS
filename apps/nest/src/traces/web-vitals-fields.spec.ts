@@ -1,6 +1,12 @@
 import { SPAN_FIELD_MAP } from './traces-contract';
 import { SpanQueryPipe } from './traces-validation';
 describe('Web Vitals query fields', () => {
+  it('describes LCP size as visible area and CLS as unitless', () => {
+    expect(SPAN_FIELD_MAP.get('browser.web_vital.lcp.size')?.unit).toBe('px²');
+    expect(SPAN_FIELD_MAP.get('browser.web_vital.cls.value')?.unit).toBe(
+      'none',
+    );
+  });
   it.each([
     'lcp.value',
     'inp.value',

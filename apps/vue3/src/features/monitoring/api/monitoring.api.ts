@@ -60,8 +60,18 @@ export const listProjectIssues = (
     { params: query },
   )
 
-export const getProjectIssue = (groupSlug: string, projectSlug: string, issueId: string) =>
-  http.get<MonitoringIssueDetail>(`/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`)
+export const getProjectIssue = (
+  groupSlug: string,
+  projectSlug: string,
+  issueId: string,
+  eventId?: string,
+) =>
+  http.get<MonitoringIssueDetail>(
+    `/groups/${groupSlug}/projects/${projectSlug}/issues/${issueId}`,
+    {
+      params: eventId ? { eventId } : {},
+    },
+  )
 
 export const updateProjectIssueStatus = (
   groupSlug: string,

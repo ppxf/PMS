@@ -49,6 +49,7 @@ export interface MemoryContext {
 }
 
 export interface BrowserEventContexts {
+  trace?: import('./tracing-types.js').TraceContext
   request?: RequestContext
   browser?: BrowserContext
   os?: OperatingSystemContext

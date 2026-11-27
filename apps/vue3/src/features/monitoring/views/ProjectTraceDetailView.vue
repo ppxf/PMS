@@ -9,7 +9,7 @@ const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ArrowLeft, GitBranch, Clock3, Layers, ChevronRight } from '@lucide/vue'
+import { ArrowLeft, GitBranch, Clock3, Layers, ChevronRight, AlertCircle } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { traceDetail } from '../api/traces.api'
 import { traceMetrics } from '../api/metrics.api'
@@ -270,12 +270,17 @@ function formatDuration(value: number) {
     : `${value.toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} ms`
 }
 function spanColor(span: Span) {
-  if (span.status === 'error' || span.status === 'deadline_exceeded') return '#e05260'
+  if (spanHasError(span)) return '#e05260'
   if (span.op.startsWith('http')) return '#3b9c92'
   if (span.op.startsWith('resource.')) return '#e98166'
   if (span.op.startsWith('browser.')) return '#a16bd0'
   if (span.op === 'pageload' || span.op === 'navigation') return '#7c6cda'
   return '#5b8def'
+}
+function spanHasError(span: Span) {
+  return (
+    (span.errorCount ?? 0) > 0 || span.status === 'error' || span.status === 'deadline_exceeded'
+  )
 }
 function propertyValue(value: unknown, key: string) {
   if (value == null) return '—'
@@ -624,6 +629,7 @@ onBeforeUnmount(() => {
               class="waterfall-row span-row"
               :class="{
                 'is-selected': selected?.spanId === row.span.spanId,
+                'has-error': spanHasError(row.span),
                 'is-highlighted': highlights.length > 0 && matchesSpanFilters(row.span, highlights),
               }"
               :aria-pressed="selected?.spanId === row.span.spanId"
@@ -636,6 +642,12 @@ onBeforeUnmount(() => {
               >
                 <span v-if="row.depth" class="tree-connector" aria-hidden="true" />
                 <span class="op-dot" :style="{ background: spanColor(row.span) }" />
+                <AlertCircle
+                  v-if="spanHasError(row.span)"
+                  :size="14"
+                  class="error-icon shrink-0"
+                  :aria-label="translate('Error span')"
+                />
                 <span class="span-text">
                   <span class="span-name" :title="translate(row.span.name)">{{
                     row.span.name
@@ -645,6 +657,10 @@ onBeforeUnmount(() => {
                     {{ translate(spanMeasurementLabel(row.span)) }}</span
                   >
                 </span>
+                <span v-if="row.span.errorCount" class="span-error-count"
+                  >{{ row.span.errorCount }}
+                  {{ translate(row.span.errorCount === 1 ? 'error' : 'errors') }}</span
+                >
               </span>
               <span class="timeline-cell">
                 <span
@@ -684,13 +700,44 @@ onBeforeUnmount(() => {
           <span
             class="status-badge"
             :class="{
-              'status-error':
-                selected.status === 'error' || selected.status === 'deadline_exceeded',
+              'status-error': spanHasError(selected),
             }"
             >{{ selected.status }}</span
           >
         </div>
         <p class="selected-name">{{ selected.name }}</p>
+        <section
+          v-if="selected.errors?.length && projectAccess.canRoute('project-issues')"
+          class="span-errors"
+          :aria-label="translate('Associated errors')"
+        >
+          <h4 class="text-sm font-semibold">
+            {{ translate('Associated errors') }} · {{ selected.errorCount }}
+          </h4>
+          <RouterLink
+            v-for="entry in selected.errors"
+            :key="entry.id"
+            class="span-error-link"
+            :to="{
+              name: 'project-issue-detail',
+              params: {
+                groupSlug: route.params.groupSlug,
+                projectSlug: route.params.projectSlug,
+                issueId: entry.issueId,
+              },
+              query: { eventId: entry.id },
+            }"
+          >
+            <span class="font-medium">{{ entry.exceptionType }}: {{ entry.message }}</span>
+            <span class="text-xs text-muted-foreground">{{ formatDateTime(entry.timestamp) }}</span>
+          </RouterLink>
+          <p
+            v-if="(selected.errorCount ?? 0) > selected.errors.length"
+            class="text-xs text-muted-foreground"
+          >
+            {{ translate('Showing the latest 5 errors. Open an issue for more events.') }}
+          </p>
+        </section>
         <dl class="properties">
           <div class="property">
             <dt>{{ translate('Measurement status') }}</dt>
@@ -898,6 +945,51 @@ onBeforeUnmount(() => {
 }
 .span-row.is-highlighted {
   box-shadow: inset 3px 0 var(--primary);
+}
+.span-row.has-error {
+  background: color-mix(in srgb, #e05260 6%, var(--background));
+  box-shadow: inset 3px 0 #e05260;
+}
+.span-row.has-error.is-selected {
+  background: color-mix(in srgb, #e05260 13%, var(--background));
+}
+.error-icon,
+.span-error-count {
+  color: var(--destructive);
+}
+.span-error-count {
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.span-row.has-error .timeline-bar {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 3px,
+    #ffffff33 3px,
+    #ffffff33 5px
+  ) !important;
+}
+.span-errors {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--destructive) 30%, var(--border));
+  border-radius: 6px;
+}
+.span-error-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0.5rem 0;
+  overflow-wrap: anywhere;
+  color: var(--destructive);
+}
+.span-error-link:hover > span:first-child {
+  text-decoration: underline;
 }
 .span-row:focus-visible {
   outline: 2px solid var(--ring);

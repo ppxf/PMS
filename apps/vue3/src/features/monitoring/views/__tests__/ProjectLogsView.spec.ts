@@ -88,17 +88,9 @@ describe('Logs explorer', () => {
     const menu = await openSelect(view, 'Group 1.1')
     expect(
       menu.findAll('[role="option"]').map((option) => option.attributes('data-value')),
-    ).toEqual(['attributes.log.source'])
-    await menu.trigger('keydown', { key: 'Escape' })
-    await flushPromises()
-    await view.get('input[type="checkbox"]').setValue(true)
-    const advanced = await openSelect(view, 'Group 1.1')
-    const advancedKeys = advanced
-      .findAll('[role="option"]')
-      .map((option) => option.attributes('data-value'))
-    expect(advancedKeys).toEqual(['attributes.log.source', 'message', 'trace'])
+    ).toEqual(['attributes.log.source', 'message', 'trace'])
+    expect(view.text()).not.toContain('Show advanced groups')
     await selectValue(view, 'Group 1.1', 'message')
-    await view.get('input[type="checkbox"]').setValue(false)
     expect(view.get('[aria-label="Group 1.1"]').text()).toContain('message')
   })
   it('restricts aggregation fields and shares the curated fields across filters and groups', async () => {

@@ -74,6 +74,7 @@ export type ArchiveIssueInput =
   { mode: 'permanent' } | { mode: 'until_count'; threshold: 10 | 100 | 1000 }
 
 export interface BrowserEventContexts {
+  trace?: { traceId: string; spanId: string; sampled: boolean }
   request?: { headers: Record<string, string>; cookies: Record<string, string> }
   browser?: { name?: string; version?: string; userAgent?: string }
   os?: { name?: string }
@@ -111,6 +112,7 @@ export interface MonitoringEventDetail {
 }
 
 export interface MonitoringIssueDetail extends MonitoringIssueSummary {
+  selectedEvent?: MonitoringEventDetail
   latestEvent: MonitoringEventDetail | null
   recentEvents: MonitoringEventDetail[]
 }

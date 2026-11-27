@@ -15,10 +15,7 @@ export function fieldCategory(kind: 'log' | 'metric' | 'trace', key: string): st
   return 'Common'
 }
 
-export function logGroupFields<T extends KeyedField & { type: string }>(
-  fields: T[],
-  advanced = false,
-): T[] {
+export function logGroupFields<T extends KeyedField & { type: string }>(fields: T[]): T[] {
   return fields.filter(
     ({ key, type }) =>
       ![
@@ -29,9 +26,7 @@ export function logGroupFields<T extends KeyedField & { type: string }>(
         'spanId',
         'user_agent.original',
         'attributes.user_agent.original',
-      ].includes(key) &&
-      !['date', 'size'].includes(type) &&
-      (advanced || !['message', 'trace'].includes(key)),
+      ].includes(key) && !['date', 'size'].includes(type),
   )
 }
 

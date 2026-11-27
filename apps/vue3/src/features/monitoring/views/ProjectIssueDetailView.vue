@@ -6,7 +6,7 @@ import { formatDateTime } from '@/lib/date-time'
 import { useProjectAccessStore } from '../model/project-access.store'
 const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ import {
   updateProjectIssueStatus,
 } from '../api/monitoring.api'
 import type { MonitoringIssueDetail } from '../model/types'
+import IssueTracePreview from '../components/IssueTracePreview.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -43,6 +44,7 @@ const groupSlug = String(route.params.groupSlug)
 const projectSlug = String(route.params.projectSlug)
 const issueId = String(route.params.issueId)
 const issue = ref<MonitoringIssueDetail | null>(null)
+const activeEvent = computed(() => issue.value?.selectedEvent ?? issue.value?.latestEvent)
 const error = ref('')
 const statusUpdating = ref(false)
 const headersExpanded = ref(false)
@@ -57,13 +59,9 @@ const defaultRequestEntryCount = 5
 
 const formatDate = formatDateTime
 
-const tags = computed(() => Object.entries(issue.value?.latestEvent?.tags ?? {}))
-const requestHeaders = computed(() =>
-  sortedEntries(issue.value?.latestEvent?.contexts?.request?.headers),
-)
-const requestCookies = computed(() =>
-  sortedEntries(issue.value?.latestEvent?.contexts?.request?.cookies),
-)
+const tags = computed(() => Object.entries(activeEvent.value?.tags ?? {}))
+const requestHeaders = computed(() => sortedEntries(activeEvent.value?.contexts?.request?.headers))
+const requestCookies = computed(() => sortedEntries(activeEvent.value?.contexts?.request?.cookies))
 const visibleRequestHeaders = computed(() =>
   headersExpanded.value
     ? requestHeaders.value
@@ -90,17 +88,28 @@ function formatBytes(value: number | undefined): string {
 }
 
 function formatBrowser(): string {
-  const browser = issue.value?.latestEvent?.contexts?.browser
+  const browser = activeEvent.value?.contexts?.browser
   return [browser?.name, browser?.version].filter(Boolean).join(' ') || '-'
 }
 
+let generation = 0
 async function loadIssue(): Promise<void> {
+  const current = ++generation
   error.value = ''
   try {
-    issue.value = await getProjectIssue(groupSlug, projectSlug, issueId)
+    const eventId = typeof route.query?.eventId === 'string' ? route.query.eventId : undefined
+    const result = eventId
+      ? await getProjectIssue(groupSlug, projectSlug, issueId, eventId)
+      : await getProjectIssue(groupSlug, projectSlug, issueId)
+    if (current === generation) issue.value = result
   } catch {
-    error.value = 'Unable to load issue details'
+    if (current === generation) error.value = 'Unable to load issue details'
   }
+}
+
+function applyIssueUpdate(updated: MonitoringIssueDetail): void {
+  const selectedEvent = issue.value?.selectedEvent
+  issue.value = { ...updated, ...(selectedEvent ? { selectedEvent } : {}) }
 }
 
 async function toggleIssueStatus(): Promise<void> {
@@ -109,7 +118,7 @@ async function toggleIssueStatus(): Promise<void> {
   error.value = ''
   try {
     const status = issue.value.status === 'unresolved' ? 'resolved' : 'unresolved'
-    issue.value = await updateProjectIssueStatus(groupSlug, projectSlug, issueId, status)
+    applyIssueUpdate(await updateProjectIssueStatus(groupSlug, projectSlug, issueId, status))
   } catch {
     error.value = 'Unable to update issue status'
   } finally {
@@ -122,13 +131,15 @@ async function archiveIssue(): Promise<void> {
   actionPending.value = true
   error.value = ''
   try {
-    issue.value = await archiveProjectIssue(
-      groupSlug,
-      projectSlug,
-      issueId,
-      archiveMode.value === 'permanent'
-        ? { mode: 'permanent' }
-        : { mode: 'until_count', threshold: archiveThreshold.value },
+    applyIssueUpdate(
+      await archiveProjectIssue(
+        groupSlug,
+        projectSlug,
+        issueId,
+        archiveMode.value === 'permanent'
+          ? { mode: 'permanent' }
+          : { mode: 'until_count', threshold: archiveThreshold.value },
+      ),
     )
     archiveDialogOpen.value = false
   } catch {
@@ -149,7 +160,7 @@ async function restoreIssue(): Promise<void> {
   actionPending.value = true
   error.value = ''
   try {
-    issue.value = await restoreProjectIssue(groupSlug, projectSlug, issueId)
+    applyIssueUpdate(await restoreProjectIssue(groupSlug, projectSlug, issueId))
   } catch {
     error.value = 'Unable to restore issue'
   } finally {
@@ -190,7 +201,10 @@ async function permanentlyDeleteIssue(): Promise<void> {
   }
 }
 
-onMounted(loadIssue)
+watch(() => route.query?.eventId, loadIssue, { immediate: true })
+onBeforeUnmount(() => {
+  generation++
+})
 </script>
 
 <template>
@@ -310,25 +324,27 @@ onMounted(loadIssue)
 
       <Card>
         <CardHeader
-          ><CardTitle class="text-base">{{ translate('Latest event') }}</CardTitle></CardHeader
+          ><CardTitle class="text-base">{{
+            translate(issue.selectedEvent ? 'Selected event' : 'Latest event')
+          }}</CardTitle></CardHeader
         >
-        <CardContent v-if="issue.latestEvent" class="space-y-4">
+        <CardContent v-if="activeEvent" class="space-y-4">
           <dl class="grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt class="text-muted-foreground">{{ translate('Time') }}</dt>
-              <dd>{{ formatDate(issue.latestEvent.timestamp) }}</dd>
+              <dd>{{ formatDate(activeEvent.timestamp) }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Source') }}</dt>
-              <dd>{{ issue.latestEvent.source }}</dd>
+              <dd>{{ activeEvent.source }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('URL') }}</dt>
-              <dd class="break-all">{{ issue.latestEvent.url ?? '-' }}</dd>
+              <dd class="break-all">{{ activeEvent.url ?? '-' }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Environment') }}</dt>
-              <dd>{{ issue.latestEvent.environment ?? '-' }}</dd>
+              <dd>{{ activeEvent.environment ?? '-' }}</dd>
             </div>
           </dl>
           <div>
@@ -344,7 +360,7 @@ onMounted(loadIssue)
           <div>
             <h3 class="mb-2 text-sm font-medium">{{ translate('Stack trace') }}</h3>
             <pre class="code-block" tabindex="0">{{
-              issue.latestEvent.stacktrace ?? 'No stack trace'
+              activeEvent.stacktrace ?? 'No stack trace'
             }}</pre>
           </div>
         </CardContent>
@@ -352,6 +368,12 @@ onMounted(loadIssue)
           translate('No latest event')
         }}</CardContent>
       </Card>
+
+      <IssueTracePreview
+        :group-slug="groupSlug"
+        :project-slug="projectSlug"
+        :trace="activeEvent?.contexts?.trace"
+      />
 
       <Dialog v-model:open="archiveDialogOpen">
         <DialogContent>
@@ -470,7 +492,7 @@ onMounted(loadIssue)
         <CardContent class="space-y-5">
           <div>
             <h3 class="mb-2 text-sm font-medium">{{ translate('URL') }}</h3>
-            <p class="break-all text-sm">{{ issue.latestEvent?.url ?? '-' }}</p>
+            <p class="break-all text-sm">{{ activeEvent?.url ?? '-' }}</p>
           </div>
           <div>
             <h3 class="mb-2 text-sm font-medium">{{ translate('Headers') }}</h3>
@@ -541,41 +563,41 @@ onMounted(loadIssue)
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Operating system') }}</dt>
-              <dd>{{ issue.latestEvent?.contexts?.os?.name ?? '-' }}</dd>
+              <dd>{{ activeEvent?.contexts?.os?.name ?? '-' }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Platform') }}</dt>
-              <dd>{{ issue.latestEvent?.contexts?.device?.platform ?? '-' }}</dd>
+              <dd>{{ activeEvent?.contexts?.device?.platform ?? '-' }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Screen') }}</dt>
               <dd>
-                {{ issue.latestEvent?.contexts?.device?.screenWidth ?? '-' }} ×
-                {{ issue.latestEvent?.contexts?.device?.screenHeight ?? '-' }}
+                {{ activeEvent?.contexts?.device?.screenWidth ?? '-' }} ×
+                {{ activeEvent?.contexts?.device?.screenHeight ?? '-' }}
               </dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Viewport') }}</dt>
               <dd>
-                {{ issue.latestEvent?.contexts?.device?.viewportWidth ?? '-' }} ×
-                {{ issue.latestEvent?.contexts?.device?.viewportHeight ?? '-' }}
+                {{ activeEvent?.contexts?.device?.viewportWidth ?? '-' }} ×
+                {{ activeEvent?.contexts?.device?.viewportHeight ?? '-' }}
               </dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Pixel ratio') }}</dt>
-              <dd>{{ issue.latestEvent?.contexts?.device?.pixelRatio ?? '-' }}</dd>
+              <dd>{{ activeEvent?.contexts?.device?.pixelRatio ?? '-' }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Language') }}</dt>
-              <dd>{{ issue.latestEvent?.contexts?.culture?.locale ?? '-' }}</dd>
+              <dd>{{ activeEvent?.contexts?.culture?.locale ?? '-' }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Languages') }}</dt>
-              <dd>{{ issue.latestEvent?.contexts?.culture?.languages?.join(', ') || '-' }}</dd>
+              <dd>{{ activeEvent?.contexts?.culture?.languages?.join(', ') || '-' }}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">{{ translate('Time zone') }}</dt>
-              <dd>{{ issue.latestEvent?.contexts?.culture?.timezone ?? '-' }}</dd>
+              <dd>{{ activeEvent?.contexts?.culture?.timezone ?? '-' }}</dd>
             </div>
           </dl>
           <div>
@@ -583,23 +605,23 @@ onMounted(loadIssue)
             <dl class="grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt class="text-muted-foreground">{{ translate('Used JS heap') }}</dt>
-                <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.usedJSHeapSize) }}</dd>
+                <dd>{{ formatBytes(activeEvent?.contexts?.memory?.usedJSHeapSize) }}</dd>
               </div>
               <div>
                 <dt class="text-muted-foreground">{{ translate('Total JS heap') }}</dt>
-                <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.totalJSHeapSize) }}</dd>
+                <dd>{{ formatBytes(activeEvent?.contexts?.memory?.totalJSHeapSize) }}</dd>
               </div>
               <div>
                 <dt class="text-muted-foreground">{{ translate('JS heap limit') }}</dt>
-                <dd>{{ formatBytes(issue.latestEvent?.contexts?.memory?.jsHeapSizeLimit) }}</dd>
+                <dd>{{ formatBytes(activeEvent?.contexts?.memory?.jsHeapSizeLimit) }}</dd>
               </div>
               <div>
                 <dt class="text-muted-foreground">{{ translate('Device memory') }}</dt>
                 <dd>
                   {{
                     translate(
-                      issue.latestEvent?.contexts?.memory?.deviceMemoryGiB !== undefined
-                        ? `${issue.latestEvent.contexts.memory.deviceMemoryGiB} GiB`
+                      activeEvent?.contexts?.memory?.deviceMemoryGiB !== undefined
+                        ? `${activeEvent.contexts.memory.deviceMemoryGiB} GiB`
                         : '-',
                     )
                   }}

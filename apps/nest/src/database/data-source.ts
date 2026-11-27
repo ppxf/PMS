@@ -1,4 +1,5 @@
 import { MergeErrorIssues1795046400000 } from './migrations/1795046400000-merge-error-issues';
+import { ErrorTraceIndex1795737600000 } from './migrations/1795737600000-error-trace-index';
 import { ProjectAccess1794355200000 } from './migrations/1794355200000-project-access';
 import { AuditRecords1794441600000 } from './migrations/1794441600000-audit-records';
 import { WorkspaceAlerts1794441600001 } from './migrations/1794441600001-workspace-alerts';
@@ -31,6 +32,7 @@ export default new DataSource({
     ProductionHardening1794528000000,
     InvitationOutbox1794528000001,
     MergeErrorIssues1795046400000,
+    ErrorTraceIndex1795737600000,
   ],
   migrationsTableName: 'pms_migrations',
   migrationsTransactionMode: 'all',

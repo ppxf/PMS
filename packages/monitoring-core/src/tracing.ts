@@ -28,6 +28,19 @@ export function createTracing() {
   const parents = new WeakMap<SpanHandle, Recording>()
   const queue = new Set<Pending>()
   const clockTimers = new Set<ReturnType<typeof setTimeout>>()
+  let errorContexts = new WeakMap<object, TraceContext>()
+
+  function rememberError(error: unknown, span: SpanHandle): void {
+    if ((typeof error === 'object' && error !== null) || typeof error === 'function') {
+      // Preserve the innermost throwing span when the same error unwinds through parents.
+      if (!errorContexts.has(error)) errorContexts.set(error, span.context)
+    }
+  }
+  function getErrorTraceContext(error: unknown): TraceContext | undefined {
+    const recorded = ((typeof error === 'object' && error !== null) || typeof error === 'function')
+      ? errorContexts.get(error) : undefined
+    return recorded ?? getLogTraceContext()
+  }
 
   function currentSpan(): SpanHandle | undefined {
     const span = activeSpan && !activeSpan.ended ? activeSpan : pageSpan
@@ -189,11 +202,11 @@ export function createTracing() {
     let value: T
     try {
       value = callback(span)
-    } catch (error) { span.end('error'); throw error }
+    } catch (error) { rememberError(error, span); span.end('error'); throw error }
     finally { activeSpan = previous }
     try {
       if (value && typeof (value as unknown as PromiseLike<unknown>).then === 'function') {
-        void Promise.resolve(value).then(() => span.end(), () => span.end('error')).catch(() => undefined)
+        void Promise.resolve(value).then(() => span.end(), error => { rememberError(error, span); span.end('error') }).catch(() => undefined)
       } else span.end()
     } catch { span.end('unknown', 'observation_failed') }
     return value
@@ -211,11 +224,12 @@ export function createTracing() {
     await Promise.all([...queue].map((item) => item.sending ?? send(item)))
   }
   function reset(): void {
+    errorContexts = new WeakMap()
     activeSpan = undefined; pageSpan = undefined
     for (const recording of recordings) if (recording.timer) clearTimeout(recording.timer)
     clockTimers.forEach(clearTimeout); clockTimers.clear()
     for (const item of queue) if (item.timer) clearTimeout(item.timer)
     queue.clear(); recordings.clear(); config = undefined; transport = undefined; droppedBatches = 0
   }
-  return { configure, setRootSpanObserver: (observer: typeof rootObserver) => { rootObserver = observer }, startInactiveSpan, startSpan, endPageSession, getActiveTraceContext, getLogTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
+  return { configure, setRootSpanObserver: (observer: typeof rootObserver) => { rootObserver = observer }, startInactiveSpan, startSpan, endPageSession, getActiveTraceContext, getLogTraceContext, getErrorTraceContext, setPageSpan, flush, reset, getTraceStats: () => ({ queuedBatches: queue.size, droppedBatches }) }
 }

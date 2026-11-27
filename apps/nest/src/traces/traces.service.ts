@@ -47,6 +47,15 @@ interface SqlScope {
   where: string;
   parameters: unknown[];
 }
+interface SpanErrorRow {
+  span_id: string;
+  error_count: string;
+  id: string;
+  issue_id: string;
+  timestamp: Date;
+  message: string;
+  exception_type: string;
+}
 
 @Injectable()
 export class TracesService {
@@ -522,6 +531,14 @@ export class TracesService {
       projectSlug,
       'project:traces:read',
     );
+    const access = await this.projects.getAccess(
+      userId,
+      groupSlug,
+      projectSlug,
+    );
+    const readErrors =
+      access.role === 'owner' ||
+      access.permissions.includes('project:issues:read');
     let continuation:
       | { time: string; spanId: string; traceId: string; scopeSpanId?: string }
       | undefined;
@@ -605,13 +622,51 @@ export class TracesService {
          ${after} ORDER BY start_time, span_id LIMIT 1001`,
         parameters,
       );
-      return { rows, navigations, scopeSpanId };
+      const errors =
+        readErrors && rows.length
+          ? await manager.query<SpanErrorRow[]>(
+              `WITH ranked_errors AS (
+              SELECT id, issue_id, timestamp, message, exception_type,
+                contexts->'trace'->>'spanId' AS span_id,
+                count(*) OVER (PARTITION BY contexts->'trace'->>'spanId') AS error_count,
+                row_number() OVER (PARTITION BY contexts->'trace'->>'spanId' ORDER BY timestamp DESC, id DESC) AS rank
+              FROM monitoring_events
+              WHERE project_id = $1 AND contexts->'trace'->>'traceId' = $2
+                AND contexts->'trace'->>'spanId' = ANY($3::text[])
+            ) SELECT * FROM ranked_errors WHERE rank <= 5 ORDER BY span_id, rank`,
+              [...base, rows.slice(0, 1000).map((row) => row.span_id)],
+            )
+          : [];
+      return { rows, navigations, scopeSpanId, errors };
     });
     const hasMore = result.rows.length > 1000;
     const items = result.rows.slice(0, 1000);
     const last = items.at(-1);
+    const errorsBySpan = new Map<string, SpanErrorRow[]>();
+    for (const entry of result.errors) {
+      const group = errorsBySpan.get(entry.span_id) ?? [];
+      group.push(entry);
+      errorsBySpan.set(entry.span_id, group);
+    }
     return {
-      items: items.map((row) => this.toSpan(row)),
+      items: items.map((row) => {
+        const errors = errorsBySpan.get(row.span_id as string) ?? [];
+        return {
+          ...this.toSpan(row),
+          ...(readErrors
+            ? {
+                errorCount: Number(errors[0]?.error_count ?? 0),
+                errors: errors.map((entry) => ({
+                  id: entry.id,
+                  issueId: entry.issue_id,
+                  message: entry.message,
+                  exceptionType: entry.exception_type,
+                  timestamp: entry.timestamp.toISOString(),
+                })),
+              }
+            : {}),
+        };
+      }),
       hasMore,
       navigations: result.navigations.map((row) => this.toSpan(row)),
       ...(result.navigations.some((row) => row.span_id === result.scopeSpanId)

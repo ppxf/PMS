@@ -56,6 +56,23 @@ describe('MonitoringIssuesController', () => {
     );
   });
 
+  it('forwards an explicit event id when returning from a trace', async () => {
+    await controller.detail(
+      request as never,
+      'acme',
+      'web',
+      'issue-id',
+      'event-id',
+    );
+    expect(events.getOwnedIssue).toHaveBeenCalledWith(
+      'user-1',
+      'acme',
+      'web',
+      'issue-id',
+      'event-id',
+    );
+  });
+
   it('forwards archive, restore and delete operations within project scope', async () => {
     events.archiveOwnedIssue.mockResolvedValue({ visibility: 'archived_permanent' });
     await controller.archive(request as never, 'acme', 'web', 'issue-id', { mode: 'permanent' });

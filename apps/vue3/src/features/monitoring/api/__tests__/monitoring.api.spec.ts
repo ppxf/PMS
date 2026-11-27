@@ -71,6 +71,7 @@ describe('monitoring API', () => {
 
     await listProjectIssues('team', 'web', { page: 2, pageSize: 20 })
     await getProjectIssue('team', 'web', '00000000-0000-4000-8000-000000000001')
+    await getProjectIssue('team', 'web', '00000000-0000-4000-8000-000000000001', 'older-event')
 
     expect(get).toHaveBeenNthCalledWith(1, '/groups/team/projects/web/issues', {
       params: { page: 2, pageSize: 20 },
@@ -78,6 +79,12 @@ describe('monitoring API', () => {
     expect(get).toHaveBeenNthCalledWith(
       2,
       '/groups/team/projects/web/issues/00000000-0000-4000-8000-000000000001',
+      { params: {} },
+    )
+    expect(get).toHaveBeenNthCalledWith(
+      3,
+      '/groups/team/projects/web/issues/00000000-0000-4000-8000-000000000001',
+      { params: { eventId: 'older-event' } },
     )
   })
 

@@ -45,6 +45,7 @@ function errorEnvelope(eventId = firstEventId): IngestEnvelopeDto {
       environment: 'production',
       tags: { component: 'App' },
       contexts: {
+        trace: { traceId: 'a'.repeat(32), spanId: 'b'.repeat(16), sampled: true },
         request: { headers: { 'User-Agent': 'Mozilla/5.0' }, cookies: { session_id: '[Filtered]' } },
         browser: { name: 'Chrome', version: '152.0.0.0' },
       },
@@ -761,7 +762,7 @@ describe('MonitoringEventsService management queries', () => {
         contexts: { browser: { name: 'Chrome' } },
       }),
     ];
-    const eventRepository = { find: jest.fn().mockResolvedValue(recentEvents) };
+    const eventRepository = { find: jest.fn().mockResolvedValue(recentEvents), findOne: jest.fn().mockResolvedValue(null) };
     const projects = {
       findOwnedBySlug: jest.fn().mockResolvedValue({ id: projectId }),
       findReadableBySlug: jest.fn().mockResolvedValue({ id: projectId }),
@@ -921,6 +922,52 @@ describe('MonitoringEventsService management queries', () => {
     expect(app.eventRepository.find).toHaveBeenCalledWith(expect.objectContaining({
       where: { issueId, projectId }, take: 20, order: { receivedAt: 'DESC' },
     }));
+  });
+
+  it('loads the linked historical event even when a newer event belongs to a different trace', async () => {
+    const app = queryFixture();
+    const selectedEvent = {
+      ...app.recentEvents[0],
+      id: firstEventId,
+      contexts: {
+        trace: {
+          traceId: 'a'.repeat(32),
+          spanId: 'b'.repeat(16),
+          sampled: true,
+        },
+      },
+    };
+    app.eventRepository.findOne.mockResolvedValue(selectedEvent);
+    await expect(
+      app.service.getOwnedIssue(
+        'user-1',
+        'acme',
+        'web',
+        issueId,
+        firstEventId,
+      ),
+    ).resolves.toMatchObject({
+      latestEvent: { id: secondEventId },
+      selectedEvent: { id: firstEventId, contexts: selectedEvent.contexts },
+    });
+    expect(app.eventRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: firstEventId, issueId, projectId },
+      }),
+    );
+  });
+
+  it('returns 404 instead of falling back to the latest event for a missing or cross-scope event', async () => {
+    const app = queryFixture();
+    await expect(
+      app.service.getOwnedIssue(
+        'user-1',
+        'acme',
+        'web',
+        issueId,
+        firstEventId,
+      ),
+    ).rejects.toThrow(NotFoundException);
   });
 
   it('manually resolves and reopens an owned issue with audit metadata', async () => {

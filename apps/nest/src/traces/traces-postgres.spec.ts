@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { Baseline1793577600000 } from '../database/migrations/1793577600000-baseline';
+import { ErrorTraceIndex1795737600000 } from '../database/migrations/1795737600000-error-trace-index';
 import { Group } from '../groups/entities/group.entity';
 import { MonitoringProject } from '../monitoring-projects/entities/monitoring-project.entity';
 import { MonitoringProjectsService } from '../monitoring-projects/monitoring-projects.service';
@@ -46,6 +47,7 @@ postgres('PostgreSQL traces integration', () => {
     const runner = dataSource.createQueryRunner();
     try {
       await new Baseline1793577600000().up(runner);
+      await new ErrorTraceIndex1795737600000().up(runner);
     } finally {
       await runner.release();
     }
@@ -263,5 +265,62 @@ postgres('PostgreSQL traces integration', () => {
         newResource.spanId,
       ),
     ).rejects.toThrow('another page');
+  });
+
+  it('correlates retained errors by project, trace and span with exact totals and bounded summaries', async () => {
+    const traceId = 'e'.repeat(32);
+    const spanId = 'e'.repeat(16);
+    const input = transactionFixture();
+    input.transaction.eventId = randomUUID();
+    input.transaction.spans = [
+      { ...input.transaction.spans[0], traceId, spanId, status: 'ok' },
+    ];
+    await service.ingest(projectId, 'key', input as never);
+    const issueId = randomUUID();
+    const otherIssueId = randomUUID();
+    await dataSource.query(
+      `INSERT INTO monitoring_error_issues
+      (id, project_id, fingerprint, title, exception_type, first_seen_at, last_seen_at)
+      VALUES ($1, $2, $5, 'Error', 'TypeError', now(), now()), ($3, $4, $5, 'Other', 'Error', now(), now())`,
+      [issueId, projectId, otherIssueId, otherProjectId, 'e'.repeat(64)],
+    );
+    const insertError = (
+      project: string,
+      issue: string,
+      trace: string,
+      span: string,
+      n: number,
+    ) =>
+      dataSource.query(
+        `INSERT INTO monitoring_events
+        (id, project_id, issue_id, timestamp, received_at, source, level, message, exception_type, exception_value, contexts)
+        VALUES ($1, $2, $3, $4, now(), 'manual', 'error', $5, 'TypeError', $5, $6)`,
+        [
+          randomUUID(),
+          project,
+          issue,
+          new Date(Date.UTC(2026, 10, 27, 0, 0, n)),
+          `failure-${n}`,
+          { trace: { traceId: trace, spanId: span, sampled: true } },
+        ],
+      );
+    for (let n = 0; n < 7; n++)
+      await insertError(projectId, issueId, traceId, spanId, n);
+    await insertError(otherProjectId, otherIssueId, traceId, spanId, 8);
+    await insertError(projectId, issueId, 'f'.repeat(32), spanId, 9);
+    await insertError(projectId, issueId, traceId, 'f'.repeat(16), 10);
+    const result = await service.detail('user', 'group', 'project', traceId);
+    expect(result.items[0]).toMatchObject({ status: 'ok', errorCount: 7 });
+    expect(result.items[0].errors).toHaveLength(5);
+    expect(result.items[0].errors?.map((error) => error.message)).toEqual([
+      'failure-6',
+      'failure-5',
+      'failure-4',
+      'failure-3',
+      'failure-2',
+    ]);
+    expect(
+      result.items[0].errors?.every((error) => error.issueId === issueId),
+    ).toBe(true);
   });
 });

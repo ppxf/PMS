@@ -241,6 +241,7 @@ export class MonitoringEventsService {
     groupSlug: string,
     projectSlug: string,
     issueId: string,
+    eventId?: string,
   ) {
     const project = await this.projects.findReadableBySlug(userId, groupSlug, projectSlug, 'project:issues:read');
     const issue = await this.dataSource.getRepository(MonitoringErrorIssue).findOne({
@@ -256,6 +257,11 @@ export class MonitoringEventsService {
       },
     });
     if (!issue) throw new NotFoundException('Issue not found');
+    const selectedEvent = eventId ? await this.dataSource.getRepository(MonitoringEvent).findOne({
+      where: { id: eventId, issueId, projectId: project.id },
+      select: this.eventSelection(),
+    }) : undefined;
+    if (eventId && !selectedEvent) throw new NotFoundException('Event not found');
     const recentEvents = await this.dataSource.getRepository(MonitoringEvent).find({
       where: { issueId, projectId: project.id },
       select: this.eventSelection(),
@@ -265,6 +271,7 @@ export class MonitoringEventsService {
     return {
       ...this.toIssueSummary(issue),
       latestEvent: issue.latestEvent ? this.toEvent(issue.latestEvent) : null,
+      ...(selectedEvent ? { selectedEvent: this.toEvent(selectedEvent) } : {}),
       recentEvents: recentEvents.map((event) => this.toEvent(event)),
     };
   }

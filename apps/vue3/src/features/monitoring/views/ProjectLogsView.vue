@@ -82,15 +82,7 @@ const availableFields = computed<LogField[]>(() =>
     ]
   ).filter((field) => field.key !== 'timestamp_precise'),
 )
-const showAdvancedGroups = ref(false)
-const groupFields = computed(() =>
-  logGroupFields(availableFields.value, true).filter(
-    (field) =>
-      showAdvancedGroups.value ||
-      !['message', 'trace'].includes(field.key) ||
-      visualizations.value.some((chart) => chart.groupBy.includes(field.key)),
-  ),
-)
+const groupFields = computed(() => logGroupFields(availableFields.value))
 function aggregateFields(v: Visualization) {
   if (v.aggregate === 'count') return [{ key: 'logs', type: 'logs', category: 'Logs' }]
   if (v.aggregate === 'count_unique') return availableFields.value
@@ -289,7 +281,6 @@ watch(
   () => [route.params.groupSlug, route.params.projectSlug, route.query?.traceId],
   () => {
     fields.value = null
-    showAdvancedGroups.value = false
     if (typeof route.query?.traceId === 'string') range.value = 168
     conditions.value =
       typeof route.query?.traceId === 'string'
@@ -423,10 +414,6 @@ onBeforeUnmount(() => {
           }}</Button>
           <section :aria-label="translate('Group by')" class="space-y-5">
             <h3 class="font-semibold">{{ translate('Group by') }}</h3>
-            <label class="flex items-center gap-2 text-xs text-muted-foreground">
-              <input v-model="showAdvancedGroups" type="checkbox" />
-              {{ translate('Show advanced groups') }}
-            </label>
             <div v-for="(v, index) in visualizations" :key="index" class="space-y-3">
               <h4 v-if="visualizations.length > 1" class="text-xs text-muted-foreground">
                 {{ translate('Chart') }} {{ index + 1 }}

@@ -1,4 +1,25 @@
 export const monitoringZhCN: Record<string, string> = {
+  'Trace Preview': 'Trace 预览',
+  'Selected event': '当前事件',
+  'View Full Trace': '查看完整 Trace',
+  'Error span': '报错 Span',
+  'Associated errors': '关联错误',
+  error: '个错误',
+  errors: '个错误',
+  'This error has no associated trace.': '此错误未关联 Trace。',
+  'This trace was not sampled.': '此 Trace 未被采样，无法展示瀑布图。',
+  'You do not have permission to view this trace.': '你没有查看此 Trace 的权限。',
+  'Loading trace preview…': '正在加载 Trace 预览…',
+  'Unable to load trace preview': '无法加载 Trace 预览',
+  'Retry trace preview': '重试加载 Trace 预览',
+  'Trace spans are unavailable. They may not have arrived yet or may have expired.':
+    'Trace 数据暂不可用，可能尚未上报或已过期。',
+  'The error span is not in this preview. Open the full trace to locate it.':
+    '报错 Span 未包含在当前预览中，可打开完整 Trace 定位。',
+  'Showing a trace preview. Open the full trace for all spans.':
+    '当前仅展示部分 Span，查看完整 Trace 可浏览全部 Span。',
+  'Showing the latest 5 errors. Open an issue for more events.':
+    '仅展示最近 5 个错误，可打开错误详情查看其他事件。',
   'Page navigation': '页面导航',
   'Select a page navigation': '选择页面导航',
   'Only performance and resources owned by this page navigation are shown.':
@@ -484,10 +505,9 @@ export const monitoringZhCN: Record<string, string> = {
   'No matching related logs': '没有匹配的关联日志',
   'Related logs pagination': '关联日志分页',
   'Page route': '所属页面',
-  'Common': '常用',
+  Common: '常用',
   'Business attributes': '业务属性',
   'Technical attributes': '技术属性',
-  'Advanced': '高级',
-  'Show advanced groups': '显示高级分组',
-  'Group field category': '分组字段分类',
+  Advanced: '高级',
+  'Select a quick query': '选择快速查询',
 }

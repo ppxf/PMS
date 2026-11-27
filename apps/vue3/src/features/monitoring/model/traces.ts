@@ -24,6 +24,8 @@ export interface TraceQuery {
   sortDirection?: 'asc' | 'desc'
 }
 export interface Span {
+  errorCount?: number
+  errors?: { id: string; issueId: string; message: string; exceptionType: string; timestamp: string }[]
   traceId: string
   spanId: string
   parentSpanId?: string | null
@@ -171,18 +173,22 @@ export function matchesSpanFilters(span: Span, filters: TraceFilter[]): boolean 
   })
 }
 export function metricUnit(metric: TraceMetric): string {
-  return metric.function === 'count'
-    ? 'spans'
-    : metric.function === 'errorRate'
-      ? '%'
-      : metric.field.includes('size') || metric.field.includes('length')
-        ? 'byte'
-        : 'ms'
+  if (metric.function === 'count') return 'spans'
+  if (metric.function === 'errorRate') return '%'
+  if (metric.field === 'browser.web_vital.cls.value') return ''
+  if (metric.field === 'browser.web_vital.lcp.size') return 'px²'
+  return [
+    'http.response_transfer_size',
+    'http.response_content_length',
+    'http.decoded_response_content_length',
+  ].includes(metric.field)
+    ? 'byte'
+    : 'ms'
 }
 export function formatMetric(value: number | null | undefined, metric: TraceMetric): string {
   return value == null
     ? '—'
-    : `${(metric.function === 'errorRate' ? value * 100 : value).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })} ${metricUnit(metric)}`
+    : `${(metric.function === 'errorRate' ? value * 100 : value).toLocaleString(intlLocale(), { maximumFractionDigits: 2 })}${metricUnit(metric) ? ` ${metricUnit(metric)}` : ''}`
 }
 export function waterfallRows(
   spans: Span[],

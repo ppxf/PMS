@@ -7,7 +7,7 @@ import {
 } from '../field-presentation'
 
 describe('explorer field presentation', () => {
-  it('removes internal log fields and keeps high cardinality groups advanced', () => {
+  it('lists all valid log groups together while excluding internal fields', () => {
     const fields = [
       'severity',
       'message',
@@ -18,8 +18,7 @@ describe('explorer field presentation', () => {
       'payload_size',
       'attributes.action',
     ].map((key) => ({ key, type: 'string' }))
-    expect(logGroupFields(fields).map((f) => f.key)).toEqual(['severity', 'attributes.action'])
-    expect(logGroupFields(fields, true).map((f) => f.key)).toEqual([
+    expect(logGroupFields(fields).map((f) => f.key)).toEqual([
       'severity',
       'message',
       'trace',

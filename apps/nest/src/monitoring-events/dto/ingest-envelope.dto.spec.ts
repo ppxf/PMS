@@ -29,6 +29,36 @@ const validate = (value: unknown): Promise<IngestEnvelopeDto> =>
   Promise.resolve().then(() => pipe.transform(value));
 
 describe('IngestEnvelopeDto', () => {
+  it('accepts error trace correlation without requiring the trace to have arrived', async () => {
+    const input = eventEnvelope();
+    const trace = {
+      traceId: 'a'.repeat(32),
+      spanId: 'b'.repeat(16),
+      sampled: true,
+    };
+    await expect(
+      validate({ ...input, event: { ...input.event, contexts: { trace } } }),
+    ).resolves.toMatchObject({ event: { contexts: { trace } } });
+  });
+
+  it.each([
+    { traceId: '0'.repeat(32), spanId: 'b'.repeat(16), sampled: true },
+    { traceId: 'a'.repeat(32), spanId: '0'.repeat(16), sampled: true },
+    { traceId: 'a'.repeat(32), spanId: 'b'.repeat(16), sampled: 'true' },
+    { traceId: 'a'.repeat(32), sampled: true },
+    { traceId: 'invalid', spanId: 'b'.repeat(16), sampled: true },
+    {
+      traceId: 'a'.repeat(32),
+      spanId: 'b'.repeat(16),
+      sampled: true,
+      extra: 'x',
+    },
+  ])('rejects malformed error trace context: %j', async (trace) => {
+    const input = eventEnvelope();
+    await expect(
+      validate({ ...input, event: { ...input.event, contexts: { trace } } }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
   // Review R1: invalid raw objects must be rejected before scalar coercion.
   it.each([
     [

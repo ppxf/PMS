@@ -137,6 +137,8 @@ export function createMonitoringClient() {
   ): Promise<void> {
     if (!state) return Promise.resolve()
     const event = createEvent(error, context, state)
+    const trace = tracing.getErrorTraceContext(error)
+    if (trace) event.contexts = { ...event.contexts, trace: { ...trace } }
     return sendEnvelope({ version: 1, type: 'event', sentAt: new Date().toISOString(), event })
   }
 

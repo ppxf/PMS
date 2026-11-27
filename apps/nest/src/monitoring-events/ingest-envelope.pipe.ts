@@ -7,6 +7,7 @@ import {
   CultureContextDto,
   DeviceContextDto,
   ErrorExceptionDto,
+  ErrorTraceContextDto,
   IngestEnvelopeDto,
   MemoryContextDto,
   MonitoringErrorEventDto,
@@ -113,9 +114,10 @@ export class IngestEnvelopePipe implements PipeTransform<
       }
       if (event.contexts !== undefined) {
         const contexts = rawObject(event.contexts, 'contexts', [
-          'request', 'browser', 'os', 'device', 'culture', 'memory',
+          'request', 'browser', 'os', 'device', 'culture', 'memory', 'trace',
         ]);
         const dto = Object.assign(new BrowserEventContextsDto(), contexts);
+        dto.trace = contextValue(contexts, 'trace', ['traceId', 'spanId', 'sampled'], ErrorTraceContextDto);
         if (contexts.request !== undefined) {
           const request = rawObject(contexts.request, 'contexts.request', ['headers', 'cookies']);
           dto.request = Object.assign(new RequestContextDto(), request);

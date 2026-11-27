@@ -19,6 +19,7 @@ const {
   deleteProjectIssue,
   permanentlyDeleteProjectIssue,
   routerPush,
+  routeQuery,
 } = vi.hoisted(() => ({
   getProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   listProjectIssues: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
@@ -28,6 +29,7 @@ const {
   deleteProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   permanentlyDeleteProjectIssue: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   routerPush: vi.fn<(...args: unknown[]) => Promise<void>>(),
+  routeQuery: Object.fromEntries<string>([]),
 }))
 
 vi.mock('../../api/monitoring.api', () => ({
@@ -54,6 +56,7 @@ vi.mock('@/components/ui/dialog', async () => {
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => ({
+    query: routeQuery,
     params: {
       groupSlug: 'team',
       projectSlug: 'web',
@@ -131,7 +134,40 @@ const issue = {
 }
 
 describe('project issue views', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    for (const key of Object.keys(routeQuery)) delete routeQuery[key]
+  })
+
+  it('shows the linked event instead of the latest event when returning from a trace', async () => {
+    routeQuery.eventId = 'older-event'
+    getProjectIssue.mockResolvedValue({
+      ...issue,
+      latestEvent: event,
+      recentEvents: [event],
+      selectedEvent: {
+        ...event,
+        id: 'older-event',
+        stacktrace: 'Historical event stack',
+        url: 'https://example.com/previous-page',
+      },
+    })
+    const view = mount(ProjectIssueDetailView)
+    await flushPromises()
+    expect(getProjectIssue).toHaveBeenCalledWith('team', 'web', issue.id, 'older-event')
+    expect(view.text()).toContain('Historical event stack')
+    expect(view.text()).toContain('https://example.com/previous-page')
+    expect(view.text()).not.toContain(event.stacktrace)
+    updateProjectIssueStatus.mockResolvedValue({
+      ...issue,
+      status: 'resolved',
+      latestEvent: event,
+      recentEvents: [event],
+    })
+    await view.get('[data-testid="issue-status-action"]').trigger('click')
+    await flushPromises()
+    expect(view.text()).toContain('Historical event stack')
+  })
 
   it('renders issue summaries and preserves route scope in detail links', async () => {
     listProjectIssues.mockResolvedValue({ items: [issue], total: 21, page: 1, pageSize: 20 })

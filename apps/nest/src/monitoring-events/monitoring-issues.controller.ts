@@ -36,8 +36,11 @@ export class MonitoringIssuesController {
     @Param('groupSlug') groupSlug: string,
     @Param('projectSlug') projectSlug: string,
     @Param('issueId', new ParseUUIDPipe()) issueId: string,
+    @Query('eventId', new ParseUUIDPipe({ optional: true })) eventId?: string,
   ) {
-    return this.events.getOwnedIssue(request.user.id, groupSlug, projectSlug, issueId);
+    return eventId
+      ? this.events.getOwnedIssue(request.user.id, groupSlug, projectSlug, issueId, eventId)
+      : this.events.getOwnedIssue(request.user.id, groupSlug, projectSlug, issueId);
   }
 
   @Patch(':issueId/status')

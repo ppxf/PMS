@@ -42,10 +42,11 @@ const route = useRoute()
 const router = useRouter()
 const group = computed(() => String(route.params.groupSlug)),
   project = computed(() => String(route.params.projectSlug))
-const preset = ref('all')
-const metrics = ref<TraceMetric[]>(presetQuery('all').metrics),
-  filters = ref<TraceFilter[]>(presetQuery('all').filters),
-  groups = ref(presetQuery('all').groupBy)
+// Samples always start from all retained spans. Presets only add visible query conditions.
+const preset = ref<string>()
+const metrics = ref<TraceMetric[]>([{ function: 'count', field: 'spans' }]),
+  filters = ref<TraceFilter[]>([]),
+  groups = ref<string[]>([])
 const primaryMetric = ref(0),
   limit = ref(5)
 let nextChartId = 0
@@ -113,16 +114,9 @@ const spans = ref<Span[]>([]),
 const aggregates = ref<TraceAggregates | null>(null)
 const seriesMetrics = ref<TraceMetric[]>(metrics.value.map((m) => ({ ...m })))
 const filterField = ref('span.op')
-const groupCategory = ref('Common')
-const groupCategories = ['Common', 'HTTP', 'Web Vitals', 'Advanced', 'All']
 const availableGroups = computed(() =>
   visibleTraceFields(
     fields.value.length ? fields.value.filter((f) => f.groupable).map((f) => f.name) : groupFields,
-  ).filter(
-    (key) =>
-      groupCategory.value === 'All' ||
-      fieldCategory('trace', key) === groupCategory.value ||
-      groups.value.includes(key),
   ),
 )
 const addingGroup = ref(false)
@@ -271,6 +265,7 @@ function changePage(offset: number) {
   void load()
 }
 function applyPreset() {
+  if (!preset.value) return
   const q = presetQuery(preset.value)
   filters.value = q.filters
   metrics.value = q.metrics
@@ -278,6 +273,7 @@ function applyPreset() {
   groups.value = q.groupBy
   addingGroup.value = false
   primaryMetric.value = 0
+  tab.value = 'Span Samples'
 }
 function applyCondition(condition: { field: string; operator: string; value: string }) {
   filterField.value = condition.field
@@ -445,6 +441,7 @@ onMounted(async () => {
           class="control"
           @change="applyPreset"
           :aria-label="translate('Quick query')"
+          :placeholder="translate('Select a quick query')"
           :options="[
             { value: 'pages', label: 'Page performance' },
             { value: 'slow', label: 'Slow requests (fetch)' },
@@ -452,11 +449,6 @@ onMounted(async () => {
             { value: 'statuses', label: 'Status distribution (fetch)' },
             { value: 'ttfb', label: 'Time to first byte (fetch)' },
             { value: 'sizes', label: 'Large responses (fetch)' },
-            {
-              value: 'versions',
-              label: 'Release regression (pageload; filter by the same span.name)',
-            },
-            { value: 'all', label: 'All spans' },
           ]"
       /></label>
     </div>
@@ -540,11 +532,6 @@ onMounted(async () => {
           translate('Add metric series')
         }}</Button>
         <h3 class="font-semibold">{{ translate('Group by') }}</h3>
-        <FormSelect
-          v-model="groupCategory"
-          :aria-label="translate('Group field category')"
-          :options="groupCategories.map((value) => ({ value, label: value }))"
-        />
         <div
           v-for="i in groups.length + Number(addingGroup)"
           :key="i"

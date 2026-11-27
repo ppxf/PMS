@@ -47,6 +47,17 @@ describe('Traces presentation', () => {
     )
     expect(formatMetric(0.25, { function: 'errorRate', field: 'spans' })).toBe('25 %')
     expect(metricUnit({ function: 'count', field: 'spans' })).toBe('spans')
+    expect(metricUnit({ function: 'p75', field: 'browser.web_vital.cls.value' })).toBe('')
+    expect(formatMetric(0.12, { function: 'p75', field: 'browser.web_vital.cls.value' })).toBe(
+      '0.12',
+    )
+    expect(formatMetric(0, { function: 'p75', field: 'browser.web_vital.cls.value' })).toBe('0')
+    expect(metricUnit({ function: 'p75', field: 'browser.web_vital.lcp.size' })).toBe('px²')
+    expect(formatMetric(35000, { function: 'p75', field: 'browser.web_vital.lcp.size' })).toBe(
+      '35,000 px²',
+    )
+    expect(formatMetric(0, { function: 'p75', field: 'browser.web_vital.lcp.size' })).toBe('0 px²')
+    expect(metricUnit({ function: 'p95', field: 'http.response_transfer_size' })).toBe('byte')
   })
   it('builds hierarchy independently of arrival order and identifies missing parents', () => {
     const rows = waterfallRows([span('child', 'root'), span('orphan', 'missing'), span('root')])

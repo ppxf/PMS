@@ -3,6 +3,7 @@ import {
   Equals,
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsByteLength,
   IsDefined,
   IsIn,
@@ -12,6 +13,7 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  Matches,
   Min,
   Validate,
   ValidateIf,
@@ -218,7 +220,24 @@ export class MemoryContextDto {
   deviceMemoryGiB?: number;
 }
 
+export class ErrorTraceContextDto {
+  @Matches(/^(?!0{32}$)[a-f0-9]{32}$/)
+  traceId!: string;
+
+  @Matches(/^(?!0{16}$)[a-f0-9]{16}$/)
+  spanId!: string;
+
+  @IsBoolean()
+  sampled!: boolean;
+}
+
 export class BrowserEventContextsDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ErrorTraceContextDto)
+  trace?: ErrorTraceContextDto;
+
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsObject()
   @ValidateNested()

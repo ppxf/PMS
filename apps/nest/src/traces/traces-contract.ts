@@ -57,7 +57,7 @@ export interface SpanQuery {
 export interface SpanField {
   name: string;
   type: 'string' | 'number' | 'boolean';
-  unit?: 'ms' | 'byte' | 'none';
+  unit?: 'ms' | 'byte' | 'none' | 'px²';
   groupable: boolean;
   operators: FilterOperator[];
   aggregations: AggregateFunction[];
@@ -96,7 +96,11 @@ function dimension(
     aggregations: [],
   });
 }
-function measurement(name: string, sql: string, unit: 'ms' | 'byte' | 'none') {
+function measurement(
+  name: string,
+  sql: string,
+  unit: NonNullable<SpanField['unit']>,
+) {
   fields.push({
     name,
     sql,
@@ -166,7 +170,7 @@ dimension(
 for (const [name, metric, key, unit] of [
   ['lcp.load_time', 'LCP', 'loadTime', 'ms'],
   ['lcp.render_time', 'LCP', 'renderTime', 'ms'],
-  ['lcp.size', 'LCP', 'size', 'none'],
+  ['lcp.size', 'LCP', 'size', 'px²'],
   ['inp.input_delay', 'INP', 'inputDelay', 'ms'],
   ['inp.processing_duration', 'INP', 'processingDuration', 'ms'],
   ['inp.presentation_delay', 'INP', 'presentationDelay', 'ms'],

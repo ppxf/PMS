@@ -66,6 +66,41 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
+  it('marks spans with associated errors and links their issue details', async () => {
+    api.traceDetail.mockResolvedValue({
+      items: [
+        {
+          ...root,
+          errorCount: 2,
+          errors: [
+            {
+              id: 'event',
+              issueId: 'issue',
+              message: 'Render failed',
+              exceptionType: 'TypeError',
+              timestamp: '2026-11-27T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      hasMore: false,
+    })
+    const view = mount(ProjectTraceDetailView, {
+      global: { stubs: { RouterLink: { props: ['to'], template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(view.get('.span-row').classes()).toContain('has-error')
+    expect(view.get('.span-row').text()).toContain('2 errors')
+    expect(view.get('.span-panel').text()).toContain('Render failed')
+    const link = view
+      .findAllComponents(RouterLink)
+      .find((link) => link.text().includes('Render failed'))!
+    expect(link.props('to')).toEqual({
+      name: 'project-issue-detail',
+      params: { groupSlug: 'team', projectSlug: 'web', issueId: 'issue' },
+      query: { eventId: 'event' },
+    })
+  })
   it('defaults to all spans and lists nested and zero-duration children with waterfall links', async () => {
     api.spanSamples.mockResolvedValue({
       items: [
@@ -98,7 +133,11 @@ describe('Traces views', () => {
       global: { stubs: { RouterLink: { props: ['to'], template: '<a><slot /></a>' } } },
     })
     await flushPromises()
-    expect(view.get('[aria-label="Quick query"]').text()).toContain('All spans')
+    expect(view.get('[aria-label="Quick query"]').text()).toContain('Select a quick query')
+    const presets = await openSelect(view, 'Quick query')
+    expect(presets.find('[data-value="all"]').exists()).toBe(false)
+    expect(presets.find('[data-value="versions"]').exists()).toBe(false)
+    await presets.trigger('keydown', { key: 'Escape' })
     expect(api.spanSamples.mock.lastCall?.[2].filters).toEqual([])
     expect(view.get('tbody').text()).toContain('app.js')
     expect(view.get('tbody').text()).toContain('DOMContentLoaded')
@@ -118,6 +157,26 @@ describe('Traces views', () => {
       operator: 'eq',
       value: true,
     })
+    await selectValue(view, 'Quick query', 'statuses')
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Span Samples')
+    expect(api.spanSamples.mock.lastCall?.[2].filters).toEqual([
+      { field: 'span.op', operator: 'eq', value: 'http.client' },
+      { field: 'http.instrumentation', operator: 'eq', value: 'fetch' },
+    ])
+    expect(
+      api.spanSamples.mock.lastCall?.[2].filters.some(
+        (filter) => filter.field === 'is_transaction',
+      ),
+    ).toBe(false)
+    await view.get('[aria-label="Remove condition span.op"]').trigger('click')
+    await view.get('[aria-label="Remove condition http.instrumentation"]').trigger('click')
+    await flushPromises()
+    expect(api.spanSamples.mock.lastCall?.[2].filters).toEqual([])
+    await addQuery(view, 'span.op', 'eq', 'resource.script')
+    expect(api.spanSamples.mock.lastCall?.[2].filters).toEqual([
+      { field: 'span.op', operator: 'eq', value: 'resource.script' },
+    ])
+    expect(view.get('nav button[aria-pressed="true"]').text()).toBe('Span Samples')
   })
 
   it('shows associated logs for the trace independently of the selected span', async () => {
@@ -530,7 +589,7 @@ describe('Traces views', () => {
         .props('fields')
         .map((field) => field.key),
     ).not.toContain('browser.web_vital.inp.target')
-    await selectValue(view, 'Group field category', 'Web Vitals')
+    expect(view.find('[aria-label="Group field category"]').exists()).toBe(false)
     await view
       .findAll('button')
       .find((button) => button.text() === 'Add group')!
@@ -550,6 +609,7 @@ describe('Traces views', () => {
     const calls = api.traceSeries.mock.calls.length
     expect(api.traceSeries.mock.lastCall?.[2].groupBy).toEqual([])
     expect(view.find('[aria-label="Group by 1"]').exists()).toBe(false)
+    expect(view.find('[aria-label="Group field category"]').exists()).toBe(false)
     await view
       .findAll('button')
       .find((button) => button.text() === 'Add group')!
@@ -570,7 +630,7 @@ describe('Traces views', () => {
       .find((button) => button.text() === 'Add group')!
       .trigger('click')
     expect(view.get('[aria-label="Group by 2"]').text()).toContain('Select a field')
-    await selectValue(view, 'Group field category', 'HTTP')
+    expect(view.find('[aria-label="Group field category"]').exists()).toBe(false)
     await selectValue(view, 'Group by 2', 'http.method')
     expect(api.traceSeries.mock.lastCall?.[2].groupBy).toEqual(['span.name', 'http.method'])
     await view
