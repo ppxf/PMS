@@ -6,7 +6,7 @@ beforeProjectAccessTest(() => {
   useProjectAccessStore().access = { projectId: 'test-project', role: 'owner', permissions: [] }
 })
 import { addQuery, queryBar } from '@/test/query'
-import { selectValue } from '@/test/select'
+import { openSelect, selectValue } from '@/test/select'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOMWrapper, enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { logsCsv, LOG_AGGREGATES } from '../../model/logs'
@@ -43,7 +43,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   for (const key of Object.keys(routeQuery)) delete routeQuery[key]
   api.logFields.mockResolvedValue({
-    attributes: ['count'],
+    attributes: ['count', 'origin', 'sdk.name'],
     enabled: true,
     dsn: 'https://key@example.com/api/sdk/project',
     levels: ['info'],
@@ -52,6 +52,55 @@ beforeEach(() => {
 })
 afterEach(() => vi.useRealTimers())
 describe('Logs explorer', () => {
+  it('uses discovered log sources and separates grouping from filters and aggregates', async () => {
+    api.logFields.mockResolvedValue({
+      fields: [
+        { key: 'timestamp', type: 'date', category: 'Logs' },
+        { key: 'payload_size', type: 'size', category: 'Logs' },
+        { key: 'attributes.log.source', type: 'string', category: 'Attributes' },
+        { key: 'attributes.user_agent.original', type: 'string', category: 'Attributes' },
+        { key: 'timestamp_precise', type: 'number', category: 'Logs' },
+        ...['logId', 'spanId', 'message', 'trace'].map((key) => ({
+          key,
+          type: 'string',
+          category: 'Logs',
+        })),
+      ],
+      attributes: [],
+      enabled: true,
+      levels: [],
+    })
+    const view = mount(ProjectLogsView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    const keys = queryBar(view, 'Log filters search')
+      .props('fields')
+      .map((field) => field.key)
+    expect(keys).toContain('attributes.log.source')
+    expect(keys).toContain('payload_size')
+    expect(keys).not.toContain('log_source')
+    expect(keys).not.toContain('project')
+    expect(keys).not.toContain('timestamp_precise')
+    expect(keys).toContain('spanId')
+    await view
+      .findAll('button')
+      .find((button) => button.text() === 'Add group')!
+      .trigger('click')
+    const menu = await openSelect(view, 'Group 1.1')
+    expect(
+      menu.findAll('[role="option"]').map((option) => option.attributes('data-value')),
+    ).toEqual(['attributes.log.source'])
+    await menu.trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+    await view.get('input[type="checkbox"]').setValue(true)
+    const advanced = await openSelect(view, 'Group 1.1')
+    const advancedKeys = advanced
+      .findAll('[role="option"]')
+      .map((option) => option.attributes('data-value'))
+    expect(advancedKeys).toEqual(['attributes.log.source', 'message', 'trace'])
+    await selectValue(view, 'Group 1.1', 'message')
+    await view.get('input[type="checkbox"]').setValue(false)
+    expect(view.get('[aria-label="Group 1.1"]').text()).toContain('message')
+  })
   it('restricts aggregation fields and shares the curated fields across filters and groups', async () => {
     api.logFields.mockResolvedValue({
       fields: [{ key: 'attributes.custom', type: 'number', category: 'Attributes' }],
@@ -68,22 +117,7 @@ describe('Logs explorer', () => {
         .props('fields')
         .map((f) => f.key)
     expect(keys('Chart field 1')).toEqual(['logs'])
-    const expected = [
-      'client.address',
-      'message',
-      'origin',
-      'payload_size',
-      'project',
-      'sdk.name',
-      'sdk.version',
-      'severity',
-      'timestamp',
-      'trace',
-      'user_agent.original',
-      'browser.name',
-      'browser.version',
-      'log_source',
-    ]
+    const expected = ['attributes.custom']
     expect(
       queryBar(view, 'Log filters search')
         .props('fields')
@@ -92,8 +126,8 @@ describe('Logs explorer', () => {
     for (const removed of ['p99']) expect(LOG_AGGREGATES).not.toContain(removed)
     for (const aggregate of ['sum', 'avg', 'p50', 'p75', 'p90', 'p95', 'max', 'min']) {
       await selectValue(view, 'Aggregate 1', aggregate)
-      expect(keys('Chart field 1')).toEqual(['payload_size'])
-      expect(api.logQuery.mock.lastCall![2].visualizations[0].field).toBe('payload_size')
+      expect(keys('Chart field 1')).toEqual(['attributes.custom'])
+      expect(api.logQuery.mock.lastCall![2].visualizations[0].field).toBe('attributes.custom')
     }
     await selectValue(view, 'Aggregate 1', 'count_unique')
     expect(keys('Chart field 1')).toEqual(expected)
@@ -105,7 +139,11 @@ describe('Logs explorer', () => {
     const view = mount(ProjectLogsView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
     const activeTab = () => view.get('[role="tab"][aria-selected="true"]').text()
-    for (const [index, field] of ['severity', 'origin', 'sdk.name'].entries()) {
+    for (const [index, field] of [
+      'severity',
+      'attributes.origin',
+      'attributes.sdk.name',
+    ].entries()) {
       const calls = api.logQuery.mock.calls.length
       await view
         .findAll('button')
@@ -117,8 +155,8 @@ describe('Logs explorer', () => {
     }
     expect(api.logQuery.mock.lastCall![2].visualizations[0].groupBy).toEqual([
       'severity',
-      'origin',
-      'sdk.name',
+      'attributes.origin',
+      'attributes.sdk.name',
     ])
     for (const index of [3, 2, 1]) {
       await view.get(`[aria-label="Remove group 1.${index}"]`).trigger('click')

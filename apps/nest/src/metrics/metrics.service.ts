@@ -116,23 +116,40 @@ export class MetricsService {
         [project.id],
       );
       const attributes = await manager.query<
-        { key: string; types: string[] }[]
+        { key: string; types: string[]; identities?: string[][] }[]
       >(
-        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types FROM (SELECT project_id,timestamp,attributes FROM monitoring_metrics) source CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
+        `SELECT attribute.key, array_agg(DISTINCT jsonb_typeof(attribute.val)) AS types, jsonb_agg(DISTINCT jsonb_build_array(name,type,unit)) AS identities FROM monitoring_metrics CROSS JOIN LATERAL jsonb_each(attributes) AS attribute(key, val) WHERE project_id = $1 AND timestamp >= now() - interval '7 days' GROUP BY attribute.key ORDER BY attribute.key LIMIT 101`,
         [project.id],
       );
       return {
-        items: items.slice(0, 200),
+        items: items.slice(0, 200).map((item) => ({
+          ...item,
+          attributeKeys: attributes
+            .slice(0, 100)
+            .filter((attribute) =>
+              attribute.identities?.some(
+                ([name, type, unit]) =>
+                  name === item.name &&
+                  type === item.type &&
+                  unit === item.unit,
+              ),
+            )
+            .map((attribute) => attribute.key),
+        })),
         truncated: items.length > 200,
         attributes: attributes.slice(0, 100).map((row) => row.key),
         groupFields: [
-          ...METRIC_GROUP_FIELDS,
+          ...METRIC_GROUP_FIELDS.filter(
+            (field) =>
+              !['value', 'project', 'user_agent.original'].includes(field.key),
+          ),
           ...attributes
             .slice(0, 100)
             .filter(
               (row) =>
-                ['value', 'project'].includes(row.key) ||
-                !METRIC_GROUP_FIELDS.some((field) => field.key === row.key),
+                row.key !== 'user_agent.original' &&
+                (['value', 'project'].includes(row.key) ||
+                  !METRIC_GROUP_FIELDS.some((field) => field.key === row.key)),
             )
             .map((row) => ({
               key: `attributes.${row.key}`,

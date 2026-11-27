@@ -42,7 +42,6 @@ describe('metric type semantics', () => {
       }),
     ).toEqual(
       expect.arrayContaining([
-        { key: 'value', label: 'value', type: 'number' },
         { key: 'attributes.value', label: 'attributes.value', type: 'string' },
         { key: 'attributes.project', label: 'attributes.project', type: 'string' },
       ]),
@@ -53,6 +52,7 @@ describe('metric type semantics', () => {
     expect(metricAggregations('gauge')).toEqual(['last', 'avg', 'min', 'max', 'count'])
     expect(metricAggregations('distribution')).toEqual([
       'p95',
+      'p90',
       'p75',
       'p50',
       'avg',
@@ -67,5 +67,23 @@ describe('metric type semantics', () => {
   })
   it('labels composite group values without losing numbers, booleans or missing dimensions', () => {
     expect(metricGroupLabel(['Chrome', 150, null, false])).toBe('Chrome / 150 / (No value) / false')
+  })
+  it('scopes dimensions to the selected metric while retaining numeric filters', () => {
+    const catalog = {
+      items: [],
+      attributes: ['action', 'browser.name', 'user_agent.original'],
+      enabled: true,
+      truncated: false,
+    }
+    expect(
+      catalogGroupFields(catalog, ['browser.name', 'user_agent.original']).map(
+        (field) => field.key,
+      ),
+    ).toEqual(['browser.name'])
+    expect(catalogGroupFields(catalog, [])).toEqual([])
+    const filters = catalogFilterFields(catalog, ['action'])
+    expect(filters.some((field) => field.key === 'attributes.action')).toBe(true)
+    expect(filters.find((field) => field.key === 'value')?.operators).toContain('gt')
+    expect(filters.some((field) => field.key === 'browser.name')).toBe(false)
   })
 })

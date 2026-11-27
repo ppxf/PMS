@@ -26,6 +26,7 @@ import {
   traceFields,
 } from '../api/traces.api'
 import { formatMetric, metricUnit, metricFields, groupFields, presetQuery } from '../model/traces'
+import { fieldCategory, visibleTraceFields } from '../model/field-presentation'
 import type {
   TraceQuery,
   TraceField,
@@ -41,10 +42,10 @@ const route = useRoute()
 const router = useRouter()
 const group = computed(() => String(route.params.groupSlug)),
   project = computed(() => String(route.params.projectSlug))
-const preset = ref('pages')
-const metrics = ref<TraceMetric[]>(presetQuery('pages').metrics),
-  filters = ref<TraceFilter[]>(presetQuery('pages').filters),
-  groups = ref(presetQuery('pages').groupBy)
+const preset = ref('all')
+const metrics = ref<TraceMetric[]>(presetQuery('all').metrics),
+  filters = ref<TraceFilter[]>(presetQuery('all').filters),
+  groups = ref(presetQuery('all').groupBy)
 const primaryMetric = ref(0),
   limit = ref(5)
 let nextChartId = 0
@@ -112,8 +113,17 @@ const spans = ref<Span[]>([]),
 const aggregates = ref<TraceAggregates | null>(null)
 const seriesMetrics = ref<TraceMetric[]>(metrics.value.map((m) => ({ ...m })))
 const filterField = ref('span.op')
+const groupCategory = ref('Common')
+const groupCategories = ['Common', 'HTTP', 'Web Vitals', 'Advanced', 'All']
 const availableGroups = computed(() =>
-  fields.value.length ? fields.value.filter((f) => f.groupable).map((f) => f.name) : groupFields,
+  visibleTraceFields(
+    fields.value.length ? fields.value.filter((f) => f.groupable).map((f) => f.name) : groupFields,
+  ).filter(
+    (key) =>
+      groupCategory.value === 'All' ||
+      fieldCategory('trace', key) === groupCategory.value ||
+      groups.value.includes(key),
+  ),
 )
 const addingGroup = ref(false)
 function selectGroup(index: number, value: string) {
@@ -125,9 +135,11 @@ function removeGroup(index: number) {
   else groups.value.splice(index, 1)
 }
 const availableFilters = computed(() =>
-  fields.value.length
-    ? fields.value.filter((f) => f.operators.length > 0).map((f) => f.name)
-    : [...groupFields, ...metricFields, 'span.status', 'span.truncated', 'page.route'],
+  visibleTraceFields(
+    fields.value.length
+      ? fields.value.filter((f) => f.operators.length > 0).map((f) => f.name)
+      : [...groupFields, ...metricFields, 'span.status', 'span.truncated', 'page.route'],
+  ),
 )
 const filterOperators = computed(
   () =>
@@ -452,11 +464,13 @@ onMounted(async () => {
       :fields="
         availableFilters.map((key) => ({
           key,
+          category: fieldCategory('trace', key),
           type: fields.find((field) => field.name === key)?.type,
           operators: fields.find((field) => field.name === key)?.operators ?? filterOperators,
         }))
       "
       :active-field="filterField"
+      default-category="Common"
       :suggestions="
         querySuggestions(
           availableFilters.map((key) => ({ key })),
@@ -526,6 +540,11 @@ onMounted(async () => {
           translate('Add metric series')
         }}</Button>
         <h3 class="font-semibold">{{ translate('Group by') }}</h3>
+        <FormSelect
+          v-model="groupCategory"
+          :aria-label="translate('Group field category')"
+          :options="groupCategories.map((value) => ({ value, label: value }))"
+        />
         <div
           v-for="i in groups.length + Number(addingGroup)"
           :key="i"
@@ -680,6 +699,7 @@ onMounted(async () => {
             <th>{{ translate('Span') }}</th>
             <th>{{ translate('Type') }}</th>
             <th>{{ translate('Root operation') }}</th>
+            <th>{{ translate('Page route') }}</th>
             <th :aria-sort="columnSort('startTime')">
               <button
                 class="sort-header"
@@ -748,7 +768,7 @@ onMounted(async () => {
           <tr v-if="loading || (tab === 'Aggregates' ? !aggregates?.items.length : !total)">
             <td
               :colspan="
-                tab === 'Span Samples' ? 5 : tab === 'Trace Samples' ? 5 : seriesMetrics.length + 1
+                tab === 'Span Samples' ? 6 : tab === 'Trace Samples' ? 5 : seriesMetrics.length + 1
               "
               class="result-placeholder text-muted-foreground"
             >
@@ -785,6 +805,7 @@ onMounted(async () => {
               </td>
               <td>{{ s.op }}</td>
               <td>{{ s.isTransaction }}</td>
+              <td class="break-all">{{ s.pageRoute ?? '—' }}</td>
               <td>{{ formatDateTime(s.startTime, { milliseconds: true }) }}</td>
               <td>{{ s.durationMs }} {{ translate('ms') }}</td>
             </tr>

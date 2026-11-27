@@ -6,6 +6,7 @@ import { formatDateTime } from '@/lib/date-time'
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { querySuggestions } from '../model/query-suggestions'
+import { fieldCategory, visibleMetricFilters } from '../model/field-presentation'
 import { Download, Trash2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -86,8 +87,17 @@ const metricOptions = computed(
       unit: displayUnit(item.unit),
     })) ?? [],
 )
-const groupOptions = computed(() => catalogGroupFields(catalog.value))
-const filterFields = computed(() => catalogFilterFields(catalog.value))
+const groupOptions = computed(() =>
+  catalogGroupFields(catalog.value, identity.value?.attributeKeys).map((field) => ({
+    ...field,
+    category: fieldCategory('metric', field.key),
+  })),
+)
+const filterFields = computed(() =>
+  visibleMetricFilters(catalogFilterFields(catalog.value, identity.value?.attributeKeys)).map(
+    (field) => ({ ...field, category: fieldCategory('metric', field.key) }),
+  ),
+)
 const currentFilterField = computed(() =>
   filterFields.value.find((field) => field.key === filterField.value),
 )
@@ -196,6 +206,9 @@ async function load(reset = true) {
 function changeMetric(value: string | string[]) {
   if (typeof value !== 'string') return
   selected.value = value
+  groupBy.value = groupBy.value.filter((key) =>
+    groupOptions.value.some((field) => field.key === key),
+  )
   aggregation.value =
     identity.value?.source === 'web_vitals'
       ? 'p75'
@@ -330,6 +343,7 @@ onBeforeUnmount(() => {
         <MetricOptionPicker
           :model-value="groupBy"
           :options="groupOptions"
+          default-category="Business attributes"
           :label="translate('Group by')"
           search-label="Search group fields"
           multiple
@@ -351,6 +365,7 @@ onBeforeUnmount(() => {
     </p>
     <QuerySearchBar
       :fields="filterFields"
+      default-category="Common"
       :existence-value="true"
       :suggestions="querySuggestions(filterFields, result?.samples ?? [])"
       :active-field="filterField"

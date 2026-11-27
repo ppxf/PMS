@@ -66,6 +66,60 @@ const root = {
   attributes: { route: '/' },
 }
 describe('Traces views', () => {
+  it('defaults to all spans and lists nested and zero-duration children with waterfall links', async () => {
+    api.spanSamples.mockResolvedValue({
+      items: [
+        { ...root, pageRoute: '/home' },
+        {
+          ...root,
+          spanId: 'asset',
+          parentSpanId: 'root',
+          isTransaction: false,
+          op: 'resource.script',
+          name: 'app.js',
+          pageRoute: '/home',
+        },
+        {
+          ...root,
+          spanId: 'event',
+          parentSpanId: 'asset',
+          isTransaction: false,
+          op: 'browser.dom_content_loaded_event',
+          name: 'DOMContentLoaded',
+          durationMs: 0,
+          pageRoute: '/home',
+        },
+      ],
+      total: 3,
+      page: 1,
+      pageSize: 20,
+    })
+    const view = mount(ProjectTracesView, {
+      global: { stubs: { RouterLink: { props: ['to'], template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(view.get('[aria-label="Quick query"]').text()).toContain('All spans')
+    expect(api.spanSamples.mock.lastCall?.[2].filters).toEqual([])
+    expect(view.get('tbody').text()).toContain('app.js')
+    expect(view.get('tbody').text()).toContain('DOMContentLoaded')
+    expect(view.get('tbody').text()).toContain('0 ms')
+    expect(view.get('tbody').text()).toContain('/home')
+    const target = view
+      .findAllComponents(RouterLink)
+      .find((link) => link.text() === 'Span ID: event')!
+    expect(target.props('to')).toMatchObject({
+      params: { traceId: 'trace' },
+      query: { spanId: 'event', tab: 'waterfall' },
+    })
+    await selectValue(view, 'Quick query', 'pages')
+    await flushPromises()
+    expect(api.spanSamples.mock.lastCall?.[2].filters).toContainEqual({
+      field: 'is_transaction',
+      operator: 'eq',
+      value: true,
+    })
+  })
+
   it('shows associated logs for the trace independently of the selected span', async () => {
     logsApi.traceLogs.mockResolvedValue({
       total: 1,
@@ -420,7 +474,7 @@ describe('Traces views', () => {
     expect(view.get('[aria-label="Span type"]').element).toHaveProperty('value', 'all')
     expect(view.get('[aria-label="View span DNS"]').attributes('aria-pressed')).toBe('true')
   })
-  it('uses backend Web Vitals fields in metric and group selectors', async () => {
+  it('keeps Web Vitals measurements in metric selectors and only meaningful dimensions in groups', async () => {
     const vital = 'browser.web_vital.lcp.value'
     api.traceFields.mockResolvedValueOnce([
       {
@@ -442,9 +496,23 @@ describe('Traces views', () => {
         name: vital,
         type: 'number',
         unit: 'ms',
-        groupable: true,
+        groupable: false,
         operators: ['gt', 'exists'],
         aggregations: ['avg', 'p75', 'p95'],
+      },
+      {
+        name: 'browser.web_vital.inp.interactionTarget',
+        type: 'string',
+        groupable: true,
+        operators: ['eq'],
+        aggregations: [],
+      },
+      {
+        name: 'browser.web_vital.inp.target',
+        type: 'string',
+        groupable: false,
+        operators: ['eq'],
+        aggregations: [],
       },
     ])
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
@@ -454,14 +522,27 @@ describe('Traces views', () => {
         .props('fields')
         .map((field) => field.key),
     ).not.toContain('spans')
+    await selectValue(view, 'Quick query', 'pages')
+    await flushPromises()
     await selectValue(view, 'Metric field 1', vital)
+    expect(
+      queryBar(view)
+        .props('fields')
+        .map((field) => field.key),
+    ).not.toContain('browser.web_vital.inp.target')
+    await selectValue(view, 'Group field category', 'Web Vitals')
     await view
       .findAll('button')
       .find((button) => button.text() === 'Add group')!
       .trigger('click')
-    await selectValue(view, 'Group by 1', vital)
+    const menu = await openSelect(view, 'Group by 1')
+    expect(menu.find(`[data-value="${vital}"]`).exists()).toBe(false)
+    expect(menu.find('[data-value="browser.web_vital.inp.target"]').exists()).toBe(false)
+    await selectValue(view, 'Group by 1', 'browser.web_vital.inp.interactionTarget')
     expect(view.get('[aria-label="Metric field 1"]').text()).toContain(vital)
-    expect(view.get('[aria-label="Group by 1"]').text()).toContain(vital)
+    expect(view.get('[aria-label="Group by 1"]').text()).toContain(
+      'browser.web_vital.inp.interactionTarget',
+    )
   })
   it('adds group selectors on demand and removes selected fields from the query', async () => {
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
@@ -489,6 +570,7 @@ describe('Traces views', () => {
       .find((button) => button.text() === 'Add group')!
       .trigger('click')
     expect(view.get('[aria-label="Group by 2"]').text()).toContain('Select a field')
+    await selectValue(view, 'Group field category', 'HTTP')
     await selectValue(view, 'Group by 2', 'http.method')
     expect(api.traceSeries.mock.lastCall?.[2].groupBy).toEqual(['span.name', 'http.method'])
     await view
@@ -570,7 +652,7 @@ describe('Traces views', () => {
       .find((b) => b.text() === 'Aggregates')!
       .trigger('click')
     await flushPromises()
-    await view.get('button[aria-label="Sort by p95(span.duration)"]').trigger('click')
+    await view.get('button[aria-label="Sort by count(spans)"]').trigger('click')
     await flushPromises()
     expect(api.traceAggregates.mock.lastCall![2]).toMatchObject({ sortBy: 0, sortDirection: 'asc' })
     expect(api.spanSamples.mock.lastCall![2].sortBy).toBe('startTime')
@@ -850,6 +932,8 @@ describe('Traces views', () => {
     })
     const view = mount(ProjectTracesView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
+    await selectValue(view, 'Quick query', 'pages')
+    await flushPromises()
     await view
       .findAll('nav button')
       .find((b) => b.text() === 'Aggregates')!
@@ -874,10 +958,7 @@ describe('Traces views', () => {
       limit: 5,
       page: 1,
       sortBy: 'startTime',
-      filters: [
-        { field: 'is_transaction', operator: 'eq', value: true },
-        { field: 'span.op', operator: 'in', value: ['pageload', 'navigation'] },
-      ],
+      filters: [],
     })
     expect(api.spanSamples.mock.calls[0]?.[2].start).toMatch(/Z$/)
     await selectValue(view, 'Top limit', 10)

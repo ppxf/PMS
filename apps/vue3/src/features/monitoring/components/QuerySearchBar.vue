@@ -4,7 +4,14 @@ import { translate } from '@/i18n'
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { Search, X, ChevronDown } from '@lucide/vue'
 const props = defineProps<{
-  fields: { key: string; label?: string; type?: string; operators?: readonly string[] }[]
+  fields: {
+    key: string
+    label?: string
+    type?: string
+    operators?: readonly string[]
+    category?: string
+  }[]
+  defaultCategory?: string
   activeField: string
   label?: string
   compact?: boolean
@@ -24,7 +31,7 @@ const open = ref(false),
 const selected = ref(''),
   operator = ref(''),
   index = ref(0),
-  category = ref('All')
+  category = ref(props.defaultCategory ?? 'All')
 const id = useId()
 const names: Record<string, string> = {
   eq: 'is',
@@ -47,11 +54,22 @@ function group(key: string) {
       ? 'Attributes'
       : 'Fields'
 }
-const categories = computed(() => ['All', ...new Set(props.fields.map((f) => group(f.key)))])
+const categories = computed(() => [
+  'All',
+  ...new Set([
+    ...(props.defaultCategory ? [props.defaultCategory] : []),
+    ...props.fields.map((f) => f.category ?? group(f.key)),
+  ]),
+])
 const options = computed(() => {
   if (stage.value === 'key')
     return props.fields
-      .filter((f) => category.value === 'All' || group(f.key) === category.value)
+      .filter(
+        (f) =>
+          search.value.trim() ||
+          category.value === 'All' ||
+          (f.category ?? group(f.key)) === category.value,
+      )
       .map((f) => ({ key: f.key, label: f.label || f.key, type: f.type || 'string' }))
       .filter((f) => `${f.key} ${f.label}`.toLowerCase().includes(search.value.toLowerCase()))
   if (stage.value === 'operator')

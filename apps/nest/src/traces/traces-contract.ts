@@ -85,12 +85,13 @@ function dimension(
   name: string,
   sql: string,
   type: SpanField['type'] = 'string',
+  groupable = true,
 ) {
   fields.push({
     name,
     sql,
     type,
-    groupable: true,
+    groupable,
     operators: type === 'string' ? stringOps : ['eq', 'in', 'not_in', 'exists'],
     aggregations: [],
   });
@@ -101,7 +102,7 @@ function measurement(name: string, sql: string, unit: 'ms' | 'byte' | 'none') {
     sql,
     unit,
     type: 'number',
-    groupable: name.startsWith('browser.web_vital.'),
+    groupable: false,
     operators: numberOps,
     aggregations: ['avg', 'p50', 'p75', 'p90', 'p95'],
   });
@@ -188,6 +189,8 @@ dimension(
     'INP',
     "COALESCE(v.attribution->>'target',v.attribution->>'interactionTarget')",
   ),
+  'string',
+  false,
 );
 dimension(
   'browser.web_vital.inp.interaction_type',

@@ -71,7 +71,7 @@ describe('Traces presentation', () => {
   })
   it('uses unified spans and explicit fetch scope for HTTP comparisons', () => {
     expect(presetQuery('all').filters).toEqual([])
-    expect(presetQuery('all').groupBy).toEqual(['is_transaction'])
+    expect(presetQuery('all').groupBy).toEqual([])
     expect(presetQuery('slow').filters).toContainEqual({
       field: 'http.instrumentation',
       operator: 'eq',

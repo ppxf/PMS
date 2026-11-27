@@ -7,6 +7,7 @@ const projectAccess = useProjectAccessStore()
 import EmptyState from '@/components/ui/empty-state/EmptyState.vue'
 import TablePagination from '@/components/ui/pagination/TablePagination.vue'
 import { querySuggestions } from '../model/query-suggestions'
+import { logGroupFields } from '../model/field-presentation'
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,7 +19,7 @@ import {
   Columns3,
   Code,
 } from '@lucide/vue'
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from 'reka-ui'
 import { useRoute } from 'vue-router'
 import { use } from 'echarts/core'
@@ -59,26 +60,41 @@ const visualizations = ref<Visualization[]>([
 ])
 const activeTab = ref('logs'),
   collapsed = ref(false)
-const availableFields: LogField[] = [
-  'client.address',
-  'message',
-  'origin',
-  'payload_size',
-  'project',
-  'sdk.name',
-  'sdk.version',
-  'severity',
-  'timestamp',
-  'trace',
-  'user_agent.original',
-  'browser.name',
-  'browser.version',
-  'log_source',
-].map((key) => ({ key, type: key === 'payload_size' ? 'number' : 'string', category: 'Logs' }))
+const availableFields = computed<LogField[]>(() =>
+  (
+    fields.value?.fields ?? [
+      ...[
+        'message',
+        'severity',
+        'timestamp',
+        'trace',
+        'environment',
+        'release',
+        'logId',
+        'spanId',
+      ].map((key) => ({ key, type: key === 'timestamp' ? 'date' : 'string', category: 'Logs' })),
+      { key: 'payload_size', type: 'size', category: 'Logs' },
+      ...(fields.value?.attributes ?? []).map((key) => ({
+        key: `attributes.${key}`,
+        type: 'mixed',
+        category: 'Attributes',
+      })),
+    ]
+  ).filter((field) => field.key !== 'timestamp_precise'),
+)
+const showAdvancedGroups = ref(false)
+const groupFields = computed(() =>
+  logGroupFields(availableFields.value, true).filter(
+    (field) =>
+      showAdvancedGroups.value ||
+      !['message', 'trace'].includes(field.key) ||
+      visualizations.value.some((chart) => chart.groupBy.includes(field.key)),
+  ),
+)
 function aggregateFields(v: Visualization) {
   if (v.aggregate === 'count') return [{ key: 'logs', type: 'logs', category: 'Logs' }]
-  if (v.aggregate === 'count_unique') return availableFields
-  return availableFields.filter((field) => field.key === 'payload_size')
+  if (v.aggregate === 'count_unique') return availableFields.value
+  return availableFields.value.filter((field) => ['number', 'size'].includes(field.type))
 }
 function changeAggregate(v: Visualization) {
   if (!aggregateFields(v).some((f) => f.key === v.field)) v.field = aggregateFields(v)[0]?.key ?? ''
@@ -273,6 +289,7 @@ watch(
   () => [route.params.groupSlug, route.params.projectSlug, route.query?.traceId],
   () => {
     fields.value = null
+    showAdvancedGroups.value = false
     if (typeof route.query?.traceId === 'string') range.value = 168
     conditions.value =
       typeof route.query?.traceId === 'string'
@@ -406,6 +423,10 @@ onBeforeUnmount(() => {
           }}</Button>
           <section :aria-label="translate('Group by')" class="space-y-5">
             <h3 class="font-semibold">{{ translate('Group by') }}</h3>
+            <label class="flex items-center gap-2 text-xs text-muted-foreground">
+              <input v-model="showAdvancedGroups" type="checkbox" />
+              {{ translate('Show advanced groups') }}
+            </label>
             <div v-for="(v, index) in visualizations" :key="index" class="space-y-3">
               <h4 v-if="visualizations.length > 1" class="text-xs text-muted-foreground">
                 {{ translate('Chart') }} {{ index + 1 }}
@@ -420,7 +441,7 @@ onBeforeUnmount(() => {
                   :aria-label="translate(`Group ${index + 1}.${i}`)"
                   :placeholder="translate('Select a field')"
                   :options="
-                    availableFields.map(({ key }) => ({
+                    groupFields.map(({ key }) => ({
                       value: key,
                       label: key,
                       disabled: v.groupBy.includes(key) && v.groupBy[i - 1] !== key,
@@ -438,7 +459,7 @@ onBeforeUnmount(() => {
               <Button
                 v-if="!v.addingGroup"
                 variant="outline"
-                :disabled="!availableFields.some(({ key }) => !v.groupBy.includes(key))"
+                :disabled="!groupFields.some(({ key }) => !v.groupBy.includes(key))"
                 @click="v.addingGroup = true"
                 >{{ translate('Add group') }}</Button
               >

@@ -221,7 +221,7 @@ export function presetQuery(name: string): Pick<TraceQuery, 'filters' | 'metrics
     return {
       filters: [],
       metrics: [{ function: 'count', field: 'spans' }],
-      groupBy: ['is_transaction'],
+      groupBy: [],
     }
   if (name === 'pages')
     return {

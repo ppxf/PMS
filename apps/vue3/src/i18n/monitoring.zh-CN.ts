@@ -483,4 +483,11 @@ export const monitoringZhCN: Record<string, string> = {
   'Unable to load related logs': '无法加载关联日志',
   'No matching related logs': '没有匹配的关联日志',
   'Related logs pagination': '关联日志分页',
+  'Page route': '所属页面',
+  'Common': '常用',
+  'Business attributes': '业务属性',
+  'Technical attributes': '技术属性',
+  'Advanced': '高级',
+  'Show advanced groups': '显示高级分组',
+  'Group field category': '分组字段分类',
 }

@@ -5,6 +5,7 @@ import QuerySearchBar from '../components/QuerySearchBar.vue'
 import { computed, nextTick, ref } from 'vue'
 import { X } from '@lucide/vue'
 import { conditionValue } from '../model/logs'
+import { fieldCategory } from '../model/field-presentation'
 import type { LogCondition, LogField } from '../model/logs'
 const props = defineProps<{
   modelValue: LogCondition[]
@@ -66,6 +67,7 @@ function add() {
     :fields="
       fields.map((f) => ({
         ...f,
+        category: fieldCategory('log', f.key),
         operators: [
           'eq',
           'neq',
@@ -79,6 +81,7 @@ function add() {
       }))
     "
     :active-field="key"
+    default-category="Common"
     :label="translate(`${label} search`)"
     :compact="compact"
     :suggestions="suggestions"

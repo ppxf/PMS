@@ -37,21 +37,32 @@ export const metricGroupFields: MetricGroupField[] = [
     type: 'string' as const,
   })),
 ]
-export const catalogGroupFields = (catalog: MetricCatalog | null): MetricGroupField[] =>
-  catalog?.groupFields ?? [
-    ...metricGroupFields,
-    ...(catalog?.attributes ?? [])
-      .filter(
-        (key) =>
-          ['value', 'project'].includes(key) ||
-          !metricGroupFields.some((field) => field.key === key),
-      )
-      .map((key) => ({
-        key: `attributes.${key}`,
-        label: ['value', 'project'].includes(key) ? `attributes.${key}` : key,
-        type: 'string' as const,
-      })),
-  ]
+export const catalogGroupFields = (
+  catalog: MetricCatalog | null,
+  attributeKeys?: string[],
+): MetricGroupField[] =>
+  (
+    catalog?.groupFields ?? [
+      ...metricGroupFields,
+      ...(catalog?.attributes ?? [])
+        .filter(
+          (key) =>
+            ['value', 'project'].includes(key) ||
+            !metricGroupFields.some((field) => field.key === key),
+        )
+        .map((key) => ({
+          key: `attributes.${key}`,
+          label: ['value', 'project'].includes(key) ? `attributes.${key}` : key,
+          type: 'string' as const,
+        })),
+    ]
+  ).filter(
+    (field) =>
+      !['value', 'project', 'user_agent.original', 'attributes.user_agent.original'].includes(
+        field.key,
+      ) &&
+      (!attributeKeys || attributeKeys.includes(field.key.replace(/^attributes\./, ''))),
+  )
 export interface MetricIdentity {
   source?: 'custom' | 'web_vitals'
   name: string
@@ -59,7 +70,11 @@ export interface MetricIdentity {
   unit: string
 }
 export interface MetricCatalog {
-  items: (MetricIdentity & { sampleCount: number; lastSeen: string | null })[]
+  items: (MetricIdentity & {
+    sampleCount: number
+    lastSeen: string | null
+    attributeKeys?: string[]
+  })[]
   attributes: string[]
   groupFields?: MetricGroupField[]
   filterFields?: MetricFilterField[]
@@ -100,8 +115,20 @@ export function metricFieldOperators(type: MetricGroupField['type']): MetricFilt
     'exists',
   ]
 }
-export function catalogFilterFields(catalog: MetricCatalog | null): MetricFilterField[] {
-  if (catalog?.filterFields) return catalog.filterFields
+export function catalogFilterFields(
+  catalog: MetricCatalog | null,
+  attributeKeys?: string[],
+): MetricFilterField[] {
+  if (catalog?.filterFields)
+    return catalog.filterFields.filter(
+      (field) =>
+        !attributeKeys ||
+        (!field.key.startsWith('attributes.') &&
+          !metricGroupFields.some(
+            (item) => item.key === field.key && !['value', 'project'].includes(item.key),
+          )) ||
+        attributeKeys.includes(field.key.replace(/^attributes\./, '')),
+    )
   const native: MetricGroupField[] = [
     'name',
     'type',
@@ -111,7 +138,16 @@ export function catalogFilterFields(catalog: MetricCatalog | null): MetricFilter
     'traceId',
     'spanId',
   ].map((key) => ({ key, label: key, type: 'string' }))
-  return [...native, ...catalogGroupFields(catalog)].map((field) => ({
+  return [
+    ...native,
+    { key: 'value', label: 'value', type: 'number' as const },
+    ...metricGroupFields.filter(
+      (field) =>
+        ['project', 'user_agent.original'].includes(field.key) &&
+        (field.key === 'project' || !attributeKeys || attributeKeys.includes(field.key)),
+    ),
+    ...catalogGroupFields(catalog, attributeKeys),
+  ].map((field) => ({
     ...field,
     label: field.key.startsWith('attributes.') ? field.key : field.label,
     operators: metricFieldOperators(field.type),

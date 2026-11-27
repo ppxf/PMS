@@ -9,7 +9,8 @@ import { controlStyles, menuStyles, optionStyles } from '@/components/ui/control
 
 const props = defineProps<{
   modelValue: string | string[]
-  options: { key: string; label: string; type: string; unit?: string }[]
+  options: { key: string; label: string; type: string; unit?: string; category?: string }[]
+  defaultCategory?: string
   label: string
   searchLabel: string
   title?: string
@@ -19,14 +20,27 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [value: string | string[]] }>()
 const search = ref(''),
   open = ref(false)
+const category = ref(props.defaultCategory ?? 'All')
+const categories = computed(() => [
+  'All',
+  ...new Set([
+    ...(props.defaultCategory ? [props.defaultCategory] : []),
+    ...props.options.flatMap((option) => (option.category ? [option.category] : [])),
+  ]),
+])
 const selected = computed(() =>
   Array.isArray(props.modelValue) ? props.modelValue : props.modelValue ? [props.modelValue] : [],
 )
 const visible = computed(() =>
-  props.options.filter((option) =>
-    `${option.label} ${translate(option.label)}`
-      .toLowerCase()
-      .includes(search.value.trim().toLowerCase()),
+  props.options.filter(
+    (option) =>
+      (search.value.trim() ||
+        category.value === 'All' ||
+        option.category === category.value ||
+        selected.value.includes(option.key)) &&
+      `${option.label} ${translate(option.label)}`
+        .toLowerCase()
+        .includes(search.value.trim().toLowerCase()),
   ),
 )
 const display = computed(
@@ -120,6 +134,21 @@ function moveFocus(event: KeyboardEvent) {
         >
           {{ translate('None · Clear groups') }}
         </button>
+        <div v-if="options.some((option) => option.category)" class="mt-2 flex flex-wrap gap-1">
+          <button
+            v-for="item in categories"
+            :key="item"
+            type="button"
+            class="rounded px-2 py-1 text-xs"
+            :aria-pressed="category === item"
+            :class="
+              category === item ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
+            "
+            @click="category = item"
+          >
+            {{ translate(item) }}
+          </button>
+        </div>
         <div
           class="mt-1 max-h-72 overflow-y-auto"
           :role="multiple ? 'group' : 'listbox'"

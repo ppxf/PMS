@@ -181,7 +181,7 @@ describe('metrics ingestion and authorization', () => {
       findForIngestion: jest.fn(() =>
         Promise.resolve({ metricsEnabled: true }),
       ),
-      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      getAccess: () => Promise.resolve({ role: 'owner', permissions: [] }),
       findReadableBySlug: jest.fn(() => Promise.resolve({ id: 'project' })),
     };
     return {
@@ -232,13 +232,18 @@ describe('metrics ingestion and authorization', () => {
         },
       ] as never)
       .mockResolvedValueOnce([
-        { key: 'warehouse', types: ['string'] },
+        {
+          key: 'warehouse',
+          types: ['string'],
+          identities: [['inventory.stock', 'gauge', 'none']],
+        },
         { key: 'in_stock', types: ['boolean'] },
         { key: 'browser.name', types: ['string'] },
         { key: 'value', types: ['string'] },
         { key: 'project', types: ['string'] },
       ] as never);
     const catalog = await f.service.catalog('user', 'team', 'web');
+    expect(catalog.items[0].attributeKeys).toEqual(['warehouse']);
     expect(
       catalog.items
         .filter((item) => item.source !== 'web_vitals')
@@ -246,7 +251,6 @@ describe('metrics ingestion and authorization', () => {
     ).toEqual(['inventory.stock']);
     expect(catalog.groupFields).toEqual(
       expect.arrayContaining([
-        { key: 'value', label: 'value', type: 'number' },
         { key: 'browser.name', label: 'browser.name', type: 'string' },
         { key: 'attributes.warehouse', label: 'warehouse', type: 'string' },
         { key: 'attributes.in_stock', label: 'in_stock', type: 'boolean' },
@@ -261,6 +265,12 @@ describe('metrics ingestion and authorization', () => {
     expect(
       catalog.groupFields.filter((field) => field.key === 'browser.name'),
     ).toHaveLength(1);
+    expect(catalog.groupFields.map((field) => field.key)).not.toEqual(
+      expect.arrayContaining(['value', 'project', 'user_agent.original']),
+    );
+    expect(catalog.filterFields.map((field) => field.key)).toEqual(
+      expect.arrayContaining(['value', 'project', 'user_agent.original']),
+    );
   });
   it('combines built-in and custom groups without leaking group parameters into sample filters', async () => {
     const calls: { sql: string; params: unknown[] }[] = [];
@@ -286,7 +296,7 @@ describe('metrics ingestion and authorization', () => {
         action(manager),
     };
     const projects = {
-      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      getAccess: () => Promise.resolve({ role: 'owner', permissions: [] }),
       findReadableBySlug: () => Promise.resolve({ id: 'owned', slug: 'web' }),
     };
     const service = new MetricsService(
@@ -364,7 +374,7 @@ describe('metrics ingestion and authorization', () => {
         Promise.resolve(action(manager)),
     };
     const projects = {
-      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      getAccess: () => Promise.resolve({ role: 'owner', permissions: [] }),
       findReadableBySlug: jest.fn(() => Promise.resolve({ id: 'owned' })),
     };
     const service = new MetricsService(
@@ -439,7 +449,7 @@ describe('metrics ingestion and authorization', () => {
         action(manager),
     };
     const projects = {
-      getAccess: async () => ({ role: 'owner', permissions: [] }),
+      getAccess: () => Promise.resolve({ role: 'owner', permissions: [] }),
       findReadableBySlug: () => Promise.resolve({ id: 'owned' }),
     };
     const service = new MetricsService(

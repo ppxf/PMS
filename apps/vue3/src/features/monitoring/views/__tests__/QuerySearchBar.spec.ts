@@ -6,6 +6,25 @@ const fields = [
   { key: 'environment', type: 'string', operators: ['eq', 'in'] },
   { key: 'browser.web_vital.lcp.value', type: 'number', operators: ['gt', 'exists'] },
 ]
+it('defaults to common fields but searches across categories', async () => {
+  const view = mount(QuerySearchBar, {
+    props: {
+      fields: [
+        { key: 'span.op', category: 'Common' },
+        { key: 'http.method', category: 'HTTP' },
+      ],
+      activeField: 'span.op',
+      defaultCategory: 'Common',
+    },
+  })
+  const input = view.get('[role="combobox"]')
+  await input.trigger('focus')
+  expect(view.findAll('[role="option"]').map((option) => option.attributes('data-value'))).toEqual([
+    'span.op',
+  ])
+  await input.setValue('http')
+  expect(view.get('[role="option"]').attributes('data-value')).toBe('http.method')
+})
 it('searches typed fields and selects a field using the keyboard', async () => {
   const view = mount(QuerySearchBar, {
     props: { fields, activeField: 'environment' },

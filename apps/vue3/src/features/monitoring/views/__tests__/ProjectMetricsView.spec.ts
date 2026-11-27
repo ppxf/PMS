@@ -166,6 +166,7 @@ describe('Metrics explorer', () => {
       expect.arrayContaining(['environment', 'value', 'browser.name', 'sdk.name']),
     )
     expect(names).not.toContain('span.op')
+    for (const key of ['name', 'type', 'unit', 'project']) expect(names).not.toContain(key)
     await addQuery(view, 'environment', 'in', 'production, staging')
     expect(api.metricQuery.mock.lastCall![2].filters).toContainEqual({
       field: 'environment',
@@ -241,11 +242,24 @@ describe('Metrics explorer', () => {
     await flushPromises()
     await view.get('[aria-label="Group by"]').trigger('click')
     await flushPromises()
+    expect(pickerMenu().find('input[aria-label="Group by browser.name"]').exists()).toBe(false)
+    await pickerMenu()
+      .findAll('button')
+      .find((button) => button.text() === 'Technical attributes')!
+      .trigger('click')
     await pickerMenu().get('input[aria-label="Group by browser.name"]').setValue(true)
     await flushPromises()
-    await pickerMenu().get('input[aria-label="Group by value"]').setValue(true)
+    expect(pickerMenu().find('input[aria-label="Group by value"]').exists()).toBe(false)
+    await pickerMenu()
+      .findAll('button')
+      .find((button) => button.text() === 'Business attributes')!
+      .trigger('click')
+    await pickerMenu().get('input[aria-label="Group by warehouse"]').setValue(true)
     await flushPromises()
-    expect(api.metricQuery.mock.lastCall![2].groupBy).toEqual(['browser.name', 'value'])
+    expect(api.metricQuery.mock.lastCall![2].groupBy).toEqual([
+      'browser.name',
+      'attributes.warehouse',
+    ])
   })
   it('shows query failures and clears stale results', async () => {
     api.metricCatalog.mockResolvedValue({
